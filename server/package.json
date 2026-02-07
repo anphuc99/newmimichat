@@ -9,6 +9,7 @@
     "start": "node dist/index.js",
     "db:sync": "tsx src/scripts/db-sync.ts",
     "db:reset": "tsx src/scripts/db-reset.ts",
+    "db:seed:levels": "tsx src/scripts/seed-levels.ts",
     "lint": "eslint .",
     "format": "prettier --write ."
   },

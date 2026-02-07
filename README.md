@@ -97,6 +97,12 @@ Reset and recreate all tables (destructive, local only):
 npm run db:reset
 ```
 
+Seed default CEFR levels (A0-C2):
+
+```bash
+npm run db:seed:levels
+```
+
 ## OpenAI
 
 Set the following environment variables before starting the server:
@@ -125,3 +131,5 @@ Set the following environment variable before starting the server:
 - POST /api/users/register
 - POST /api/users/login
 - GET /api/users/me
+- PUT /api/users/level
+- GET /api/levels

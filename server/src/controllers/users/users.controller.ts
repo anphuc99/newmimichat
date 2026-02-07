@@ -1,9 +1,10 @@
 import bcrypt from "bcryptjs";
 import type { Request, Response } from "express";
 import type { DataSource } from "typeorm";
+import LevelEntity from "../../models/level.entity.js";
 import UserEntity from "../../models/user.entity.js";
 import { signAuthToken } from "../../services/auth.service.js";
-import type { AuthUser } from "../../types/user.js";
+import type { AuthUser, UserProfile } from "../../types/user.js";
 
 interface UserPayload {
   username: string;
@@ -12,7 +13,7 @@ interface UserPayload {
 }
 
 interface UserResponse {
-  user: AuthUser;
+  user: UserProfile;
   token: string;
 }
 
@@ -20,6 +21,7 @@ interface UsersController {
   register: (request: Request, response: Response) => Promise<void>;
   login: (request: Request, response: Response) => Promise<void>;
   getMe: (request: Request, response: Response) => Promise<void>;
+  updateLevel: (request: Request, response: Response) => Promise<void>;
 }
 
 const normalizeUsername = (value: unknown) => {
@@ -34,11 +36,25 @@ const getRegistrationToken = () => (process.env.REGISTRATION_TOKEN ?? "").trim()
 
 const isValidPassword = (password: string) => password.length >= 6;
 
+/**
+ * Maps a user entity into a user profile response.
+ *
+ * @param user - The user entity (with optional level relation).
+ * @returns A user profile payload for API responses.
+ */
+const toUserProfile = (user: UserEntity): UserProfile => ({
+  id: user.id,
+  username: user.username,
+  levelId: user.levelId ?? null,
+  level: user.level?.level ?? null,
+  levelDescription: user.level?.descript ?? null
+});
+
 const toAuthResponse = (user: UserEntity): UserResponse => {
   const authUser: AuthUser = { id: user.id, username: user.username };
 
   return {
-    user: authUser,
+    user: toUserProfile(user),
     token: signAuthToken(authUser)
   };
 };
@@ -51,6 +67,7 @@ const toAuthResponse = (user: UserEntity): UserResponse => {
  */
 export const createUsersController = (dataSource: DataSource): UsersController => {
   const repository = dataSource.getRepository(UserEntity);
+  const levelRepository = dataSource.getRepository(LevelEntity);
 
   const register: UsersController["register"] = async (request, response) => {
     const payload = request.body as UserPayload;
@@ -88,8 +105,9 @@ export const createUsersController = (dataSource: DataSource): UsersController =
       const passwordHash = await bcrypt.hash(password, 10);
       const user = repository.create({ username, passwordHash });
       const saved = await repository.save(user);
+      const hydrated = await repository.findOne({ where: { id: saved.id }, relations: { level: true } });
 
-      response.status(201).json(toAuthResponse(saved));
+      response.status(201).json(toAuthResponse(hydrated ?? saved));
     } catch (error) {
       response.status(500).json({
         message: "Failed to register user",
@@ -109,7 +127,7 @@ export const createUsersController = (dataSource: DataSource): UsersController =
     }
 
     try {
-      const user = await repository.findOne({ where: { username } });
+      const user = await repository.findOne({ where: { username }, relations: { level: true } });
 
       if (!user) {
         response.status(401).json({ message: "Invalid credentials" });
@@ -138,12 +156,75 @@ export const createUsersController = (dataSource: DataSource): UsersController =
       return;
     }
 
-    response.json({ user: request.user });
+    try {
+      const user = await repository.findOne({ where: { id: request.user.id }, relations: { level: true } });
+
+      if (!user) {
+        response.status(404).json({ message: "User not found" });
+        return;
+      }
+
+      response.json({ user: toUserProfile(user) });
+    } catch (error) {
+      response.status(500).json({
+        message: "Failed to load user profile",
+        error: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  };
+
+  /**
+   * Updates the authenticated user's proficiency level.
+   *
+   * @param request - Express request with level payload.
+   * @param response - Express response for update results.
+   */
+  const updateLevel: UsersController["updateLevel"] = async (request, response) => {
+    if (!request.user) {
+      response.status(401).json({ message: "Unauthorized" });
+      return;
+    }
+
+    const payload = request.body as { levelId?: number };
+    const levelId = Number(payload?.levelId);
+
+    if (!Number.isInteger(levelId)) {
+      response.status(400).json({ message: "Level is required" });
+      return;
+    }
+
+    try {
+      const level = await levelRepository.findOne({ where: { id: levelId } });
+
+      if (!level) {
+        response.status(404).json({ message: "Level not found" });
+        return;
+      }
+
+      const user = await repository.findOne({ where: { id: request.user.id } });
+
+      if (!user) {
+        response.status(404).json({ message: "User not found" });
+        return;
+      }
+
+      user.levelId = level.id;
+      const saved = await repository.save(user);
+      const hydrated = await repository.findOne({ where: { id: saved.id }, relations: { level: true } });
+
+      response.json(toAuthResponse(hydrated ?? saved));
+    } catch (error) {
+      response.status(500).json({
+        message: "Failed to update user level",
+        error: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
   };
 
   return {
     register,
     login,
-    getMe
+    getMe,
+    updateLevel
   };
 };

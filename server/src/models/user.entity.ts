@@ -1,4 +1,13 @@
-import { Column, CreateDateColumn, Entity, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
+import {
+  Column,
+  CreateDateColumn,
+  Entity,
+  JoinColumn,
+  ManyToOne,
+  PrimaryGeneratedColumn,
+  UpdateDateColumn
+} from "typeorm";
+import LevelEntity from "./level.entity.js";
 
 /**
  * Persists application users for authentication.
@@ -13,6 +22,13 @@ class UserEntity {
 
   @Column({ name: "password_hash", type: "varchar", length: 255 })
   passwordHash!: string;
+
+  @Column({ name: "level_id", type: "int", nullable: true })
+  levelId?: number | null;
+
+  @ManyToOne(() => LevelEntity, { nullable: true, onDelete: "SET NULL" })
+  @JoinColumn({ name: "level_id" })
+  level?: LevelEntity | null;
 
   @CreateDateColumn({ name: "created_at", type: "timestamp" })
   createdAt!: Date;

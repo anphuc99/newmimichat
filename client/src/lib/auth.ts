@@ -1,6 +1,9 @@
 export interface AuthUser {
   id: number;
   username: string;
+  levelId?: number | null;
+  level?: string | null;
+  levelDescription?: string | null;
 }
 
 export interface AuthSession {

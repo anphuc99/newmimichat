@@ -1,6 +1,8 @@
 import { afterAll, describe, expect, it } from "vitest";
 import bcrypt from "bcryptjs";
 import { createUsersController } from "../../../../server/src/controllers/users/users.controller";
+import LevelEntity from "../../../../server/src/models/level.entity";
+import UserEntity from "../../../../server/src/models/user.entity";
 
 /**
  * Creates a minimal Express-like response object for unit tests.
@@ -20,21 +22,59 @@ const createMockResponse = () => {
   return response;
 };
 
-const createRepository = () => ({
-  findOne: async () => null,
+const createUserRepository = () => ({
+  findOne: async (options?: { where?: { id?: number; username?: string }; relations?: { level?: boolean } }) => {
+    if (options?.where?.id) {
+      const level = options?.relations?.level ? { id: 1, level: "A1", descript: "Basic phrases" } : null;
+      return {
+        id: options.where.id,
+        username: "mimi",
+        passwordHash: "hashed",
+        levelId: level?.id ?? null,
+        level
+      } as any;
+    }
+
+    return null;
+  },
   create: (payload: any) => payload,
   save: async (payload: any) => ({
     id: 1,
     username: payload.username,
     passwordHash: payload.passwordHash,
+    levelId: payload.levelId ?? null,
+    level: payload.level ?? null,
     createdAt: new Date("2024-01-01T00:00:00.000Z"),
     updatedAt: new Date("2024-01-01T00:00:00.000Z")
   })
 });
 
-const createController = (repository: ReturnType<typeof createRepository>) => {
+const createLevelRepository = () => ({
+  findOne: async (options?: { where?: { id?: number } }) => {
+    if (options?.where?.id === 1) {
+      return { id: 1, level: "A1", descript: "Basic phrases" } as any;
+    }
+
+    return null;
+  }
+});
+
+const createController = (
+  userRepository: ReturnType<typeof createUserRepository>,
+  levelRepository: ReturnType<typeof createLevelRepository> = createLevelRepository()
+) => {
   const dataSource = {
-    getRepository: () => repository
+    getRepository: (entity: unknown) => {
+      if (entity === UserEntity) {
+        return userRepository;
+      }
+
+      if (entity === LevelEntity) {
+        return levelRepository;
+      }
+
+      throw new Error("Unknown repository");
+    }
   } as any;
 
   return createUsersController(dataSource);
@@ -52,7 +92,7 @@ describe("Users controller", () => {
   });
 
   it("registers a user", async () => {
-    const repository = createRepository();
+    const repository = createUserRepository();
     const controller = createController(repository);
     const response = createMockResponse();
 
@@ -67,8 +107,9 @@ describe("Users controller", () => {
   });
 
   it("rejects duplicate usernames", async () => {
-    const repository = createRepository();
-    repository.findOne = async () => ({ id: 1, username: "mimi" } as any);
+    const repository = createUserRepository();
+    repository.findOne = async (options?: { where?: { username?: string } }) =>
+      options?.where?.username ? ({ id: 1, username: "mimi" } as any) : null;
     const controller = createController(repository);
     const response = createMockResponse();
 
@@ -82,7 +123,7 @@ describe("Users controller", () => {
   });
 
   it("rejects invalid register payload", async () => {
-    const repository = createRepository();
+    const repository = createUserRepository();
     const controller = createController(repository);
     const response = createMockResponse();
 
@@ -93,7 +134,7 @@ describe("Users controller", () => {
   });
 
   it("rejects missing registration token", async () => {
-    const repository = createRepository();
+    const repository = createUserRepository();
     const controller = createController(repository);
     const response = createMockResponse();
 
@@ -107,7 +148,7 @@ describe("Users controller", () => {
   });
 
   it("rejects invalid registration token", async () => {
-    const repository = createRepository();
+    const repository = createUserRepository();
     const controller = createController(repository);
     const response = createMockResponse();
 
@@ -122,12 +163,17 @@ describe("Users controller", () => {
 
   it("logs in a user", async () => {
     const passwordHash = await bcrypt.hash("secret12", 10);
-    const repository = createRepository();
-    repository.findOne = async () => ({
+    const repository = createUserRepository();
+    repository.findOne = async (options?: { where?: { username?: string } }) =>
+      options?.where?.username
+        ? ({
       id: 2,
       username: "mimi",
-      passwordHash
-    } as any);
+        passwordHash,
+        levelId: 1,
+        level: { id: 1, level: "A1", descript: "Basic phrases" }
+          } as any)
+        : null;
     const controller = createController(repository);
     const response = createMockResponse();
 
@@ -142,12 +188,15 @@ describe("Users controller", () => {
 
   it("rejects invalid credentials", async () => {
     const passwordHash = await bcrypt.hash("secret12", 10);
-    const repository = createRepository();
-    repository.findOne = async () => ({
+    const repository = createUserRepository();
+    repository.findOne = async (options?: { where?: { username?: string } }) =>
+      options?.where?.username
+        ? ({
       id: 2,
       username: "mimi",
-      passwordHash
-    } as any);
+        passwordHash
+          } as any)
+        : null;
     const controller = createController(repository);
     const response = createMockResponse();
 
@@ -158,5 +207,19 @@ describe("Users controller", () => {
 
     expect(response.statusCode).toBe(401);
     expect(response.payload.message).toBe("Invalid credentials");
+  });
+
+  it("updates user level", async () => {
+    const repository = createUserRepository();
+    const controller = createController(repository);
+    const response = createMockResponse();
+
+    await controller.updateLevel(
+      { body: { levelId: 1 }, user: { id: 1, username: "mimi" } } as any,
+      response
+    );
+
+    expect(response.payload.user.levelId).toBe(1);
+    expect(response.payload.user.level).toBe("A1");
   });
 });
