@@ -223,12 +223,6 @@ const App = () => {
           </label>
           {levelError ? <span className="app-nav__level-error">{levelError}</span> : null}
         </div>
-        <div className="app-nav__spacer" />
-        <span className="app-nav__user">{auth.user.username}</span>
-        <button type="button" className="app-nav__button" onClick={handleLogout}>
-          Logout
-        </button>
-      </nav>
         <div className="app-nav__model">
           <label htmlFor="model-selector">Model</label>
           <input
@@ -244,12 +238,16 @@ const App = () => {
             ))}
           </datalist>
         </div>
-
+        <div className="app-nav__spacer" />
+        <span className="app-nav__user">{auth.user.username}</span>
+        <button type="button" className="app-nav__button" onClick={handleLogout}>
+          Logout
+        </button>
+      </nav>
       {view === "chat" ? (
-        <ChatView userId={auth.user.id} />
+        <ChatView userId={auth.user.id} model={chatModel} />
       ) : view === "characters" ? (
         <CharactersView />
-        {view === "chat" ? <ChatView userId={auth.user.id} model={chatModel} /> : null}
       ) : (
         <JournalView />
       )}
