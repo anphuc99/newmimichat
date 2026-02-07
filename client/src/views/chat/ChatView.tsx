@@ -154,6 +154,8 @@ const toAssistantMessages = (content: string): ChatMessage[] => {
   });
 };
 
+const DEFAULT_TTS_TONE = "neutral, medium pitch";
+
 const playAudio = (audioId: string) => {
   if (!audioId) {
     return;
@@ -165,6 +167,14 @@ const playAudio = (audioId: string) => {
   });
 };
 
+/**
+ * Requests a TTS audio id for the given text and tone.
+ *
+ * @param text - Text to synthesize.
+ * @param tone - Tone instruction for TTS.
+ * @param force - Regenerate even if cached.
+ * @returns The audio id string or null when unavailable.
+ */
 const requestTts = async (text: string, tone: string, force = false) => {
   const params = new URLSearchParams({
     text,
@@ -221,14 +231,23 @@ const ChatView = ({ userId }: ChatViewProps) => {
   const playedAudio = useRef(new Set<string>());
   const skipAutoPlayOnce = useRef(false);
 
+  /**
+   * Ensures a message has playable audio, generating it when needed.
+   *
+   * @param message - Chat message to synthesize.
+   * @param force - Force regeneration of audio.
+   */
   const ensureAudioForMessage = async (message: ChatMessage, force = false) => {
     if (message.role !== "assistant") {
       return;
     }
 
-    if (!message.content || !message.tone) {
+    const content = message.content.trim();
+    if (!content) {
       return;
     }
+
+    const tone = message.tone?.trim() || DEFAULT_TTS_TONE;
 
     if (!force && message.audioId) {
       if (!playedAudio.current.has(message.id)) {
@@ -244,7 +263,7 @@ const ChatView = ({ userId }: ChatViewProps) => {
 
     pendingAudio.current.add(message.id);
     try {
-      const audioId = await requestTts(message.content, message.tone, force);
+      const audioId = await requestTts(content, tone, force);
       if (!audioId) {
         return;
       }
@@ -308,7 +327,7 @@ const ChatView = ({ userId }: ChatViewProps) => {
     }
 
     messages.forEach((message) => {
-      if (message.role === "assistant" && message.tone && message.content && !message.audioId) {
+      if (message.role === "assistant" && message.content && !message.audioId) {
         void ensureAudioForMessage(message);
       }
     });

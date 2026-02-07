@@ -23,6 +23,8 @@ interface JournalDetailResponse {
   messages: JournalMessage[];
 }
 
+const DEFAULT_TTS_TONE = "neutral, medium pitch";
+
 /**
  * Renders the Journal list and detail view.
  *
@@ -130,6 +132,14 @@ const JournalView = () => {
     });
   };
 
+  /**
+   * Requests a TTS audio id for the given text and tone.
+   *
+   * @param text - Text to synthesize.
+   * @param tone - Tone instruction for TTS.
+   * @param force - Regenerate even if cached.
+   * @returns The audio id string or null when unavailable.
+   */
   const requestTts = async (text: string, tone: string, force = false) => {
     const params = new URLSearchParams({
       text,
@@ -150,17 +160,25 @@ const JournalView = () => {
     return payload.output ?? null;
   };
 
+  /**
+   * Ensures a journal message has playable audio, generating it when needed.
+   *
+   * @param message - Journal message to synthesize.
+   * @param force - Force regeneration of audio.
+   */
   const ensureAudio = async (message: JournalMessage, force = false) => {
-    if (!message.content || !message.tone) {
-      return;
-    }
-
     if (!force && message.audio) {
       playAudio(message.audio);
       return;
     }
 
-    const audioId = await requestTts(message.content, message.tone, force);
+    const content = message.content.trim();
+    if (!content) {
+      return;
+    }
+
+    const tone = message.tone?.trim() || DEFAULT_TTS_TONE;
+    const audioId = await requestTts(content, tone, force);
     if (!audioId) {
       return;
     }
@@ -226,7 +244,7 @@ const JournalView = () => {
                     </span>
                   </div>
                   <p className="journal-message__text">{message.content}</p>
-                  {message.tone ? (
+                  {message.tone || message.audio ? (
                     <div className="journal-message__audio-actions">
                       <button
                         type="button"
