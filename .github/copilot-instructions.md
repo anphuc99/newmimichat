@@ -163,5 +163,5 @@ Whenever a controller is created or modified:
 - Follow existing style and conventions
 - Prefer clarity over cleverness
 - Every code change must be documented, validated, and traceable
-- **No syntax errors are allowed at completion**
+- **No syntax errors are allowed at completion please check carefully server and client**
 - **Every request ends with a Git commit**
