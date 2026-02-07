@@ -16,6 +16,7 @@ const LoginView = ({ onAuth }: LoginViewProps) => {
   const [mode, setMode] = useState<"login" | "register">("login");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [registerToken, setRegisterToken] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -25,19 +26,27 @@ const LoginView = ({ onAuth }: LoginViewProps) => {
       return;
     }
 
+    if (mode === "register" && !registerToken.trim()) {
+      setError("Registration token is required");
+      return;
+    }
+
     setIsSubmitting(true);
     setError(null);
 
     try {
+      const payload = {
+        username: username.trim(),
+        password: password.trim(),
+        ...(mode === "register" ? { registerToken: registerToken.trim() } : {})
+      };
+
       const response = await fetch(apiUrl(`/api/users/${mode}`), {
         method: "POST",
         headers: {
           "Content-Type": "application/json"
         },
-        body: JSON.stringify({
-          username: username.trim(),
-          password: password.trim()
-        })
+        body: JSON.stringify(payload)
       });
 
       if (!response.ok) {
@@ -86,6 +95,18 @@ const LoginView = ({ onAuth }: LoginViewProps) => {
             placeholder="At least 6 characters"
           />
         </label>
+
+        {mode === "register" ? (
+          <label className="auth-field">
+            Registration token
+            <input
+              type="password"
+              value={registerToken}
+              onChange={(event) => setRegisterToken(event.target.value)}
+              placeholder="Ask the admin"
+            />
+          </label>
+        ) : null}
 
         <button type="button" className="auth-submit" onClick={handleSubmit} disabled={isSubmitting}>
           {isSubmitting ? "Working..." : mode === "login" ? "Login" : "Register"}

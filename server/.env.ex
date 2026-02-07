@@ -19,6 +19,7 @@ OPENAI_MODEL=gpt-4o-mini
 
 # Auth
 JWT_SECRET=change-me
+REGISTRATION_TOKEN=change-me
 
 # TypeORM / ORM options (optional)
 # TYPEORM_SYNCHRONIZE=false

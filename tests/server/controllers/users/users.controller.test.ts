@@ -42,10 +42,13 @@ const createController = (repository: ReturnType<typeof createRepository>) => {
 
 describe("Users controller", () => {
   const originalSecret = process.env.JWT_SECRET;
+  const originalRegistrationToken = process.env.REGISTRATION_TOKEN;
   process.env.JWT_SECRET = "test-secret";
+  process.env.REGISTRATION_TOKEN = "invite-123";
 
   afterAll(() => {
     process.env.JWT_SECRET = originalSecret;
+    process.env.REGISTRATION_TOKEN = originalRegistrationToken;
   });
 
   it("registers a user", async () => {
@@ -54,7 +57,7 @@ describe("Users controller", () => {
     const response = createMockResponse();
 
     await controller.register(
-      { body: { username: "mimi", password: "secret12" } } as any,
+      { body: { username: "mimi", password: "secret12", registerToken: "invite-123" } } as any,
       response
     );
 
@@ -70,7 +73,7 @@ describe("Users controller", () => {
     const response = createMockResponse();
 
     await controller.register(
-      { body: { username: "mimi", password: "secret12" } } as any,
+      { body: { username: "mimi", password: "secret12", registerToken: "invite-123" } } as any,
       response
     );
 
@@ -87,6 +90,34 @@ describe("Users controller", () => {
 
     expect(response.statusCode).toBe(400);
     expect(response.payload.message).toBe("Username and password are required");
+  });
+
+  it("rejects missing registration token", async () => {
+    const repository = createRepository();
+    const controller = createController(repository);
+    const response = createMockResponse();
+
+    await controller.register(
+      { body: { username: "mimi", password: "secret12" } } as any,
+      response
+    );
+
+    expect(response.statusCode).toBe(403);
+    expect(response.payload.message).toBe("Invalid registration token");
+  });
+
+  it("rejects invalid registration token", async () => {
+    const repository = createRepository();
+    const controller = createController(repository);
+    const response = createMockResponse();
+
+    await controller.register(
+      { body: { username: "mimi", password: "secret12", registerToken: "wrong" } } as any,
+      response
+    );
+
+    expect(response.statusCode).toBe(403);
+    expect(response.payload.message).toBe("Invalid registration token");
   });
 
   it("logs in a user", async () => {

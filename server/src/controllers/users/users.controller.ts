@@ -8,6 +8,7 @@ import type { AuthUser } from "../../types/user.js";
 interface UserPayload {
   username: string;
   password: string;
+  registerToken?: string;
 }
 
 interface UserResponse {
@@ -28,6 +29,8 @@ const normalizeUsername = (value: unknown) => {
 
   return value.trim().toLowerCase();
 };
+
+const getRegistrationToken = () => (process.env.REGISTRATION_TOKEN ?? "").trim();
 
 const isValidPassword = (password: string) => password.length >= 6;
 
@@ -53,11 +56,24 @@ export const createUsersController = (dataSource: DataSource): UsersController =
     const payload = request.body as UserPayload;
     const username = normalizeUsername(payload?.username);
     const password = typeof payload?.password === "string" ? payload.password : "";
+    const providedToken = typeof payload?.registerToken === "string" ? payload.registerToken.trim() : "";
 
     if (!username || !isValidPassword(password)) {
       response.status(400).json({
         message: "Username and password are required"
       });
+      return;
+    }
+
+    const registrationToken = getRegistrationToken();
+
+    if (!registrationToken) {
+      response.status(500).json({ message: "Registration token is not configured" });
+      return;
+    }
+
+    if (providedToken !== registrationToken) {
+      response.status(403).json({ message: "Invalid registration token" });
       return;
     }
 

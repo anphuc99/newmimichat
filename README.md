@@ -110,6 +110,7 @@ Set the following environment variables before starting the server:
 Set the following environment variable before starting the server:
 
 - JWT_SECRET
+- REGISTRATION_TOKEN
 
 ## API
 
