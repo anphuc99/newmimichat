@@ -1,8 +1,14 @@
 import type { Request, Response } from "express";
+import fs from "fs/promises";
+import path from "path";
+import { fileURLToPath } from "url";
 import type { DataSource } from "typeorm";
 import { createOpenAIChatService, type OpenAIChatService } from "../../services/openai.service.js";
 import MessageEntity from "../../models/message.entity.js";
 import { createChatHistoryStore, type ChatHistoryStore } from "../../services/chat-history.service.js";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const DEFAULT_SYSTEM_PROMPT_PATH = path.join(__dirname, "..", "..", "prompts", "chat.system.txt");
 
 interface ChatController {
   sendMessage: (request: Request, response: Response) => Promise<void>;
@@ -33,8 +39,25 @@ export const createChatController = (
   const openAIService =
     deps.openAIService ?? (apiKey ? createOpenAIChatService({ apiKey, model, systemPromptPath }) : null);
   const historyStore = deps.historyStore ?? createChatHistoryStore();
+  let cachedSystemPrompt: string | null = null;
 
   const getSessionId = (value: unknown) => (typeof value === "string" ? value.trim() : "");
+
+  /**
+   * Loads the system instruction text used for the chat history.
+   *
+   * @returns The system prompt contents.
+   */
+  const loadSystemPrompt = async () => {
+    if (cachedSystemPrompt) {
+      return cachedSystemPrompt;
+    }
+
+    const promptPath = systemPromptPath ?? DEFAULT_SYSTEM_PROMPT_PATH;
+    const contents = await fs.readFile(promptPath, "utf8");
+    cachedSystemPrompt = contents.trim();
+    return cachedSystemPrompt;
+  };
 
   const sendMessage: ChatController["sendMessage"] = async (request, response) => {
     if (!request.user) {
@@ -60,6 +83,8 @@ export const createChatController = (
     }
 
     try {
+      const systemPrompt = await loadSystemPrompt();
+      await historyStore.ensureSystemMessage(request.user.id, sessionId, systemPrompt);
       const history = await historyStore.load(request.user.id, sessionId);
       const result = await openAIService.createReply(message, history);
 
@@ -86,6 +111,7 @@ export const createChatController = (
         model: result.model
       });
     } catch (error) {
+      console.error("Error in sendMessage:", error);
       response.status(500).json({
         message: "Failed to generate reply",
         error: error instanceof Error ? error.message : "Unknown error"
@@ -103,7 +129,7 @@ export const createChatController = (
 
     try {
       const messages = await historyStore.load(request.user.id, sessionId);
-      response.json({ messages });
+      response.json({ messages: messages.filter((message) => message.role !== "system") });
     } catch (error) {
       response.status(500).json({
         message: "Failed to load chat history",

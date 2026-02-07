@@ -1,7 +1,7 @@
 import fs from "fs/promises";
 import path from "path";
 
-export type ChatHistoryRole = "user" | "assistant";
+export type ChatHistoryRole = "system" | "user" | "assistant";
 
 export interface ChatHistoryMessage {
   role: ChatHistoryRole;
@@ -11,6 +11,7 @@ export interface ChatHistoryMessage {
 export interface ChatHistoryStore {
   load: (userId: number, sessionId: string) => Promise<ChatHistoryMessage[]>;
   append: (userId: number, sessionId: string, messages: ChatHistoryMessage[]) => Promise<void>;
+  ensureSystemMessage: (userId: number, sessionId: string, content: string) => Promise<void>;
 }
 
 const DEFAULT_DIR = path.join(process.cwd(), "data", "chat-history");
@@ -59,7 +60,10 @@ const parseLine = (line: string): ChatHistoryMessage | null => {
   try {
     const parsed = JSON.parse(trimmed) as { role?: unknown; content?: unknown };
 
-    if ((parsed.role !== "user" && parsed.role !== "assistant") || typeof parsed.content !== "string") {
+    if (
+      (parsed.role !== "system" && parsed.role !== "user" && parsed.role !== "assistant") ||
+      typeof parsed.content !== "string"
+    ) {
       return null;
     }
 
@@ -120,8 +124,55 @@ export const createChatHistoryStore = (dir: string = process.env.CHAT_HISTORY_DI
     await fs.appendFile(filePath, `${lines}\n`, "utf8");
   };
 
+  /**
+   * Ensures the session history starts with the system instruction.
+   *
+   * @param userId - Authenticated user id.
+   * @param sessionId - Session id for the conversation.
+   * @param content - System instruction text.
+   */
+  const ensureSystemMessage: ChatHistoryStore["ensureSystemMessage"] = async (
+    userId,
+    sessionId,
+    content
+  ) => {
+    const filePath = toHistoryPath(dir, userId, sessionId);
+    const systemContent = content.trim();
+
+    if (!systemContent) {
+      return;
+    }
+
+    try {
+      const raw = await fs.readFile(filePath, "utf8");
+      const messages = raw
+        .split(/\r?\n/g)
+        .map(parseLine)
+        .filter((value): value is ChatHistoryMessage => Boolean(value));
+
+      if (messages.length && messages[0].role === "system" && messages[0].content === systemContent) {
+        return;
+      }
+
+      const nextMessages = [{ role: "system", content: systemContent }, ...messages];
+      const nextRaw = nextMessages.map((message) => JSON.stringify(message)).join("\n");
+      await fs.mkdir(path.dirname(filePath), { recursive: true });
+      await fs.writeFile(filePath, `${nextRaw}\n`, "utf8");
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException)?.code === "ENOENT") {
+        const systemMessage = JSON.stringify({ role: "system", content: systemContent });
+        await fs.mkdir(path.dirname(filePath), { recursive: true });
+        await fs.writeFile(filePath, `${systemMessage}\n`, "utf8");
+        return;
+      }
+
+      throw error;
+    }
+  };
+
   return {
     load,
-    append
+    append,
+    ensureSystemMessage
   };
 };

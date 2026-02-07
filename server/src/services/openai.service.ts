@@ -15,7 +15,7 @@ export interface OpenAIChatServiceConfig {
 export interface OpenAIChatService {
   createReply: (
     message: string,
-    history?: Array<{ role: "user" | "assistant"; content: string }>
+    history?: Array<{ role: "system" | "user" | "assistant"; content: string }>
   ) => Promise<{ reply: string; model: string }>;
 }
 
@@ -42,15 +42,21 @@ export const createOpenAIChatService = (config: OpenAIChatServiceConfig): OpenAI
   };
 
   const createReply: OpenAIChatService["createReply"] = async (message, history = []) => {
-    const systemPrompt = await loadSystemPrompt();
     const normalizedHistory = history
-      .filter((entry) => entry && (entry.role === "user" || entry.role === "assistant"))
+      .filter(
+        (entry) =>
+          entry && (entry.role === "system" || entry.role === "user" || entry.role === "assistant")
+      )
       .map((entry) => ({ role: entry.role, content: entry.content }));
+
+    const hasSystemMessage = normalizedHistory.some((entry) => entry.role === "system");
+    const systemPrompt = hasSystemMessage ? null : await loadSystemPrompt();
+    const systemMessages = systemPrompt ? [{ role: "system" as const, content: systemPrompt }] : [];
 
     const completion = await client.chat.completions.create({
       model,
       messages: [
-        { role: "system", content: systemPrompt },
+        ...systemMessages,
         ...normalizedHistory,
         { role: "user", content: message }
       ]

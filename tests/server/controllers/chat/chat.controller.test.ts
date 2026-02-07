@@ -24,8 +24,11 @@ const createController = (repository: ReturnType<typeof createRepository>, openA
   } as any;
 
   const historyStore = {
-    load: vi.fn().mockResolvedValue([{ role: "user", content: "previous" }]),
-    append: vi.fn().mockResolvedValue(undefined)
+    load: vi
+      .fn()
+      .mockResolvedValue([{ role: "system", content: "Instruction" }, { role: "user", content: "previous" }]),
+    append: vi.fn().mockResolvedValue(undefined),
+    ensureSystemMessage: vi.fn().mockResolvedValue(undefined)
   };
 
   const controller = createChatController(dataSource, {
@@ -97,8 +100,12 @@ describe("Chat controller", () => {
       response
     );
 
+    expect(historyStore.ensureSystemMessage).toHaveBeenCalledWith(1, "s1", expect.any(String));
     expect(historyStore.load).toHaveBeenCalledWith(1, "s1");
-    expect(openAIService.createReply).toHaveBeenCalledWith("Hi", [{ role: "user", content: "previous" }]);
+    expect(openAIService.createReply).toHaveBeenCalledWith("Hi", [
+      { role: "system", content: "Instruction" },
+      { role: "user", content: "previous" }
+    ]);
     expect(historyStore.append).toHaveBeenCalledWith(1, "s1", [
       { role: "user", content: "Hi" },
       { role: "assistant", content: "Hello there" }
