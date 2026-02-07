@@ -35,7 +35,7 @@ const LoginView = ({ onAuth }: LoginViewProps) => {
     setError(null);
 
     try {
-      const payload = {
+      const requestPayload = {
         username: username.trim(),
         password: password.trim(),
         ...(mode === "register" ? { registerToken: registerToken.trim() } : {})
@@ -46,16 +46,16 @@ const LoginView = ({ onAuth }: LoginViewProps) => {
         headers: {
           "Content-Type": "application/json"
         },
-        body: JSON.stringify(payload)
+        body: JSON.stringify(requestPayload)
       });
 
       if (!response.ok) {
-        const payload = (await response.json().catch(() => null)) as { message?: string } | null;
-        throw new Error(payload?.message ?? "Failed to authenticate");
+        const errorPayload = (await response.json().catch(() => null)) as { message?: string } | null;
+        throw new Error(errorPayload?.message ?? "Failed to authenticate");
       }
 
-      const payload = (await response.json()) as AuthSession;
-      onAuth(payload);
+      const session = (await response.json()) as AuthSession;
+      onAuth(session);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Unknown error");
     } finally {
