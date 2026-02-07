@@ -13,6 +13,7 @@ export const createChatRoutes = (dataSource: DataSource) => {
   const router = Router();
   const controller = createChatController(dataSource);
 
+  router.get("/history", requireAuth, controller.getHistory);
   router.post("/send", requireAuth, controller.sendMessage);
 
   return router;

@@ -29,3 +29,6 @@ dist-ssr
 
 # Uploaded avatars
 server/public/avatars/
+
+# File-backed chat history
+server/data/

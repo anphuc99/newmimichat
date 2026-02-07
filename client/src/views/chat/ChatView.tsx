@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import MessageInput from "./components/MessageInput";
 import MessageList from "./components/MessageList";
 import { apiUrl } from "../../lib/api";
@@ -18,6 +18,10 @@ interface ChatResponse {
   model?: string;
 }
 
+interface ChatHistoryResponse {
+  messages: Array<{ role: ChatRole; content: string }>;
+}
+
 const createMessage = (role: ChatRole, content: string): ChatMessage => ({
   id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
   role,
@@ -25,18 +29,68 @@ const createMessage = (role: ChatRole, content: string): ChatMessage => ({
   timestamp: new Date().toISOString()
 });
 
+const getOrCreateSessionId = (storageKey: string) => {
+  const existing = window.localStorage.getItem(storageKey);
+
+  if (existing) {
+    return existing;
+  }
+
+  const next = typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`;
+  window.localStorage.setItem(storageKey, next);
+  return next;
+};
+
+interface ChatViewProps {
+  userId: number;
+}
+
 /**
  * Renders the main Chat view for MimiChat.
  *
  * @returns The Chat view React component.
  */
-const ChatView = () => {
+const ChatView = ({ userId }: ChatViewProps) => {
+  const storageKey = `mimi_chat_session_id_${userId}`;
   const [messages, setMessages] = useState<ChatMessage[]>(() => [
     createMessage("assistant", "Hi! I am MimiChat. What would you like to practice today?")
   ]);
   const [input, setInput] = useState("");
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const sessionId = useMemo(() => getOrCreateSessionId(storageKey), [storageKey]);
+
+  useEffect(() => {
+    let isActive = true;
+
+    const loadHistory = async () => {
+      try {
+        const response = await authFetch(apiUrl(`/api/chat/history?sessionId=${encodeURIComponent(sessionId)}`));
+
+        if (!response.ok) {
+          return;
+        }
+
+        const payload = (await response.json()) as ChatHistoryResponse;
+
+        if (!isActive) {
+          return;
+        }
+
+        if (payload.messages?.length) {
+          setMessages(payload.messages.map((message) => createMessage(message.role, message.content)));
+        }
+      } catch {
+        // Ignore history load errors.
+      }
+    };
+
+    void loadHistory();
+
+    return () => {
+      isActive = false;
+    };
+  }, [sessionId]);
 
   const pendingMessage = useMemo(() => {
     if (!isSending) {
@@ -65,7 +119,7 @@ const ChatView = () => {
         headers: {
           "Content-Type": "application/json"
         },
-        body: JSON.stringify({ message: trimmed })
+        body: JSON.stringify({ message: trimmed, sessionId })
       });
 
       if (!response.ok) {

@@ -9,8 +9,8 @@ export interface ChatHistoryMessage {
 }
 
 export interface ChatHistoryStore {
-  load: (userId: number) => Promise<ChatHistoryMessage[]>;
-  append: (userId: number, messages: ChatHistoryMessage[]) => Promise<void>;
+  load: (userId: number, sessionId: string) => Promise<ChatHistoryMessage[]>;
+  append: (userId: number, sessionId: string, messages: ChatHistoryMessage[]) => Promise<void>;
 }
 
 const DEFAULT_DIR = path.join(process.cwd(), "data", "chat-history");
@@ -23,9 +23,30 @@ const sanitizeUserId = (userId: number) => {
   return String(userId);
 };
 
-const toHistoryPath = (dir: string, userId: number) => {
-  const safe = sanitizeUserId(userId);
-  return path.join(dir, `${safe}.history.txt`);
+const sanitizeSessionId = (sessionId: string) => {
+  const trimmed = (sessionId ?? "").trim();
+
+  if (!trimmed) {
+    return "default";
+  }
+
+  if (!/^[a-zA-Z0-9_-]{1,64}$/.test(trimmed)) {
+    throw new Error("Invalid sessionId");
+  }
+
+  return trimmed;
+};
+
+const toHistoryPath = (dir: string, userId: number, sessionId: string) => {
+  const safeUserId = sanitizeUserId(userId);
+  const safeSessionId = sanitizeSessionId(sessionId);
+
+  // Backwards-compat: keep the original path for the default session.
+  if (safeSessionId === "default") {
+    return path.join(dir, `${safeUserId}.history.txt`);
+  }
+
+  return path.join(dir, safeUserId, `${safeSessionId}.history.txt`);
 };
 
 const parseLine = (line: string): ChatHistoryMessage | null => {
@@ -65,8 +86,8 @@ const parseLine = (line: string): ChatHistoryMessage | null => {
  * @returns A chat history store.
  */
 export const createChatHistoryStore = (dir: string = process.env.CHAT_HISTORY_DIR ?? DEFAULT_DIR): ChatHistoryStore => {
-  const load: ChatHistoryStore["load"] = async (userId) => {
-    const filePath = toHistoryPath(dir, userId);
+  const load: ChatHistoryStore["load"] = async (userId, sessionId) => {
+    const filePath = toHistoryPath(dir, userId, sessionId);
 
     try {
       const raw = await fs.readFile(filePath, "utf8");
@@ -83,12 +104,12 @@ export const createChatHistoryStore = (dir: string = process.env.CHAT_HISTORY_DI
     }
   };
 
-  const append: ChatHistoryStore["append"] = async (userId, messages) => {
+  const append: ChatHistoryStore["append"] = async (userId, sessionId, messages) => {
     if (!messages.length) {
       return;
     }
 
-    const filePath = toHistoryPath(dir, userId);
+    const filePath = toHistoryPath(dir, userId, sessionId);
     await fs.mkdir(path.dirname(filePath), { recursive: true });
 
     const lines = messages

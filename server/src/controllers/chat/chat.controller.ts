@@ -6,6 +6,7 @@ import { createChatHistoryStore, type ChatHistoryStore } from "../../services/ch
 
 interface ChatController {
   sendMessage: (request: Request, response: Response) => Promise<void>;
+  getHistory: (request: Request, response: Response) => Promise<void>;
 }
 
 interface ChatControllerDeps {
@@ -33,6 +34,8 @@ export const createChatController = (
     deps.openAIService ?? (apiKey ? createOpenAIChatService({ apiKey, model, systemPromptPath }) : null);
   const historyStore = deps.historyStore ?? createChatHistoryStore();
 
+  const getSessionId = (value: unknown) => (typeof value === "string" ? value.trim() : "");
+
   const sendMessage: ChatController["sendMessage"] = async (request, response) => {
     if (!request.user) {
       response.status(401).json({ message: "Unauthorized" });
@@ -40,6 +43,7 @@ export const createChatController = (
     }
 
     const message = typeof request.body?.message === "string" ? request.body.message.trim() : "";
+    const sessionId = getSessionId(request.body?.sessionId);
 
     if (!message) {
       response.status(400).json({
@@ -56,7 +60,7 @@ export const createChatController = (
     }
 
     try {
-      const history = await historyStore.load(request.user.id);
+      const history = await historyStore.load(request.user.id, sessionId);
       const result = await openAIService.createReply(message, history);
 
       const userMessage = repository.create({
@@ -72,7 +76,7 @@ export const createChatController = (
 
       await repository.save([userMessage, assistantMessage]);
 
-      await historyStore.append(request.user.id, [
+      await historyStore.append(request.user.id, sessionId, [
         { role: "user", content: message },
         { role: "assistant", content: result.reply }
       ]);
@@ -89,7 +93,27 @@ export const createChatController = (
     }
   };
 
+  const getHistory: ChatController["getHistory"] = async (request, response) => {
+    if (!request.user) {
+      response.status(401).json({ message: "Unauthorized" });
+      return;
+    }
+
+    const sessionId = getSessionId(request.query?.sessionId);
+
+    try {
+      const messages = await historyStore.load(request.user.id, sessionId);
+      response.json({ messages });
+    } catch (error) {
+      response.status(500).json({
+        message: "Failed to load chat history",
+        error: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  };
+
   return {
-    sendMessage
+    sendMessage,
+    getHistory
   };
 };

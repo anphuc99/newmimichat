@@ -24,20 +24,22 @@ const createController = (repository: ReturnType<typeof createRepository>, openA
   } as any;
 
   const historyStore = {
-    load: vi.fn().mockResolvedValue([]),
+    load: vi.fn().mockResolvedValue([{ role: "user", content: "previous" }]),
     append: vi.fn().mockResolvedValue(undefined)
   };
 
-  return createChatController(dataSource, {
+  const controller = createChatController(dataSource, {
     ...(openAIService ? { openAIService } : {}),
     historyStore
   });
+
+  return { controller, historyStore };
 };
 
 describe("Chat controller", () => {
   it("returns 400 when the message is missing", async () => {
     const repository = createRepository();
-    const controller = createController(repository, {
+    const { controller } = createController(repository, {
       createReply: vi.fn()
     });
     const response = createMockResponse();
@@ -50,7 +52,7 @@ describe("Chat controller", () => {
 
   it("returns 401 when unauthenticated", async () => {
     const repository = createRepository();
-    const controller = createController(repository, {
+    const { controller } = createController(repository, {
       createReply: vi.fn()
     });
 
@@ -67,7 +69,7 @@ describe("Chat controller", () => {
     process.env.OPENAI_API_KEY = "";
 
     const repository = createRepository();
-    const controller = createController(repository);
+    const { controller } = createController(repository);
     const response = createMockResponse();
 
     await controller.sendMessage(
@@ -87,15 +89,20 @@ describe("Chat controller", () => {
     };
 
     const repository = createRepository();
-    const controller = createController(repository, openAIService);
+    const { controller, historyStore } = createController(repository, openAIService);
     const response = createMockResponse();
 
     await controller.sendMessage(
-      { body: { message: "Hi" }, user: { id: 1, username: "mimi" } } as any,
+      { body: { message: "Hi", sessionId: "s1" }, user: { id: 1, username: "mimi" } } as any,
       response
     );
 
-    expect(openAIService.createReply).toHaveBeenCalledWith("Hi", []);
+    expect(historyStore.load).toHaveBeenCalledWith(1, "s1");
+    expect(openAIService.createReply).toHaveBeenCalledWith("Hi", [{ role: "user", content: "previous" }]);
+    expect(historyStore.append).toHaveBeenCalledWith(1, "s1", [
+      { role: "user", content: "Hi" },
+      { role: "assistant", content: "Hello there" }
+    ]);
     expect(repository.save).toHaveBeenCalledTimes(1);
     expect(response.status).not.toHaveBeenCalled();
     expect(response.json).toHaveBeenCalledWith({ reply: "Hello there", model: "test-model" });
@@ -107,11 +114,11 @@ describe("Chat controller", () => {
     };
 
     const repository = createRepository();
-    const controller = createController(repository, openAIService);
+    const { controller } = createController(repository, openAIService);
     const response = createMockResponse();
 
     await controller.sendMessage(
-      { body: { message: "Hi" }, user: { id: 1, username: "mimi" } } as any,
+      { body: { message: "Hi", sessionId: "s1" }, user: { id: 1, username: "mimi" } } as any,
       response
     );
 
@@ -119,5 +126,23 @@ describe("Chat controller", () => {
     const payload = response.json.mock.calls[0][0] as any;
     expect(payload.message).toBe("Failed to generate reply");
     expect(payload.error).toBe("rate limited");
+  });
+
+  it("returns history for a session", async () => {
+    const openAIService = {
+      createReply: vi.fn()
+    };
+
+    const repository = createRepository();
+    const { controller, historyStore } = createController(repository, openAIService);
+    const response = createMockResponse();
+
+    await controller.getHistory(
+      { query: { sessionId: "s1" }, user: { id: 1, username: "mimi" } } as any,
+      response
+    );
+
+    expect(historyStore.load).toHaveBeenCalledWith(1, "s1");
+    expect(response.json).toHaveBeenCalledWith({ messages: [{ role: "user", content: "previous" }] });
   });
 });
