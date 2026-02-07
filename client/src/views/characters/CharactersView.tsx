@@ -2,9 +2,10 @@ import { useEffect, useMemo, useState } from "react";
 import CharacterCard from "./components/CharacterCard";
 import CharacterForm from "./components/CharacterForm";
 import { apiUrl } from "../../lib/api";
+import { OPENAI_VOICES } from "./voiceOptions";
 
 type CharacterGender = "male" | "female";
-type VoiceModel = "openai" | "elevenlabs";
+type VoiceModel = "openai";
 
 interface Character {
   id: number;
@@ -27,7 +28,6 @@ interface CharacterFormState {
   gender: CharacterGender;
   appearance: string;
   avatar: string;
-  voiceModel: VoiceModel;
   voiceName: string;
   pitch: string;
   speakingRate: string;
@@ -39,8 +39,7 @@ const emptyFormState = (): CharacterFormState => ({
   gender: "female",
   appearance: "",
   avatar: "",
-  voiceModel: "openai",
-  voiceName: "",
+  voiceName: OPENAI_VOICES[0]?.value ?? "",
   pitch: "",
   speakingRate: ""
 });
@@ -61,7 +60,7 @@ const buildPayload = (form: CharacterFormState) => {
     gender: form.gender,
     appearance: form.appearance.trim() || null,
     avatar: form.avatar.trim() || null,
-    voiceModel: form.voiceModel || null,
+    voiceModel: form.voiceName.trim() ? "openai" : null,
     voiceName: form.voiceName.trim() || null,
     pitch: parseNumber(form.pitch),
     speakingRate: parseNumber(form.speakingRate)
@@ -79,6 +78,7 @@ const CharactersView = () => {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const sortedCharacters = useMemo(() => {
@@ -127,8 +127,7 @@ const CharactersView = () => {
       gender: character.gender,
       appearance: character.appearance ?? "",
       avatar: character.avatar ?? "",
-      voiceModel: (character.voiceModel ?? "openai") as VoiceModel,
-      voiceName: character.voiceName ?? "",
+      voiceName: character.voiceName ?? (OPENAI_VOICES[0]?.value ?? ""),
       pitch: character.pitch?.toString() ?? "",
       speakingRate: character.speakingRate?.toString() ?? ""
     });
@@ -137,6 +136,44 @@ const CharactersView = () => {
   const handleCancel = () => {
     setEditingId(null);
     setFormState(emptyFormState());
+  };
+
+  const handleAvatarUpload = async (file: File) => {
+    setIsUploading(true);
+    setError(null);
+
+    try {
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = () => reject(new Error("Failed to read image"));
+        reader.readAsDataURL(file);
+      });
+
+      const response = await fetch(apiUrl("/api/characters/upload-avatar"), {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ image: dataUrl, filename: file.name })
+      });
+
+      if (!response.ok) {
+        const payload = (await response.json().catch(() => null)) as { message?: string } | null;
+        throw new Error(payload?.message ?? "Failed to upload avatar");
+      }
+
+      const payload = (await response.json()) as { url: string };
+
+      setFormState((prev) => ({
+        ...prev,
+        avatar: payload.url
+      }));
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Unknown error");
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   const handleDelete = async (character: Character) => {
@@ -226,7 +263,9 @@ const CharactersView = () => {
             onChange={setFormState}
             onSubmit={handleSubmit}
             onCancel={handleCancel}
+            onAvatarUpload={handleAvatarUpload}
             isSaving={isSaving}
+            isUploading={isUploading}
             isEditing={editingId !== null}
           />
         </div>

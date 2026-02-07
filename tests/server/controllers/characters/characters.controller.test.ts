@@ -1,5 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
+import * as fsPromises from "fs/promises";
 import { createCharactersController } from "../../../../server/src/controllers/characters/characters.controller";
+
+vi.mock("fs/promises", () => ({
+  mkdir: vi.fn().mockResolvedValue(undefined),
+  writeFile: vi.fn().mockResolvedValue(undefined)
+}));
 
 /**
  * Creates a minimal Express-like response object for unit tests.
@@ -148,5 +154,43 @@ describe("Characters controller", () => {
     expect(repository.remove).toHaveBeenCalledTimes(1);
     expect(response.status).toHaveBeenCalledWith(204);
     expect(response.send).toHaveBeenCalledTimes(1);
+  });
+
+  it("uploads an avatar image", async () => {
+    const repository = createRepository();
+    const controller = createController(repository);
+    const response = createMockResponse();
+
+    await controller.uploadAvatar(
+      {
+        body: {
+          image: "data:image/png;base64,aGVsbG8=",
+          filename: "avatar.png"
+        }
+      } as any,
+      response
+    );
+
+    expect(fsPromises.mkdir).toHaveBeenCalledTimes(1);
+    expect(fsPromises.writeFile).toHaveBeenCalledTimes(1);
+    expect(response.json).toHaveBeenCalledTimes(1);
+  });
+
+  it("rejects unsupported avatar data", async () => {
+    const repository = createRepository();
+    const controller = createController(repository);
+    const response = createMockResponse();
+
+    await controller.uploadAvatar(
+      {
+        body: {
+          image: "not-a-data-url"
+        }
+      } as any,
+      response
+    );
+
+    expect(response.status).toHaveBeenCalledWith(400);
+    expect(response.json).toHaveBeenCalledWith({ message: "Unsupported image format" });
   });
 });

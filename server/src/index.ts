@@ -3,10 +3,13 @@ import dotenv from "dotenv";
 import fs from "fs";
 import path from "path";
 import express from "express";
+import { fileURLToPath } from "url";
 import { AppDataSource } from "./data-source.js";
 import { createApiRouter } from "./routes/index.js";
 
 const DEFAULT_PORT = 4000;
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const PUBLIC_DIR = path.join(__dirname, "..", "public");
 
 const resolveEnvPath = () => {
   const cwd = process.cwd();
@@ -30,6 +33,8 @@ const createApp = () => {
 
   app.use(cors());
   app.use(express.json());
+
+  app.use("/public", express.static(PUBLIC_DIR));
 
   app.use("/api", createApiRouter(AppDataSource));
 

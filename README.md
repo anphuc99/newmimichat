@@ -97,6 +97,7 @@ Set the following environment variables before starting the server:
 - GET /api/home/message
 - POST /api/chat/send
 - GET /api/characters
+- POST /api/characters/upload-avatar
 - POST /api/characters
 - PUT /api/characters/:id
 - DELETE /api/characters/:id

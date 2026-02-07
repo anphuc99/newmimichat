@@ -1,3 +1,6 @@
+import crypto from "crypto";
+import { mkdir, writeFile } from "fs/promises";
+import path from "path";
 import type { Request, Response } from "express";
 import type { DataSource } from "typeorm";
 import CharacterEntity from "../../models/character.entity.js";
@@ -10,10 +13,15 @@ interface CharacterPayload {
   gender: CharacterGender;
   appearance?: string | null;
   avatar?: string | null;
-  voiceModel?: string | null;
+  voiceModel?: "openai" | null;
   voiceName?: string | null;
   pitch?: number | null;
   speakingRate?: number | null;
+}
+
+interface AvatarUploadPayload {
+  image: string;
+  filename?: string;
 }
 
 interface CharacterResponse extends CharacterPayload {
@@ -27,7 +35,66 @@ interface CharactersController {
   createCharacter: (request: Request, response: Response) => Promise<void>;
   updateCharacter: (request: Request, response: Response) => Promise<void>;
   deleteCharacter: (request: Request, response: Response) => Promise<void>;
+  uploadAvatar: (request: Request, response: Response) => Promise<void>;
 }
+
+const MAX_AVATAR_BYTES = 2 * 1024 * 1024;
+const AVATAR_DIR = path.join(process.cwd(), "public", "avatars");
+
+const parseDataUrl = (dataUrl: string) => {
+  const match = /^data:(image\/(png|jpeg|jpg|webp));base64,(.+)$/.exec(dataUrl);
+
+  if (!match) {
+    return null;
+  }
+
+  const mime = match[1];
+  const buffer = Buffer.from(match[3], "base64");
+
+  return {
+    mime,
+    buffer
+  };
+};
+
+const normalizeVoiceName = (value: unknown) => {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const trimmed = value.trim();
+  return trimmed ? trimmed : null;
+};
+
+const resolveVoiceModel = (voiceModel: unknown, voiceName: string | null) => {
+  if (!voiceModel) {
+    return voiceName ? "openai" : null;
+  }
+
+  if (voiceModel !== "openai") {
+    return "invalid" as const;
+  }
+
+  return "openai" as const;
+};
+
+const resolveExtension = (mime: string, filename?: string) => {
+  if (mime === "image/png") {
+    return "png";
+  }
+
+  if (mime === "image/webp") {
+    return "webp";
+  }
+
+  const fallback = filename?.split(".").pop()?.toLowerCase();
+
+  if (fallback === "jpg" || fallback === "jpeg") {
+    return "jpg";
+  }
+
+  return "jpeg";
+};
 
 const isValidGender = (value: unknown): value is CharacterGender => {
   return value === "male" || value === "female";
@@ -84,8 +151,10 @@ export const createCharactersController = (dataSource: DataSource): CharactersCo
     const name = typeof payload?.name === "string" ? payload.name.trim() : "";
     const personality = typeof payload?.personality === "string" ? payload.personality.trim() : "";
     const gender = payload?.gender;
+    const voiceName = normalizeVoiceName(payload?.voiceName);
+    const voiceModel = resolveVoiceModel(payload?.voiceModel, voiceName);
 
-    if (!name || !personality || !isValidGender(gender)) {
+    if (!name || !personality || !isValidGender(gender) || voiceModel === "invalid") {
       response.status(400).json({
         message: "Name, personality, and gender are required"
       });
@@ -99,8 +168,8 @@ export const createCharactersController = (dataSource: DataSource): CharactersCo
         gender,
         appearance: payload?.appearance ?? null,
         avatar: payload?.avatar ?? null,
-        voiceModel: payload?.voiceModel ?? null,
-        voiceName: payload?.voiceName ?? null,
+        voiceModel,
+        voiceName,
         pitch: payload?.pitch ?? null,
         speakingRate: payload?.speakingRate ?? null
       });
@@ -130,8 +199,10 @@ export const createCharactersController = (dataSource: DataSource): CharactersCo
     const name = typeof payload?.name === "string" ? payload.name.trim() : "";
     const personality = typeof payload?.personality === "string" ? payload.personality.trim() : "";
     const gender = payload?.gender;
+    const voiceName = normalizeVoiceName(payload?.voiceName);
+    const voiceModel = resolveVoiceModel(payload?.voiceModel, voiceName);
 
-    if (!name || !personality || !isValidGender(gender)) {
+    if (!name || !personality || !isValidGender(gender) || voiceModel === "invalid") {
       response.status(400).json({
         message: "Name, personality, and gender are required"
       });
@@ -153,8 +224,8 @@ export const createCharactersController = (dataSource: DataSource): CharactersCo
       character.gender = gender;
       character.appearance = payload?.appearance ?? null;
       character.avatar = payload?.avatar ?? null;
-      character.voiceModel = payload?.voiceModel ?? null;
-      character.voiceName = payload?.voiceName ?? null;
+      character.voiceModel = voiceModel;
+      character.voiceName = voiceName;
       character.pitch = payload?.pitch ?? null;
       character.speakingRate = payload?.speakingRate ?? null;
 
@@ -199,10 +270,58 @@ export const createCharactersController = (dataSource: DataSource): CharactersCo
     }
   };
 
+  const uploadAvatar: CharactersController["uploadAvatar"] = async (request, response) => {
+    const payload = request.body as AvatarUploadPayload;
+    const image = typeof payload?.image === "string" ? payload.image.trim() : "";
+    const filename = typeof payload?.filename === "string" ? payload.filename : undefined;
+
+    if (!image) {
+      response.status(400).json({
+        message: "Image data is required"
+      });
+      return;
+    }
+
+    const parsed = parseDataUrl(image);
+
+    if (!parsed) {
+      response.status(400).json({
+        message: "Unsupported image format"
+      });
+      return;
+    }
+
+    if (parsed.buffer.length > MAX_AVATAR_BYTES) {
+      response.status(400).json({
+        message: "Avatar image is too large"
+      });
+      return;
+    }
+
+    try {
+      await mkdir(AVATAR_DIR, { recursive: true });
+      const extension = resolveExtension(parsed.mime, filename);
+      const avatarName = `${crypto.randomUUID()}.${extension}`;
+      const avatarPath = path.join(AVATAR_DIR, avatarName);
+
+      await writeFile(avatarPath, parsed.buffer);
+
+      response.json({
+        url: `/public/avatars/${avatarName}`
+      });
+    } catch (error) {
+      response.status(500).json({
+        message: "Failed to upload avatar",
+        error: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  };
+
   return {
     listCharacters,
     createCharacter,
     updateCharacter,
-    deleteCharacter
+    deleteCharacter,
+    uploadAvatar
   };
 };

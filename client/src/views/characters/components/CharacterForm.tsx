@@ -1,6 +1,6 @@
 type CharacterGender = "male" | "female";
 
-type VoiceModel = "openai" | "elevenlabs";
+import { OPENAI_VOICES, type OpenAIVoiceValue } from "../voiceOptions";
 
 interface CharacterFormState {
   name: string;
@@ -8,7 +8,6 @@ interface CharacterFormState {
   gender: CharacterGender;
   appearance: string;
   avatar: string;
-  voiceModel: VoiceModel;
   voiceName: string;
   pitch: string;
   speakingRate: string;
@@ -19,7 +18,9 @@ interface CharacterFormProps {
   onChange: (next: CharacterFormState) => void;
   onSubmit: () => void;
   onCancel: () => void;
+  onAvatarUpload: (file: File) => void;
   isSaving: boolean;
+  isUploading: boolean;
   isEditing: boolean;
 }
 
@@ -34,7 +35,9 @@ const CharacterForm = ({
   onChange,
   onSubmit,
   onCancel,
+  onAvatarUpload,
   isSaving,
+  isUploading,
   isEditing
 }: CharacterFormProps) => {
   const updateField = <K extends keyof CharacterFormState>(key: K, value: CharacterFormState[K]) => {
@@ -94,13 +97,25 @@ const CharacterForm = ({
           />
         </label>
         <label className="full">
-          Avatar URL
-          <input
-            type="url"
-            value={formState.avatar}
-            onChange={(event) => updateField("avatar", event.target.value)}
-            placeholder="https://..."
-          />
+          Avatar
+          <div className="character-form__avatar">
+            <div className="character-form__avatar-preview">
+              {formState.avatar ? <img src={formState.avatar} alt="Avatar preview" /> : <span>?</span>}
+            </div>
+            <div className="character-form__avatar-actions">
+              <input
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+                onChange={(event) => {
+                  const file = event.target.files?.[0];
+                  if (file) {
+                    onAvatarUpload(file);
+                  }
+                }}
+              />
+              <small>{isUploading ? "Uploading..." : "Upload a square image for best results."}</small>
+            </div>
+          </div>
         </label>
       </div>
 
@@ -108,23 +123,17 @@ const CharacterForm = ({
 
       <div className="character-form__grid">
         <label>
-          Voice model
-          <select
-            value={formState.voiceModel}
-            onChange={(event) => updateField("voiceModel", event.target.value as VoiceModel)}
-          >
-            <option value="openai">openai</option>
-            <option value="elevenlabs">elevenlabs</option>
-          </select>
-        </label>
-        <label>
           Voice name
-          <input
-            type="text"
-            value={formState.voiceName}
+          <select
+            value={formState.voiceName as OpenAIVoiceValue}
             onChange={(event) => updateField("voiceName", event.target.value)}
-            placeholder="alloy"
-          />
+          >
+            {OPENAI_VOICES.map((voice) => (
+              <option key={voice.value} value={voice.value}>
+                {voice.label}
+              </option>
+            ))}
+          </select>
         </label>
         <label>
           Pitch

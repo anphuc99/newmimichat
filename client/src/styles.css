@@ -330,6 +330,41 @@ body::after {
   grid-column: 1 / -1;
 }
 
+.character-form__avatar {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.character-form__avatar-preview {
+  width: 72px;
+  height: 72px;
+  border-radius: 18px;
+  background: rgba(15, 23, 42, 0.08);
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.character-form__avatar-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.character-form__avatar-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.character-form__avatar-actions small {
+  color: var(--ink-soft);
+}
+
 .character-form__grid input,
 .character-form__grid select,
 .character-form__grid textarea {

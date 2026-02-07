@@ -12,6 +12,7 @@ export const createCharactersRoutes = (dataSource: DataSource) => {
   const router = Router();
   const controller = createCharactersController(dataSource);
 
+  router.post("/upload-avatar", controller.uploadAvatar);
   router.get("/", controller.listCharacters);
   router.post("/", controller.createCharacter);
   router.put("/:id", controller.updateCharacter);

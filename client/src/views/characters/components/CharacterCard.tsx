@@ -1,5 +1,5 @@
 type CharacterGender = "male" | "female";
-type VoiceModel = "openai" | "elevenlabs";
+type VoiceModel = "openai";
 
 interface Character {
   id: number;
@@ -46,9 +46,7 @@ const CharacterCard = ({ character, onEdit, onDelete }: CharacterCardProps) => {
       ) : null}
       <div className="character-card__footer">
         <div>
-          <span className="character-card__tag">
-            {character.voiceModel ?? "voice"}
-          </span>
+          <span className="character-card__tag">{character.voiceModel ?? "openai"}</span>
           {character.voiceName ? (
             <span className="character-card__tag">{character.voiceName}</span>
           ) : null}
