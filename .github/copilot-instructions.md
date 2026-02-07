@@ -4,7 +4,7 @@
 
 **Before writing, modifying, or suggesting any code:**
 
-1. **MUST read `README.md` first**
+1. **MUST read `README.md` and `WORK_PLAN.md` first**
    - Project purpose
    - Folder structure
    - Architecture & design decisions
@@ -148,7 +148,7 @@ Whenever a controller is created or modified:
 
 ## 🚫 Strict Prohibitions
 
-- ❌ Do NOT generate code before reading `README.md`
+- ❌ Do NOT generate code before reading `README.md` and `WORK_PLAN.md`
 - ❌ Do NOT guess project structure or logic
 - ❌ Do NOT skip Git commit
 - ❌ Do NOT end with syntax errors
