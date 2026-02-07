@@ -1,7 +1,7 @@
 import fs from "fs/promises";
 import path from "path";
 
-export type ChatHistoryRole = "system" | "user" | "assistant";
+export type ChatHistoryRole = "system" | "developer" | "user" | "assistant";
 
 export interface ChatHistoryMessage {
   role: ChatHistoryRole;
@@ -61,7 +61,7 @@ const parseLine = (line: string): ChatHistoryMessage | null => {
     const parsed = JSON.parse(trimmed) as { role?: unknown; content?: unknown };
 
     if (
-      (parsed.role !== "system" && parsed.role !== "user" && parsed.role !== "assistant") ||
+      (parsed.role !== "system" && parsed.role !== "developer" && parsed.role !== "user" && parsed.role !== "assistant") ||
       typeof parsed.content !== "string"
     ) {
       return null;

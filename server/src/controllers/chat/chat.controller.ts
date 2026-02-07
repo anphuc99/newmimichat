@@ -2,7 +2,6 @@ import type { Request, Response } from "express";
 import type { DataSource } from "typeorm";
 import { createOpenAIChatService, type OpenAIChatService } from "../../services/openai.service.js";
 import { buildChatSystemPrompt } from "../../services/chat-prompt.service.js";
-import CharacterEntity from "../../models/character.entity.js";
 import MessageEntity from "../../models/message.entity.js";
 import UserEntity from "../../models/user.entity.js";
 import { createChatHistoryStore, type ChatHistoryStore } from "../../services/chat-history.service.js";
@@ -10,6 +9,7 @@ import { createChatHistoryStore, type ChatHistoryStore } from "../../services/ch
 interface ChatController {
   sendMessage: (request: Request, response: Response) => Promise<void>;
   getHistory: (request: Request, response: Response) => Promise<void>;
+  appendDeveloperMessage: (request: Request, response: Response) => Promise<void>;
 }
 
 interface ChatControllerDeps {
@@ -36,7 +36,6 @@ export const createChatController = (
   const dataSource = _dataSource;
   const repository = dataSource.getRepository(MessageEntity);
   const userRepository = dataSource.getRepository(UserEntity);
-  const characterRepository = dataSource.getRepository(CharacterEntity);
   const apiKey = process.env.OPENAI_API_KEY ?? "";
   const model = process.env.OPENAI_MODEL ?? "gpt-4.1-mini";
   const systemPromptPath = process.env.OPENAI_SYSTEM_PROMPT_PATH;
@@ -47,6 +46,34 @@ export const createChatController = (
   const getSessionId = (value: unknown) => (typeof value === "string" ? value.trim() : "");
 
   const getOptionalString = (value: unknown) => (typeof value === "string" ? value.trim() : "");
+
+  const formatCharacterAddedMessage = (payload: Record<string, unknown>) => {
+    const character = (payload.character ?? {}) as Record<string, unknown>;
+    const name = typeof character.name === "string" ? character.name.trim() : "";
+    const personality = typeof character.personality === "string" ? character.personality.trim() : "";
+    const gender = typeof character.gender === "string" ? character.gender.trim() : "";
+    const appearance = typeof character.appearance === "string" ? character.appearance.trim() : "";
+
+    if (!name) {
+      return "";
+    }
+
+    const lines = [`Nhân vật \"${name}\" đã được thêm.`];
+
+    if (gender) {
+      lines.push(`Giới tính: ${gender}`);
+    }
+
+    if (personality) {
+      lines.push(`Tính cách: ${personality}`);
+    }
+
+    if (appearance) {
+      lines.push(`Ngoại hình: ${appearance}`);
+    }
+
+    return lines.join("\n");
+  };
 
   /**
    * Builds a dynamic system instruction string for the current user/session.
@@ -67,22 +94,11 @@ export const createChatController = (
       relations: { level: true }
     });
 
-    const characters = await characterRepository.find({
-      where: { userId },
-      order: { id: "ASC" }
-    });
-
     return buildChatSystemPrompt({
       level: user?.level?.level ?? null,
       levelMaxWords: user?.level?.maxWords ?? null,
       levelDescription: user?.level?.descript ?? null,
       levelGuideline: user?.level?.guideline ?? null,
-      characters: characters.map((character) => ({
-        name: character.name,
-        gender: character.gender,
-        personality: character.personality,
-        appearance: character.appearance ?? null
-      })),
       context: getOptionalString(payload.context) || null,
       storyPlot: getOptionalString(payload.storyPlot) || null,
       relationshipSummary: getOptionalString(payload.relationshipSummary) || null,
@@ -162,7 +178,9 @@ export const createChatController = (
 
     try {
       const messages = await historyStore.load(request.user.id, sessionId);
-      response.json({ messages: messages.filter((message) => message.role !== "system") });
+      response.json({
+        messages: messages.filter((message) => message.role !== "system" && message.role !== "developer")
+      });
     } catch (error) {
       response.status(500).json({
         message: "Failed to load chat history",
@@ -171,8 +189,42 @@ export const createChatController = (
     }
   };
 
+  const appendDeveloperMessage: ChatController["appendDeveloperMessage"] = async (request, response) => {
+    if (!request.user) {
+      response.status(401).json({ message: "Unauthorized" });
+      return;
+    }
+
+    const payload = (request.body ?? {}) as Record<string, unknown>;
+    const sessionId = getSessionId(payload.sessionId);
+    const kind = typeof payload.kind === "string" ? payload.kind.trim() : "";
+
+    if (kind !== "character_added") {
+      response.status(400).json({ message: "Invalid developer message kind" });
+      return;
+    }
+
+    const content = formatCharacterAddedMessage(payload);
+
+    if (!content) {
+      response.status(400).json({ message: "Character name is required" });
+      return;
+    }
+
+    try {
+      await historyStore.append(request.user.id, sessionId, [{ role: "developer", content }]);
+      response.json({ ok: true });
+    } catch (error) {
+      response.status(500).json({
+        message: "Failed to append developer message",
+        error: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  };
+
   return {
     sendMessage,
-    getHistory
+    getHistory,
+    appendDeveloperMessage
   };
 };

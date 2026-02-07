@@ -3,13 +3,6 @@ export interface ChatPromptLevelConfig {
   guideline: string;
 }
 
-export interface ChatPromptCharacter {
-  name: string;
-  gender?: "male" | "female";
-  personality?: string | null;
-  appearance?: string | null;
-}
-
 export interface ChatPromptParams {
   /**
    * CEFR level label (A0-C2). Unknown levels fall back to A1.
@@ -29,10 +22,6 @@ export interface ChatPromptParams {
     * Optional per-level max word limit coming from the database.
     */
     levelMaxWords?: number | null;
-  /**
-   * Characters available to the user. When omitted/empty, character rules are skipped.
-   */
-  characters?: ChatPromptCharacter[];
   /**
    * Optional scene/context description. If missing, we default to a generic chat setting.
    */
@@ -96,23 +85,6 @@ const normalizeLevel = (value: string | null | undefined) => {
   return trimmed && trimmed in LEVEL_CONFIG ? trimmed : "A1";
 };
 
-const buildCharacterSection = (characters: ChatPromptCharacter[]) => {
-  const validNames = characters.map((character) => `- ${character.name}`).join("\n");
-
-  const details = characters
-    .map((character) => {
-      const gender = character.gender ? `Gender: ${character.gender}` : null;
-      const personality = character.personality?.trim() ? `Personality: ${character.personality.trim()}` : null;
-      const appearance = character.appearance?.trim() ? `Appearance: ${character.appearance.trim()}` : null;
-      const lines = [gender, personality, appearance].filter(Boolean);
-
-      return [`Name: ${character.name}`, ...lines].join("\n");
-    })
-    .join("\n\n");
-
-  return { validNames, details };
-};
-
 /**
  * Builds a system instruction string inspired by the legacy `initChat()` prompt.
  *
@@ -129,9 +101,6 @@ export const buildChatSystemPrompt = (params: ChatPromptParams): string => {
   const dbGuideline = (params.levelGuideline ?? "").trim();
   const guideline = dbGuideline || levelCfg.guideline;
   const context = params.context?.trim() ? params.context.trim() : "A casual Korean practice chat between the user and the assistant.";
-
-  const characters = (params.characters ?? []).filter((character) => character.name?.trim());
-  const characterSection = characters.length ? buildCharacterSection(characters) : null;
 
   const maybe = (label: string, value: string | null | undefined) => {
     const trimmed = (value ?? "").trim();
@@ -154,9 +123,7 @@ export const buildChatSystemPrompt = (params: ChatPromptParams): string => {
     ? `\n====================================\nPRONUNCIATION CHECK\n====================================\n- If the user asks for pronunciation help, reply with a short correction and a short example sentence at the current level.\n- Ask one short clarifying question if the user intent is unclear.\n`
     : "";
 
-  const characterRules = characterSection
-    ? `\n====================================\nCHARACTERS (VALID NAMES ONLY)\n====================================\n${characterSection.validNames}\n\nCHARACTER DETAILS:\n${characterSection.details}\n\nRules:\n- NEVER invent characters.\n- If you role-play, only use one of the valid names above and keep the same personality.\n`
-    : "";
+  const characterRules = "";
 
   return `YOU ARE A CONVERSATION PARTNER FOR KOREAN LEARNERS.
 

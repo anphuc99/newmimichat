@@ -26,7 +26,11 @@ const createController = (repository: ReturnType<typeof createRepository>, openA
   const historyStore = {
     load: vi
       .fn()
-      .mockResolvedValue([{ role: "system", content: "Instruction" }, { role: "user", content: "previous" }]),
+      .mockResolvedValue([
+        { role: "system", content: "Instruction" },
+        { role: "developer", content: "Character X added" },
+        { role: "user", content: "previous" }
+      ]),
     append: vi.fn().mockResolvedValue(undefined),
     ensureSystemMessage: vi.fn().mockResolvedValue(undefined)
   };
@@ -105,6 +109,7 @@ describe("Chat controller", () => {
     expect(historyStore.load).toHaveBeenCalledWith(1, "s1");
     expect(openAIService.createReply).toHaveBeenCalledWith("Hi", [
       { role: "system", content: "Instruction" },
+      { role: "developer", content: "Character X added" },
       { role: "user", content: "previous" }
     ]);
     expect(historyStore.append).toHaveBeenCalledWith(1, "s1", [
@@ -152,5 +157,33 @@ describe("Chat controller", () => {
 
     expect(historyStore.load).toHaveBeenCalledWith(1, "s1");
     expect(response.json).toHaveBeenCalledWith({ messages: [{ role: "user", content: "previous" }] });
+  });
+
+  it("appends a developer message for character added", async () => {
+    const repository = createRepository();
+    const { controller, historyStore } = createController(repository, {
+      createReply: vi.fn()
+    });
+    const response = createMockResponse();
+
+    await controller.appendDeveloperMessage(
+      {
+        body: {
+          sessionId: "s1",
+          kind: "character_added",
+          character: { name: "Mimi", personality: "Playful", gender: "female", appearance: "Short hair" }
+        },
+        user: { id: 1, username: "mimi" }
+      } as any,
+      response
+    );
+
+    expect(historyStore.append).toHaveBeenCalledWith(1, "s1", [
+      {
+        role: "developer",
+        content: expect.stringContaining("Nhân vật \"Mimi\" đã được thêm")
+      }
+    ]);
+    expect(response.json).toHaveBeenCalledWith({ ok: true });
   });
 });

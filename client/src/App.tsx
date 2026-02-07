@@ -212,7 +212,7 @@ const App = () => {
         </button>
       </nav>
 
-      {view === "chat" ? <ChatView userId={auth.user.id} /> : <CharactersView />}
+      {view === "chat" ? <ChatView userId={auth.user.id} /> : <CharactersView userId={auth.user.id} />}
     </div>
   );
 };

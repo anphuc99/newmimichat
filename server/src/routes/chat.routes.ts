@@ -14,6 +14,7 @@ export const createChatRoutes = (dataSource: DataSource) => {
   const controller = createChatController(dataSource);
 
   router.get("/history", requireAuth, controller.getHistory);
+  router.post("/developer", requireAuth, controller.appendDeveloperMessage);
   router.post("/send", requireAuth, controller.sendMessage);
 
   return router;
