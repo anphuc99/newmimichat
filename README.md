@@ -182,6 +182,9 @@ Chat:
 - `GET /api/chat/history?sessionId=...`
 - `POST /api/chat/developer` (append developer messages; e.g. `character_added` / `character_removed`)
 
+Chat response format:
+- The assistant reply is a JSON array of objects with `CharacterName`, `Text`, `Tone`, `Translation`.
+
 Characters:
 - `GET /api/characters`
 - `POST /api/characters/upload-avatar`

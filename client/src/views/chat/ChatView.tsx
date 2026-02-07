@@ -11,6 +11,9 @@ interface ChatMessage {
   role: ChatRole;
   content: string;
   timestamp: string;
+  characterName?: string;
+  translation?: string;
+  tone?: string;
 }
 
 interface ChatResponse {
@@ -32,12 +35,102 @@ interface Character {
   appearance?: string | null;
 }
 
-const createMessage = (role: ChatRole, content: string): ChatMessage => ({
+interface AssistantTurn {
+  CharacterName?: string;
+  Text?: string;
+  Tone?: string;
+  Translation?: string;
+}
+
+const createMessage = (
+  role: ChatRole,
+  content: string,
+  options: { characterName?: string; translation?: string; tone?: string } = {}
+): ChatMessage => ({
   id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
   role,
   content,
-  timestamp: new Date().toISOString()
+  timestamp: new Date().toISOString(),
+  characterName: options.characterName,
+  translation: options.translation,
+  tone: options.tone
 });
+
+/**
+ * Attempts to parse the assistant JSON reply into an array of turns.
+ */
+const parseAssistantReply = (content: string): AssistantTurn[] => {
+  const trimmed = content.trim();
+
+  if (!trimmed) {
+    return [];
+  }
+
+  const tryParse = (input: string) => {
+    try {
+      const parsed = JSON.parse(input) as unknown;
+      if (Array.isArray(parsed)) {
+        return parsed as AssistantTurn[];
+      }
+      if (parsed && typeof parsed === "object") {
+        return [parsed as AssistantTurn];
+      }
+    } catch {
+      return null;
+    }
+
+    return null;
+  };
+
+  const direct = tryParse(trimmed);
+  if (direct) {
+    return direct;
+  }
+
+  const arrayStart = trimmed.indexOf("[");
+  const arrayEnd = trimmed.lastIndexOf("]");
+  if (arrayStart !== -1 && arrayEnd > arrayStart) {
+    const sliced = tryParse(trimmed.slice(arrayStart, arrayEnd + 1));
+    if (sliced) {
+      return sliced;
+    }
+  }
+
+  const objectStart = trimmed.indexOf("{");
+  const objectEnd = trimmed.lastIndexOf("}");
+  if (objectStart !== -1 && objectEnd > objectStart) {
+    const sliced = tryParse(trimmed.slice(objectStart, objectEnd + 1));
+    if (sliced) {
+      return sliced;
+    }
+  }
+
+  return [];
+};
+
+/**
+ * Normalizes an assistant reply into chat messages for rendering.
+ */
+const toAssistantMessages = (content: string): ChatMessage[] => {
+  const turns = parseAssistantReply(content);
+
+  if (!turns.length) {
+    return [createMessage("assistant", content)];
+  }
+
+  return turns.map((turn) => {
+    const text = typeof turn.Text === "string" ? turn.Text.trim() : "";
+    const characterName = typeof turn.CharacterName === "string" ? turn.CharacterName.trim() : "Mimi";
+    const translation = typeof turn.Translation === "string" ? turn.Translation.trim() : "";
+    const tone = typeof turn.Tone === "string" ? turn.Tone.trim() : "";
+
+    return createMessage("assistant", text || content, {
+      characterName: characterName || "Mimi",
+      translation,
+      tone
+    });
+  });
+};
 
 const getOrCreateSessionId = (storageKey: string) => {
   const existing = window.localStorage.getItem(storageKey);
@@ -90,7 +183,13 @@ const ChatView = ({ userId }: ChatViewProps) => {
         }
 
         if (payload.messages?.length) {
-          setMessages(payload.messages.map((message) => createMessage(message.role, message.content)));
+          const hydrated = payload.messages.flatMap((message) => {
+            if (message.role === "assistant") {
+              return toAssistantMessages(message.content);
+            }
+            return [createMessage("user", message.content)];
+          });
+          setMessages(hydrated);
         }
       } catch {
         // Ignore history load errors.
@@ -224,7 +323,7 @@ const ChatView = ({ userId }: ChatViewProps) => {
 
       const payload = (await response.json()) as ChatResponse;
 
-      setMessages((prev) => [...prev, createMessage("assistant", payload.reply)]);
+      setMessages((prev) => [...prev, ...toAssistantMessages(payload.reply)]);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Unknown error");
     } finally {

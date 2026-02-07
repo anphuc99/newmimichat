@@ -622,6 +622,21 @@ body::after {
   white-space: pre-wrap;
 }
 
+.chat-bubble__name {
+  margin: 0;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  opacity: 0.7;
+}
+
+.chat-bubble__translation {
+  margin: 0;
+  font-size: 0.95rem;
+  opacity: 0.8;
+}
+
 .chat-bubble__meta {
   font-size: 0.75rem;
   opacity: 0.7;

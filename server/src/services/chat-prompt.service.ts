@@ -88,8 +88,8 @@ const normalizeLevel = (value: string | null | undefined) => {
 /**
  * Builds a system instruction string inspired by the legacy `initChat()` prompt.
  *
- * Important: this project currently expects plain-text assistant replies (not JSON arrays).
- * So we keep the same *rules + context structure*, but we do not enforce the old JSON schema.
+ * Important: this project expects JSON array assistant replies (legacy Gemini-style).
+ * So we keep the same *rules + context structure*, but we enforce the JSON schema in the prompt.
  *
  * Any optional field that is missing/empty is skipped ("cái nào chưa có bỏ qua").
  */
@@ -130,10 +130,11 @@ export const buildChatSystemPrompt = (params: ChatPromptParams): string => {
 ====================================
 ABSOLUTE RULES (SYSTEM CRITICAL)
 ====================================
-1. Reply in Korean.
+1. Reply in Korean (Text field only).
 2. Keep replies short and friendly.
 3. Max ${maxWords} Korean words per sentence when possible.
 4. Avoid numerals; write numbers in Korean words.
+5. Translation must be Vietnamese only.
 
 ====================================
 LANGUAGE LEVEL: ${level}
@@ -153,6 +154,27 @@ DIALOGUE RULES
 - Prefer 1-3 short sentences per reply.
 - If the user mixes Vietnamese/Korean, still respond in Korean.
 - If the user asks for translation/explanation, keep it short and at the same level.
+
+====================================
+RESPONSE FORMAT (JSON ARRAY)
+====================================
+- Return a JSON array of 1-10 objects.
+- Each object must include: CharacterName, Text, Tone, Translation.
+- CharacterName: speaker name. Use "Mimi" if no character is specified.
+- Text: Korean only.
+- Tone: short English description for TTS (e.g. "neutral, medium pitch").
+- Translation: Vietnamese translation of Text.
+- Return ONLY valid JSON. No markdown, no extra commentary.
+
+Example:
+[
+  {
+    "CharacterName": "Mimi",
+    "Text": "안녕하세요.",
+    "Tone": "neutral, medium pitch",
+    "Translation": "Xin chao."
+  }
+]
 
 ====================================
 FINAL CHECK

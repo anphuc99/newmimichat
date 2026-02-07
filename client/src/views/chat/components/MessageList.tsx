@@ -8,6 +8,8 @@ interface ChatMessage {
   role: ChatRole;
   content: string;
   timestamp: string;
+  characterName?: string;
+  translation?: string;
 }
 
 interface MessageListProps {
@@ -37,6 +39,8 @@ const MessageList = ({ messages, pendingMessage }: MessageListProps) => {
           role={message.role}
           content={message.content}
           timestamp={message.timestamp}
+          characterName={message.characterName}
+          translation={message.translation}
         />
       ))}
       {pendingMessage ? (
@@ -45,6 +49,8 @@ const MessageList = ({ messages, pendingMessage }: MessageListProps) => {
           role={pendingMessage.role}
           content={pendingMessage.content}
           timestamp={pendingMessage.timestamp}
+          characterName={pendingMessage.characterName}
+          translation={pendingMessage.translation}
         />
       ) : null}
       <div ref={endRef} />
