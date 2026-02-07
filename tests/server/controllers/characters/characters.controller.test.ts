@@ -166,7 +166,9 @@ describe("Characters controller", () => {
         body: {
           image: "data:image/png;base64,aGVsbG8=",
           filename: "avatar.png"
-        }
+        },
+        protocol: "http",
+        get: (header: string) => (header === "host" ? "localhost:4000" : "")
       } as any,
       response
     );
@@ -185,7 +187,9 @@ describe("Characters controller", () => {
       {
         body: {
           image: "not-a-data-url"
-        }
+        },
+        protocol: "http",
+        get: (header: string) => (header === "host" ? "localhost:4000" : "")
       } as any,
       response
     );

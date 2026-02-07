@@ -35,6 +35,9 @@ Whenever you write or modify code:
    - Change only what is required
    - Do not refactor unrelated code
 
+4. **Absolute image URLs only**
+   - All `img` tags must use absolute URLs (no relative paths)
+
 ---
 
 ## 📘 Documentation Requirements

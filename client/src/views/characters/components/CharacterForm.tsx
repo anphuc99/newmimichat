@@ -1,5 +1,6 @@
 type CharacterGender = "male" | "female";
 
+import { toAbsoluteUrl } from "../../../lib/api";
 import { OPENAI_VOICES, type OpenAIVoiceValue } from "../voiceOptions";
 
 interface CharacterFormState {
@@ -46,6 +47,8 @@ const CharacterForm = ({
       [key]: value
     });
   };
+
+  const avatarSrc = formState.avatar ? toAbsoluteUrl(formState.avatar) : "";
 
   return (
     <section className="character-form">
@@ -100,7 +103,7 @@ const CharacterForm = ({
           Avatar
           <div className="character-form__avatar">
             <div className="character-form__avatar-preview">
-              {formState.avatar ? <img src={formState.avatar} alt="Avatar preview" /> : <span>?</span>}
+              {formState.avatar ? <img src={avatarSrc} alt="Avatar preview" /> : <span>?</span>}
             </div>
             <div className="character-form__avatar-actions">
               <input

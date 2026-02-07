@@ -1,6 +1,8 @@
 type CharacterGender = "male" | "female";
 type VoiceModel = "openai";
 
+import { toAbsoluteUrl } from "../../../lib/api";
+
 interface Character {
   id: number;
   name: string;
@@ -25,12 +27,14 @@ interface CharacterCardProps {
  * @returns The character card component.
  */
 const CharacterCard = ({ character, onEdit, onDelete }: CharacterCardProps) => {
+  const avatarSrc = character.avatar ? toAbsoluteUrl(character.avatar) : "";
+
   return (
     <article className="character-card">
       <div className="character-card__header">
         <div className="character-card__avatar">
           {character.avatar ? (
-            <img src={character.avatar} alt={character.name} />
+            <img src={avatarSrc} alt={character.name} />
           ) : (
             <span>{character.name.slice(0, 1).toUpperCase()}</span>
           )}

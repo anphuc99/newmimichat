@@ -96,6 +96,25 @@ const resolveExtension = (mime: string, filename?: string) => {
   return "jpeg";
 };
 
+/**
+ * Builds an absolute URL for a public asset using the request host.
+ *
+ * @param request - Express request with protocol/host context.
+ * @param assetPath - Public path starting with "/".
+ * @returns Absolute URL string for the asset.
+ */
+const buildAbsoluteUrl = (request: Request, assetPath: string) => {
+  const host = request.get("host");
+
+  if (!host) {
+    return assetPath;
+  }
+
+  const normalizedPath = assetPath.startsWith("/") ? assetPath : `/${assetPath}`;
+
+  return `${request.protocol}://${host}${normalizedPath}`;
+};
+
 const isValidGender = (value: unknown): value is CharacterGender => {
   return value === "male" || value === "female";
 };
@@ -306,8 +325,10 @@ export const createCharactersController = (dataSource: DataSource): CharactersCo
 
       await writeFile(avatarPath, parsed.buffer);
 
+      const publicPath = `/public/avatars/${avatarName}`;
+
       response.json({
-        url: `/public/avatars/${avatarName}`
+        url: buildAbsoluteUrl(request, publicPath)
       });
     } catch (error) {
       response.status(500).json({

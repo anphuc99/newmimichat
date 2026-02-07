@@ -19,3 +19,29 @@ export const apiUrl = (apiPath: string) => {
 
   return `${normalizedBase}${normalizedPath}`;
 };
+
+/**
+ * Resolves a relative path into an absolute URL using the API base or window origin.
+ *
+ * @param assetPath - Path or URL for the asset.
+ * @returns Absolute URL string.
+ */
+export const toAbsoluteUrl = (assetPath: string) => {
+  if (!assetPath) {
+    return assetPath;
+  }
+
+  if (/^https?:\/\//i.test(assetPath)) {
+    return assetPath;
+  }
+
+  const baseUrl = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? "";
+  const normalizedBase = baseUrl
+    ? baseUrl.endsWith("/")
+      ? baseUrl.slice(0, -1)
+      : baseUrl
+    : window.location.origin;
+  const normalizedPath = assetPath.startsWith("/") ? assetPath : `/${assetPath}`;
+
+  return `${normalizedBase}${normalizedPath}`;
+};
