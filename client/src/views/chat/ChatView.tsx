@@ -230,6 +230,7 @@ const ChatView = ({ userId }: ChatViewProps) => {
   const pendingAudio = useRef(new Set<string>());
   const playedAudio = useRef(new Set<string>());
   const skipAutoPlayOnce = useRef(false);
+  const lastAutoPlayIndex = useRef(0);
 
   /**
    * Ensures a message has playable audio, generating it when needed.
@@ -327,14 +328,27 @@ const ChatView = ({ userId }: ChatViewProps) => {
   useEffect(() => {
     if (skipAutoPlayOnce.current) {
       skipAutoPlayOnce.current = false;
+      lastAutoPlayIndex.current = messages.length;
       return;
     }
 
-    messages.forEach((message) => {
+    if (messages.length < lastAutoPlayIndex.current) {
+      lastAutoPlayIndex.current = messages.length;
+      return;
+    }
+
+    const startIndex = lastAutoPlayIndex.current;
+    if (messages.length === startIndex) {
+      return;
+    }
+
+    messages.slice(startIndex).forEach((message) => {
       if (message.role === "assistant" && message.content && !message.audioId) {
         void ensureAudioForMessage(message);
       }
     });
+
+    lastAutoPlayIndex.current = messages.length;
   }, [messages]);
 
   useEffect(() => {
