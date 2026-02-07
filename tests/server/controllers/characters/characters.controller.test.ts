@@ -42,6 +42,17 @@ const createController = (repository: ReturnType<typeof createRepository>) => {
 };
 
 describe("Characters controller", () => {
+  it("returns 401 when unauthenticated", async () => {
+    const repository = createRepository();
+    const controller = createController(repository);
+    const response = createMockResponse();
+
+    await controller.listCharacters({} as any, response);
+
+    expect(response.status).toHaveBeenCalledWith(401);
+    expect(response.json).toHaveBeenCalledWith({ message: "Unauthorized" });
+  });
+
   it("lists characters", async () => {
     const repository = createRepository();
     repository.find.mockResolvedValue([
@@ -64,9 +75,12 @@ describe("Characters controller", () => {
     const controller = createController(repository);
     const response = createMockResponse();
 
-    await controller.listCharacters({} as any, response);
+    await controller.listCharacters({ user: { id: 1, username: "mimi" } } as any, response);
 
-    expect(repository.find).toHaveBeenCalledTimes(1);
+    expect(repository.find).toHaveBeenCalledWith({
+      where: { userId: 1 },
+      order: { createdAt: "DESC" }
+    });
     expect(response.json).toHaveBeenCalledTimes(1);
   });
 
@@ -75,10 +89,22 @@ describe("Characters controller", () => {
     const controller = createController(repository);
     const response = createMockResponse();
 
-    await controller.createCharacter({
-      body: { name: "Mimi", personality: "Warm", gender: "female" }
-    } as any, response);
+    await controller.createCharacter(
+      {
+        body: { name: "Mimi", personality: "Warm", gender: "female" },
+        user: { id: 1, username: "mimi" }
+      } as any,
+      response
+    );
 
+    expect(repository.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: "Mimi",
+        personality: "Warm",
+        gender: "female",
+        userId: 1
+      })
+    );
     expect(repository.create).toHaveBeenCalledTimes(1);
     expect(repository.save).toHaveBeenCalledTimes(1);
     expect(response.status).toHaveBeenCalledWith(201);
@@ -90,7 +116,10 @@ describe("Characters controller", () => {
     const controller = createController(repository);
     const response = createMockResponse();
 
-    await controller.createCharacter({ body: { name: "" } } as any, response);
+    await controller.createCharacter(
+      { body: { name: "" }, user: { id: 1, username: "mimi" } } as any,
+      response
+    );
 
     expect(response.status).toHaveBeenCalledWith(400);
     expect(response.json).toHaveBeenCalledWith({
@@ -118,11 +147,18 @@ describe("Characters controller", () => {
     const controller = createController(repository);
     const response = createMockResponse();
 
-    await controller.updateCharacter({
-      params: { id: "1" },
-      body: { name: "Mimi", personality: "Friendly", gender: "female" }
-    } as any, response);
+    await controller.updateCharacter(
+      {
+        params: { id: "1" },
+        body: { name: "Mimi", personality: "Friendly", gender: "female" },
+        user: { id: 1, username: "mimi" }
+      } as any,
+      response
+    );
 
+    expect(repository.findOne).toHaveBeenCalledWith({
+      where: { id: 1, userId: 1 }
+    });
     expect(repository.findOne).toHaveBeenCalledTimes(1);
     expect(repository.save).toHaveBeenCalledTimes(1);
     expect(response.json).toHaveBeenCalledTimes(1);
@@ -134,11 +170,18 @@ describe("Characters controller", () => {
     const controller = createController(repository);
     const response = createMockResponse();
 
-    await controller.updateCharacter({
-      params: { id: "999" },
-      body: { name: "Mimi", personality: "Friendly", gender: "female" }
-    } as any, response);
+    await controller.updateCharacter(
+      {
+        params: { id: "999" },
+        body: { name: "Mimi", personality: "Friendly", gender: "female" },
+        user: { id: 1, username: "mimi" }
+      } as any,
+      response
+    );
 
+    expect(repository.findOne).toHaveBeenCalledWith({
+      where: { id: 999, userId: 1 }
+    });
     expect(response.status).toHaveBeenCalledWith(404);
     expect(response.json).toHaveBeenCalledWith({ message: "Character not found" });
   });
@@ -149,8 +192,14 @@ describe("Characters controller", () => {
     const controller = createController(repository);
     const response = createMockResponse();
 
-    await controller.deleteCharacter({ params: { id: "1" } } as any, response);
+    await controller.deleteCharacter(
+      { params: { id: "1" }, user: { id: 1, username: "mimi" } } as any,
+      response
+    );
 
+    expect(repository.findOne).toHaveBeenCalledWith({
+      where: { id: 1, userId: 1 }
+    });
     expect(repository.remove).toHaveBeenCalledTimes(1);
     expect(response.status).toHaveBeenCalledWith(204);
     expect(response.send).toHaveBeenCalledTimes(1);
@@ -168,7 +217,8 @@ describe("Characters controller", () => {
           filename: "avatar.png"
         },
         protocol: "http",
-        get: (header: string) => (header === "host" ? "localhost:4000" : "")
+        get: (header: string) => (header === "host" ? "localhost:4000" : ""),
+        user: { id: 1, username: "mimi" }
       } as any,
       response
     );
@@ -189,7 +239,8 @@ describe("Characters controller", () => {
           image: "not-a-data-url"
         },
         protocol: "http",
-        get: (header: string) => (header === "host" ? "localhost:4000" : "")
+        get: (header: string) => (header === "host" ? "localhost:4000" : ""),
+        user: { id: 1, username: "mimi" }
       } as any,
       response
     );

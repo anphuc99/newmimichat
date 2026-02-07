@@ -14,6 +14,24 @@ const createMockResponse = () => {
 };
 
 describe("Home controller", () => {
+  it("returns 401 when unauthenticated", async () => {
+    const repository = {
+      findOne: vi.fn()
+    };
+
+    const dataSource = {
+      getRepository: vi.fn(() => repository)
+    } as any;
+
+    const controller = createHomeController(dataSource);
+    const response = createMockResponse();
+
+    await controller.getMessage({} as any, response);
+
+    expect(response.status).toHaveBeenCalledWith(401);
+    expect(response.json).toHaveBeenCalledWith({ message: "Unauthorized" });
+  });
+
   it("returns a fallback message when no message exists", async () => {
     const repository = {
       findOne: vi.fn().mockResolvedValue(null)
@@ -26,10 +44,14 @@ describe("Home controller", () => {
     const controller = createHomeController(dataSource);
     const response = createMockResponse();
 
-    await controller.getMessage({} as any, response);
+    await controller.getMessage({ user: { id: 1, username: "mimi" } } as any, response);
 
     expect(dataSource.getRepository).toHaveBeenCalledTimes(1);
     expect(repository.findOne).toHaveBeenCalledTimes(1);
+    expect(repository.findOne).toHaveBeenCalledWith({
+      where: { userId: 1 },
+      order: { createdAt: "DESC" }
+    });
     expect(response.status).not.toHaveBeenCalled();
     expect(response.json).toHaveBeenCalledTimes(1);
 
@@ -56,12 +78,16 @@ describe("Home controller", () => {
     const controller = createHomeController(dataSource);
     const response = createMockResponse();
 
-    await controller.getMessage({} as any, response);
+    await controller.getMessage({ user: { id: 1, username: "mimi" } } as any, response);
 
     expect(response.status).not.toHaveBeenCalled();
     expect(response.json).toHaveBeenCalledWith({
       message: "Hi",
       timestamp: createdAt.toISOString()
+    });
+    expect(repository.findOne).toHaveBeenCalledWith({
+      where: { userId: 1 },
+      order: { createdAt: "DESC" }
     });
   });
 
@@ -77,7 +103,7 @@ describe("Home controller", () => {
     const controller = createHomeController(dataSource);
     const response = createMockResponse();
 
-    await controller.getMessage({} as any, response);
+    await controller.getMessage({ user: { id: 1, username: "mimi" } } as any, response);
 
     expect(response.status).toHaveBeenCalledWith(500);
     expect(response.json).toHaveBeenCalledTimes(1);
@@ -85,5 +111,9 @@ describe("Home controller", () => {
     const payload = response.json.mock.calls[0][0] as any;
     expect(payload.message).toBe("Failed to load message");
     expect(payload.error).toBe("db down");
+    expect(repository.findOne).toHaveBeenCalledWith({
+      where: { userId: 1 },
+      order: { createdAt: "DESC" }
+    });
   });
 });

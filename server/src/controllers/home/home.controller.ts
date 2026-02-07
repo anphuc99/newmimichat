@@ -16,8 +16,16 @@ export const createHomeController = (dataSource: DataSource): HomeController => 
   const repository = dataSource.getRepository(MessageEntity);
 
   const getMessage: HomeController["getMessage"] = async (_request, response) => {
+    if (!_request.user) {
+      response.status(401).json({ message: "Unauthorized" });
+      return;
+    }
+
     try {
       const latestMessage = await repository.findOne({
+        where: {
+          userId: _request.user.id
+        },
         order: {
           createdAt: "DESC"
         }

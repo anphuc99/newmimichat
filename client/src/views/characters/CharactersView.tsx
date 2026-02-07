@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import CharacterCard from "./components/CharacterCard";
 import CharacterForm from "./components/CharacterForm";
 import { apiUrl } from "../../lib/api";
+import { authFetch } from "../../lib/auth";
 import { OPENAI_VOICES } from "./voiceOptions";
 
 type CharacterGender = "male" | "female";
@@ -90,7 +91,7 @@ const CharactersView = () => {
 
     const loadCharacters = async () => {
       try {
-        const response = await fetch(apiUrl("/api/characters"));
+        const response = await authFetch(apiUrl("/api/characters"));
 
         if (!response.ok) {
           throw new Error("Failed to load characters");
@@ -150,7 +151,7 @@ const CharactersView = () => {
         reader.readAsDataURL(file);
       });
 
-      const response = await fetch(apiUrl("/api/characters/upload-avatar"), {
+      const response = await authFetch(apiUrl("/api/characters/upload-avatar"), {
         method: "POST",
         headers: {
           "Content-Type": "application/json"
@@ -182,7 +183,7 @@ const CharactersView = () => {
     }
 
     try {
-      const response = await fetch(apiUrl(`/api/characters/${character.id}`), {
+      const response = await authFetch(apiUrl(`/api/characters/${character.id}`), {
         method: "DELETE"
       });
 
@@ -210,7 +211,7 @@ const CharactersView = () => {
 
     try {
       const payload = buildPayload(formState);
-      const response = await fetch(
+      const response = await authFetch(
         apiUrl(editingId ? `/api/characters/${editingId}` : "/api/characters"),
         {
           method: editingId ? "PUT" : "POST",

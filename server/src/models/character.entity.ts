@@ -1,4 +1,13 @@
-import { Column, CreateDateColumn, Entity, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
+import {
+  Column,
+  CreateDateColumn,
+  Entity,
+  JoinColumn,
+  ManyToOne,
+  PrimaryGeneratedColumn,
+  UpdateDateColumn
+} from "typeorm";
+import UserEntity from "./user.entity.js";
 
 /**
  * Persists character profiles for the Characters view group.
@@ -34,6 +43,13 @@ class CharacterEntity {
 
   @Column({ type: "float", nullable: true })
   speakingRate?: number | null;
+
+  @Column({ name: "user_id", type: "int" })
+  userId!: number;
+
+  @ManyToOne(() => UserEntity, { nullable: false, onDelete: "CASCADE" })
+  @JoinColumn({ name: "user_id" })
+  user!: UserEntity;
 
   @CreateDateColumn({ name: "created_at", type: "timestamp" })
   createdAt!: Date;

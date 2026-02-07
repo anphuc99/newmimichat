@@ -17,6 +17,9 @@ OPENAI_MODEL=gpt-4o-mini
 # Optional override for the system prompt file
 # OPENAI_SYSTEM_PROMPT_PATH=src/prompts/chat.system.txt
 
+# Auth
+JWT_SECRET=change-me
+
 # TypeORM / ORM options (optional)
 # TYPEORM_SYNCHRONIZE=false
 # TYPEORM_LOGGING=false

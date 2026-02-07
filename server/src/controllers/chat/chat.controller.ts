@@ -1,6 +1,7 @@
 import type { Request, Response } from "express";
 import type { DataSource } from "typeorm";
 import { createOpenAIChatService, type OpenAIChatService } from "../../services/openai.service.js";
+import MessageEntity from "../../models/message.entity.js";
 
 interface ChatController {
   sendMessage: (request: Request, response: Response) => Promise<void>;
@@ -21,13 +22,20 @@ export const createChatController = (
   _dataSource: DataSource,
   deps: ChatControllerDeps = {}
 ): ChatController => {
+  const dataSource = _dataSource;
+  const repository = dataSource.getRepository(MessageEntity);
   const apiKey = process.env.OPENAI_API_KEY ?? "";
-  const model = process.env.OPENAI_MODEL ?? "gpt-4o-mini";
+  const model = process.env.OPENAI_MODEL ?? "gpt-4.1-mini";
   const systemPromptPath = process.env.OPENAI_SYSTEM_PROMPT_PATH;
   const openAIService =
     deps.openAIService ?? (apiKey ? createOpenAIChatService({ apiKey, model, systemPromptPath }) : null);
 
   const sendMessage: ChatController["sendMessage"] = async (request, response) => {
+    if (!request.user) {
+      response.status(401).json({ message: "Unauthorized" });
+      return;
+    }
+
     const message = typeof request.body?.message === "string" ? request.body.message.trim() : "";
 
     if (!message) {
@@ -46,6 +54,19 @@ export const createChatController = (
 
     try {
       const result = await openAIService.createReply(message);
+
+      const userMessage = repository.create({
+        content: message,
+        role: "user",
+        userId: request.user.id
+      });
+      const assistantMessage = repository.create({
+        content: result.reply,
+        role: "assistant",
+        userId: request.user.id
+      });
+
+      await repository.save([userMessage, assistantMessage]);
 
       response.json({
         reply: result.reply,

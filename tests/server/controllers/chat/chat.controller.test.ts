@@ -13,30 +13,59 @@ const createMockResponse = () => {
   return response;
 };
 
+const createRepository = () => ({
+  create: vi.fn((payload) => payload),
+  save: vi.fn()
+});
+
+const createController = (repository: ReturnType<typeof createRepository>, openAIService?: any) => {
+  const dataSource = {
+    getRepository: vi.fn(() => repository)
+  } as any;
+
+  return createChatController(dataSource, openAIService ? { openAIService } : undefined);
+};
+
 describe("Chat controller", () => {
   it("returns 400 when the message is missing", async () => {
-    const controller = createChatController({} as any, {
-      openAIService: {
-        createReply: vi.fn()
-      }
+    const repository = createRepository();
+    const controller = createController(repository, {
+      createReply: vi.fn()
+    });
+    const response = createMockResponse();
+
+    await controller.sendMessage({ body: {}, user: { id: 1, username: "mimi" } } as any, response);
+
+    expect(response.status).toHaveBeenCalledWith(400);
+    expect(response.json).toHaveBeenCalledWith({ message: "Message is required" });
+  });
+
+  it("returns 401 when unauthenticated", async () => {
+    const repository = createRepository();
+    const controller = createController(repository, {
+      createReply: vi.fn()
     });
 
     const response = createMockResponse();
 
     await controller.sendMessage({ body: {} } as any, response);
 
-    expect(response.status).toHaveBeenCalledWith(400);
-    expect(response.json).toHaveBeenCalledWith({ message: "Message is required" });
+    expect(response.status).toHaveBeenCalledWith(401);
+    expect(response.json).toHaveBeenCalledWith({ message: "Unauthorized" });
   });
 
   it("returns 500 when OpenAI is not configured", async () => {
     const originalKey = process.env.OPENAI_API_KEY;
     process.env.OPENAI_API_KEY = "";
 
-    const controller = createChatController({} as any);
+    const repository = createRepository();
+    const controller = createController(repository);
     const response = createMockResponse();
 
-    await controller.sendMessage({ body: { message: "Hi" } } as any, response);
+    await controller.sendMessage(
+      { body: { message: "Hi" }, user: { id: 1, username: "mimi" } } as any,
+      response
+    );
 
     expect(response.status).toHaveBeenCalledWith(500);
     expect(response.json).toHaveBeenCalledWith({ message: "OpenAI API key is not configured" });
@@ -49,12 +78,17 @@ describe("Chat controller", () => {
       createReply: vi.fn().mockResolvedValue({ reply: "Hello there", model: "test-model" })
     };
 
-    const controller = createChatController({} as any, { openAIService });
+    const repository = createRepository();
+    const controller = createController(repository, openAIService);
     const response = createMockResponse();
 
-    await controller.sendMessage({ body: { message: "Hi" } } as any, response);
+    await controller.sendMessage(
+      { body: { message: "Hi" }, user: { id: 1, username: "mimi" } } as any,
+      response
+    );
 
     expect(openAIService.createReply).toHaveBeenCalledWith("Hi");
+    expect(repository.save).toHaveBeenCalledTimes(1);
     expect(response.status).not.toHaveBeenCalled();
     expect(response.json).toHaveBeenCalledWith({ reply: "Hello there", model: "test-model" });
   });
@@ -64,10 +98,14 @@ describe("Chat controller", () => {
       createReply: vi.fn().mockRejectedValue(new Error("rate limited"))
     };
 
-    const controller = createChatController({} as any, { openAIService });
+    const repository = createRepository();
+    const controller = createController(repository, openAIService);
     const response = createMockResponse();
 
-    await controller.sendMessage({ body: { message: "Hi" } } as any, response);
+    await controller.sendMessage(
+      { body: { message: "Hi" }, user: { id: 1, username: "mimi" } } as any,
+      response
+    );
 
     expect(response.status).toHaveBeenCalledWith(500);
     const payload = response.json.mock.calls[0][0] as any;

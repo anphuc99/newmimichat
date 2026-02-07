@@ -108,6 +108,99 @@ body::after {
   box-shadow: 0 10px 20px rgba(15, 118, 110, 0.3);
 }
 
+.app-nav__spacer {
+  flex: 1;
+}
+
+.app-nav__user {
+  align-self: center;
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+
+.auth-shell {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 32px 20px;
+}
+
+.auth-card {
+  width: min(420px, 100%);
+  background: var(--surface);
+  border-radius: 24px;
+  padding: 28px;
+  box-shadow: 0 24px 50px var(--shadow);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.auth-kicker {
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  margin: 0;
+  color: var(--accent-strong);
+}
+
+.auth-card h1 {
+  margin: 0;
+  font-size: clamp(1.8rem, 3vw, 2.4rem);
+}
+
+.auth-subtitle {
+  margin: 0;
+  color: var(--ink-soft);
+}
+
+.auth-error {
+  color: #b91c1c;
+  font-weight: 600;
+  margin: 0;
+}
+
+.auth-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.9rem;
+  color: var(--ink-soft);
+}
+
+.auth-field input {
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  border-radius: 14px;
+  padding: 12px;
+  font-size: 1rem;
+  font-family: inherit;
+}
+
+.auth-submit {
+  border: none;
+  border-radius: 999px;
+  padding: 12px 18px;
+  font-weight: 600;
+  background: var(--accent-strong);
+  color: #ffffff;
+  cursor: pointer;
+  box-shadow: 0 12px 24px rgba(15, 118, 110, 0.3);
+}
+
+.auth-submit:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.auth-toggle {
+  border: none;
+  background: transparent;
+  color: var(--accent-strong);
+  cursor: pointer;
+  font-weight: 600;
+}
+
 .chat-shell {
   max-width: 920px;
   margin: 0 auto;

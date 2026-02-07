@@ -16,3 +16,6 @@ OPENAI_API_KEY=
 OPENAI_MODEL=gpt-4o-mini
 # Optional override for the system prompt file
 # OPENAI_SYSTEM_PROMPT_PATH=server/src/prompts/chat.system.txt
+
+# Auth
+JWT_SECRET=change-me

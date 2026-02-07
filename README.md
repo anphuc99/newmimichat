@@ -91,6 +91,12 @@ Create/update tables in local dev using TypeORM sync (do not use in production):
 npm run db:sync
 ```
 
+Reset and recreate all tables (destructive, local only):
+
+```bash
+npm run db:reset
+```
+
 ## OpenAI
 
 Set the following environment variables before starting the server:
@@ -98,6 +104,12 @@ Set the following environment variables before starting the server:
 - OPENAI_API_KEY
 - OPENAI_MODEL (default: gpt-4o-mini)
 - OPENAI_SYSTEM_PROMPT_PATH (optional)
+
+## Auth
+
+Set the following environment variable before starting the server:
+
+- JWT_SECRET
 
 ## API
 
@@ -109,3 +121,6 @@ Set the following environment variables before starting the server:
 - POST /api/characters
 - PUT /api/characters/:id
 - DELETE /api/characters/:id
+- POST /api/users/register
+- POST /api/users/login
+- GET /api/users/me

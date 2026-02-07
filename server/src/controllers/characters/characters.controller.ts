@@ -149,8 +149,16 @@ export const createCharactersController = (dataSource: DataSource): CharactersCo
   const repository = dataSource.getRepository(CharacterEntity);
 
   const listCharacters: CharactersController["listCharacters"] = async (_request, response) => {
+    if (!_request.user) {
+      response.status(401).json({ message: "Unauthorized" });
+      return;
+    }
+
     try {
       const characters = await repository.find({
+        where: {
+          userId: _request.user.id
+        },
         order: {
           createdAt: "DESC"
         }
@@ -166,6 +174,11 @@ export const createCharactersController = (dataSource: DataSource): CharactersCo
   };
 
   const createCharacter: CharactersController["createCharacter"] = async (request, response) => {
+    if (!request.user) {
+      response.status(401).json({ message: "Unauthorized" });
+      return;
+    }
+
     const payload = request.body as CharacterPayload;
     const name = typeof payload?.name === "string" ? payload.name.trim() : "";
     const personality = typeof payload?.personality === "string" ? payload.personality.trim() : "";
@@ -190,7 +203,8 @@ export const createCharactersController = (dataSource: DataSource): CharactersCo
         voiceModel,
         voiceName,
         pitch: payload?.pitch ?? null,
-        speakingRate: payload?.speakingRate ?? null
+        speakingRate: payload?.speakingRate ?? null,
+        userId: request.user.id
       });
 
       const saved = await repository.save(character);
@@ -206,6 +220,11 @@ export const createCharactersController = (dataSource: DataSource): CharactersCo
   };
 
   const updateCharacter: CharactersController["updateCharacter"] = async (request, response) => {
+    if (!request.user) {
+      response.status(401).json({ message: "Unauthorized" });
+      return;
+    }
+
     const id = parseId(request.params.id);
 
     if (!id) {
@@ -230,7 +249,12 @@ export const createCharactersController = (dataSource: DataSource): CharactersCo
     }
 
     try {
-      const character = await repository.findOne({ where: { id } });
+      const character = await repository.findOne({
+        where: {
+          id,
+          userId: request.user.id
+        }
+      });
 
       if (!character) {
         response.status(404).json({
@@ -261,6 +285,11 @@ export const createCharactersController = (dataSource: DataSource): CharactersCo
   };
 
   const deleteCharacter: CharactersController["deleteCharacter"] = async (request, response) => {
+    if (!request.user) {
+      response.status(401).json({ message: "Unauthorized" });
+      return;
+    }
+
     const id = parseId(request.params.id);
 
     if (!id) {
@@ -271,7 +300,12 @@ export const createCharactersController = (dataSource: DataSource): CharactersCo
     }
 
     try {
-      const character = await repository.findOne({ where: { id } });
+      const character = await repository.findOne({
+        where: {
+          id,
+          userId: request.user.id
+        }
+      });
 
       if (!character) {
         response.status(404).json({
@@ -291,6 +325,11 @@ export const createCharactersController = (dataSource: DataSource): CharactersCo
   };
 
   const uploadAvatar: CharactersController["uploadAvatar"] = async (request, response) => {
+    if (!request.user) {
+      response.status(401).json({ message: "Unauthorized" });
+      return;
+    }
+
     const payload = request.body as AvatarUploadPayload;
     const image = typeof payload?.image === "string" ? payload.image.trim() : "";
     const filename = typeof payload?.filename === "string" ? payload.filename : undefined;

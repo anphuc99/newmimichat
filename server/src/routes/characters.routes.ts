@@ -1,6 +1,7 @@
 import { Router } from "express";
 import type { DataSource } from "typeorm";
 import { createCharactersController } from "../controllers/characters/characters.controller.js";
+import { requireAuth } from "../middleware/auth.middleware.js";
 
 /**
  * Registers routes for the Characters view group.
@@ -11,6 +12,8 @@ import { createCharactersController } from "../controllers/characters/characters
 export const createCharactersRoutes = (dataSource: DataSource) => {
   const router = Router();
   const controller = createCharactersController(dataSource);
+
+  router.use(requireAuth);
 
   router.post("/upload-avatar", controller.uploadAvatar);
   router.get("/", controller.listCharacters);

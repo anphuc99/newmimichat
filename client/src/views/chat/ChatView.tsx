@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import MessageInput from "./components/MessageInput";
 import MessageList from "./components/MessageList";
 import { apiUrl } from "../../lib/api";
+import { authFetch } from "../../lib/auth";
 
 type ChatRole = "user" | "assistant";
 
@@ -59,7 +60,7 @@ const ChatView = () => {
     setError(null);
 
     try {
-      const response = await fetch(apiUrl("/api/chat/send"), {
+      const response = await authFetch(apiUrl("/api/chat/send"), {
         method: "POST",
         headers: {
           "Content-Type": "application/json"
