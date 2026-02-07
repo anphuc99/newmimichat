@@ -50,6 +50,9 @@ interface Character {
   personality: string;
   gender: CharacterGender;
   appearance?: string | null;
+  voiceName?: string | null;
+  pitch?: number | null;
+  speakingRate?: number | null;
 }
 
 interface AssistantTurn {
@@ -155,17 +158,8 @@ const toAssistantMessages = (content: string): ChatMessage[] => {
 };
 
 const DEFAULT_TTS_TONE = "neutral, medium pitch";
-
-const playAudio = (audioId: string) => {
-  if (!audioId) {
-    return;
-  }
-
-  const audio = new Audio(apiUrl(`/audio/${audioId}.mp3`));
-  void audio.play().catch(() => {
-    // Ignore playback errors.
-  });
-};
+const DEFAULT_SPEAKING_RATE = 1.0;
+const DEFAULT_PITCH = 0;
 
 /**
  * Requests a TTS audio id for the given text and tone.
@@ -231,6 +225,78 @@ const ChatView = ({ userId }: ChatViewProps) => {
   const playedAudio = useRef(new Set<string>());
   const skipAutoPlayOnce = useRef(false);
   const lastAutoPlayIndex = useRef(0);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const audioCacheRef = useRef<Map<string, AudioBuffer>>(new Map());
+
+  /**
+   * Resolves playback settings for a character by name.
+   *
+   * @param characterName - Assistant character name.
+   * @returns Playback rate and pitch offsets.
+   */
+  const getCharacterAudioSettings = (characterName?: string) => {
+    if (!characterName) {
+      return {
+        speakingRate: DEFAULT_SPEAKING_RATE,
+        pitch: DEFAULT_PITCH
+      };
+    }
+
+    const character = characters.find((item) => item.name === characterName);
+    return {
+      speakingRate: character?.speakingRate ?? DEFAULT_SPEAKING_RATE,
+      pitch: character?.pitch ?? DEFAULT_PITCH
+    };
+  };
+
+  /**
+   * Plays a cached audio file using per-character playback settings.
+   *
+   * @param audioId - Hash id for the audio file.
+   * @param speakingRate - Playback rate multiplier.
+   * @param pitch - Pitch shift offset (0 = default).
+   */
+  const playAudio = async (audioId: string, speakingRate = DEFAULT_SPEAKING_RATE, pitch = DEFAULT_PITCH) => {
+    if (!audioId) {
+      return;
+    }
+
+    try {
+      if (!audioContextRef.current) {
+        audioContextRef.current = new AudioContext();
+      }
+
+      const context = audioContextRef.current;
+      if (context.state === "suspended") {
+        await context.resume();
+      }
+
+      let audioBuffer = audioCacheRef.current.get(audioId);
+
+      if (!audioBuffer) {
+        const response = await fetch(apiUrl(`/audio/${audioId}.mp3`));
+        if (!response.ok) {
+          return;
+        }
+
+        const arrayBuffer = await response.arrayBuffer();
+        audioBuffer = await context.decodeAudioData(arrayBuffer);
+        audioCacheRef.current.set(audioId, audioBuffer);
+      }
+
+      const source = context.createBufferSource();
+      source.buffer = audioBuffer;
+      source.playbackRate.value = speakingRate || DEFAULT_SPEAKING_RATE;
+      if (source.detune) {
+        source.detune.value = (pitch || DEFAULT_PITCH) * 50;
+      }
+
+      source.connect(context.destination);
+      source.start();
+    } catch {
+      // Ignore playback errors.
+    }
+  };
 
   /**
    * Ensures a message has playable audio, generating it when needed.
@@ -257,7 +323,8 @@ const ChatView = ({ userId }: ChatViewProps) => {
     if (!force && message.audioId) {
       if (allowReplay || !playedAudio.current.has(message.id)) {
         playedAudio.current.add(message.id);
-        playAudio(message.audioId);
+        const settings = getCharacterAudioSettings(message.characterName);
+        void playAudio(message.audioId, settings.speakingRate, settings.pitch);
       }
       return;
     }
@@ -279,7 +346,8 @@ const ChatView = ({ userId }: ChatViewProps) => {
 
       if (allowReplay || !playedAudio.current.has(message.id)) {
         playedAudio.current.add(message.id);
-        playAudio(audioId);
+        const settings = getCharacterAudioSettings(message.characterName);
+        void playAudio(audioId, settings.speakingRate, settings.pitch);
       }
     } finally {
       pendingAudio.current.delete(message.id);
