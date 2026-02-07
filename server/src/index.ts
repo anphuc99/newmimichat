@@ -1,7 +1,7 @@
 import cors from "cors";
 import express from "express";
-import { AppDataSource } from "./data-source";
-import { createApiRouter } from "./routes";
+import { AppDataSource } from "./data-source.js";
+import { createApiRouter } from "./routes/index.js";
 
 const DEFAULT_PORT = 4000;
 

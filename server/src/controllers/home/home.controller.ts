@@ -1,6 +1,6 @@
 import type { Request, Response } from "express";
 import type { DataSource } from "typeorm";
-import MessageEntity from "../../models/message.entity";
+import MessageEntity from "../../models/message.entity.js";
 
 interface HomeController {
   getMessage: (request: Request, response: Response) => Promise<void>;

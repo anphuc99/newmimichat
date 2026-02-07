@@ -1,4 +1,4 @@
-import HomeView from "./views/home";
+import HomeView from "./views/home/HomeView";
 
 /**
  * Renders the main application view shell.

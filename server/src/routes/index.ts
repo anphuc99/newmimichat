@@ -1,7 +1,7 @@
 import { Router } from "express";
 import type { DataSource } from "typeorm";
-import { createHomeRoutes } from "./home.routes";
-import { createSharedRoutes } from "./shared.routes";
+import { createHomeRoutes } from "./home.routes.js";
+import { createSharedRoutes } from "./shared.routes.js";
 // mvc-gen:imports
 
 /**

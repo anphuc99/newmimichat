@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { createHealthController } from "../controllers/shared/health.controller";
+import { createHealthController } from "../controllers/shared/health.controller.js";
 
 /**
  * Registers shared API routes not tied to a view group.

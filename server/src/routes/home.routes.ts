@@ -1,6 +1,6 @@
 import { Router } from "express";
 import type { DataSource } from "typeorm";
-import { createHomeController } from "../controllers/home/home.controller";
+import { createHomeController } from "../controllers/home/home.controller.js";
 
 /**
  * Registers routes for the Home view group.
