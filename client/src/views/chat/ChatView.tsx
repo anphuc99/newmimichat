@@ -348,26 +348,23 @@ const ChatView = ({ userId }: ChatViewProps) => {
       const characterName = typeof turn.CharacterName === "string" ? turn.CharacterName.trim() : "Mimi";
       const translation = typeof turn.Translation === "string" ? turn.Translation.trim() : "";
       const tone = typeof turn.Tone === "string" ? turn.Tone.trim() : DEFAULT_TTS_TONE;
-      const nextMessage = createMessage("assistant", content || reply, {
-        assistantId: assistantId || undefined,
-        characterName: characterName || "Mimi",
-        translation,
-        tone,
-        suppressAutoPlay: true
-      });
-
-      setMessages((prev) => [...prev, nextMessage]);
-
       const voiceName = getCharacterVoiceName(characterName);
       const audioId = content
         ? await requestTts(content, tone || DEFAULT_TTS_TONE, voiceName || undefined)
         : null;
 
-      if (audioId) {
-        setMessages((prev) =>
-          prev.map((item) => (item.id === nextMessage.id ? { ...item, audioId } : item))
-        );
+      const nextMessage = createMessage("assistant", content || reply, {
+        assistantId: assistantId || undefined,
+        characterName: characterName || "Mimi",
+        translation,
+        tone,
+        audioId: audioId || undefined,
+        suppressAutoPlay: true
+      });
 
+      setMessages((prev) => [...prev, nextMessage]);
+
+      if (audioId) {
         const settings = getCharacterAudioSettings(characterName || "Mimi");
         playedAudio.current.add(nextMessage.id);
         await playAudio(audioId, settings.speakingRate, settings.pitch);
