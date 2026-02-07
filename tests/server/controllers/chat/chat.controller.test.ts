@@ -33,7 +33,8 @@ const createController = (repository: ReturnType<typeof createRepository>, openA
 
   const controller = createChatController(dataSource, {
     ...(openAIService ? { openAIService } : {}),
-    historyStore
+    historyStore,
+    systemPromptBuilder: () => "Instruction"
   });
 
   return { controller, historyStore };

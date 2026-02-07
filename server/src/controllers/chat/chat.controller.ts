@@ -1,14 +1,11 @@
 import type { Request, Response } from "express";
-import fs from "fs/promises";
-import path from "path";
-import { fileURLToPath } from "url";
 import type { DataSource } from "typeorm";
 import { createOpenAIChatService, type OpenAIChatService } from "../../services/openai.service.js";
+import { buildChatSystemPrompt } from "../../services/chat-prompt.service.js";
+import CharacterEntity from "../../models/character.entity.js";
 import MessageEntity from "../../models/message.entity.js";
+import UserEntity from "../../models/user.entity.js";
 import { createChatHistoryStore, type ChatHistoryStore } from "../../services/chat-history.service.js";
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const DEFAULT_SYSTEM_PROMPT_PATH = path.join(__dirname, "..", "..", "prompts", "chat.system.txt");
 
 interface ChatController {
   sendMessage: (request: Request, response: Response) => Promise<void>;
@@ -18,6 +15,11 @@ interface ChatController {
 interface ChatControllerDeps {
   openAIService?: OpenAIChatService;
   historyStore?: ChatHistoryStore;
+  /**
+   * Optional override for building the system instruction text.
+   * Primarily used by unit tests to avoid database lookups.
+   */
+  systemPromptBuilder?: (params: { userId: number; body: unknown }) => Promise<string> | string;
 }
 
 /**
@@ -33,30 +35,59 @@ export const createChatController = (
 ): ChatController => {
   const dataSource = _dataSource;
   const repository = dataSource.getRepository(MessageEntity);
+  const userRepository = dataSource.getRepository(UserEntity);
+  const characterRepository = dataSource.getRepository(CharacterEntity);
   const apiKey = process.env.OPENAI_API_KEY ?? "";
   const model = process.env.OPENAI_MODEL ?? "gpt-4.1-mini";
   const systemPromptPath = process.env.OPENAI_SYSTEM_PROMPT_PATH;
   const openAIService =
     deps.openAIService ?? (apiKey ? createOpenAIChatService({ apiKey, model, systemPromptPath }) : null);
   const historyStore = deps.historyStore ?? createChatHistoryStore();
-  let cachedSystemPrompt: string | null = null;
 
   const getSessionId = (value: unknown) => (typeof value === "string" ? value.trim() : "");
 
+  const getOptionalString = (value: unknown) => (typeof value === "string" ? value.trim() : "");
+
   /**
-   * Loads the system instruction text used for the chat history.
+   * Builds a dynamic system instruction string for the current user/session.
    *
-   * @returns The system prompt contents.
+   * This mirrors the older MimiChat initChat prompt style (level rules, characters, optional
+   * story/context blocks), while skipping any missing fields.
    */
-  const loadSystemPrompt = async () => {
-    if (cachedSystemPrompt) {
-      return cachedSystemPrompt;
+  const buildSystemPrompt = async (userId: number, body: unknown) => {
+    if (deps.systemPromptBuilder) {
+      const prompt = await deps.systemPromptBuilder({ userId, body });
+      return (prompt ?? "").trim();
     }
 
-    const promptPath = systemPromptPath ?? DEFAULT_SYSTEM_PROMPT_PATH;
-    const contents = await fs.readFile(promptPath, "utf8");
-    cachedSystemPrompt = contents.trim();
-    return cachedSystemPrompt;
+    const payload = (body ?? {}) as Record<string, unknown>;
+
+    const user = await userRepository.findOne({
+      where: { id: userId },
+      relations: { level: true }
+    });
+
+    const characters = await characterRepository.find({
+      where: { userId },
+      order: { id: "ASC" }
+    });
+
+    return buildChatSystemPrompt({
+      level: user?.level?.level ?? null,
+      levelDescription: user?.level?.descript ?? null,
+      characters: characters.map((character) => ({
+        name: character.name,
+        gender: character.gender,
+        personality: character.personality,
+        appearance: character.appearance ?? null
+      })),
+      context: getOptionalString(payload.context) || null,
+      storyPlot: getOptionalString(payload.storyPlot) || null,
+      relationshipSummary: getOptionalString(payload.relationshipSummary) || null,
+      contextSummary: getOptionalString(payload.contextSummary) || null,
+      relatedStoryMessages: getOptionalString(payload.relatedStoryMessages) || null,
+      checkPronunciation: Boolean(payload.checkPronunciation)
+    });
   };
 
   const sendMessage: ChatController["sendMessage"] = async (request, response) => {
@@ -83,7 +114,7 @@ export const createChatController = (
     }
 
     try {
-      const systemPrompt = await loadSystemPrompt();
+      const systemPrompt = await buildSystemPrompt(request.user.id, request.body);
       await historyStore.ensureSystemMessage(request.user.id, sessionId, systemPrompt);
       const history = await historyStore.load(request.user.id, sessionId);
       const result = await openAIService.createReply(message, history);
