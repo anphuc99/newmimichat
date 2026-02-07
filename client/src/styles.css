@@ -637,6 +637,21 @@ body::after {
   opacity: 0.8;
 }
 
+.chat-bubble__translate-toggle {
+  border: none;
+  background: transparent;
+  padding: 0;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--ink-soft);
+  cursor: pointer;
+  align-self: flex-start;
+}
+
+.chat-bubble__translate-toggle:hover {
+  color: var(--ink);
+}
+
 .chat-bubble__meta {
   font-size: 0.75rem;
   opacity: 0.7;
