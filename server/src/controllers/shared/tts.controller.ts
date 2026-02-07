@@ -15,6 +15,7 @@ export const createTtsController = (): TtsController => {
   const getTextToSpeech: TtsController["getTextToSpeech"] = async (request, response) => {
     const text = typeof request.query.text === "string" ? request.query.text.trim() : "";
     const tone = typeof request.query.tone === "string" ? request.query.tone.trim() : "neutral, medium pitch";
+    const voice = typeof request.query.voice === "string" ? request.query.voice.trim() : "";
     const force = request.query.force === "true";
 
     if (!text) {
@@ -22,7 +23,7 @@ export const createTtsController = (): TtsController => {
       return;
     }
 
-    const audioId = buildAudioId(text, tone);
+    const audioId = buildAudioId(text, tone, voice || undefined);
     const audioPath = getAudioPath(audioId);
 
     try {
@@ -44,7 +45,7 @@ export const createTtsController = (): TtsController => {
         }
       }
 
-      await createTtsAudio(text, tone, audioId);
+      await createTtsAudio(text, tone, audioId, voice || undefined);
       response.json({ success: true, output: audioId, url: `/audio/${audioId}.mp3` });
     } catch (error) {
       response.status(500).json({

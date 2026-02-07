@@ -166,14 +166,19 @@ const DEFAULT_PITCH = 0;
  *
  * @param text - Text to synthesize.
  * @param tone - Tone instruction for TTS.
+ * @param voice - Voice name override.
  * @param force - Regenerate even if cached.
  * @returns The audio id string or null when unavailable.
  */
-const requestTts = async (text: string, tone: string, force = false) => {
+const requestTts = async (text: string, tone: string, voice?: string, force = false) => {
   const params = new URLSearchParams({
     text,
     tone
   });
+
+  if (voice) {
+    params.set("voice", voice);
+  }
 
   if (force) {
     params.set("force", "true");
@@ -250,6 +255,21 @@ const ChatView = ({ userId }: ChatViewProps) => {
   };
 
   /**
+   * Resolves the voice name for a character (if configured).
+   *
+   * @param characterName - Assistant character name.
+   * @returns The voice name or an empty string when missing.
+   */
+  const getCharacterVoiceName = (characterName?: string) => {
+    if (!characterName) {
+      return "";
+    }
+
+    const character = characters.find((item) => item.name === characterName);
+    return character?.voiceName?.trim() ?? "";
+  };
+
+  /**
    * Plays a cached audio file using per-character playback settings.
    *
    * @param audioId - Hash id for the audio file.
@@ -319,6 +339,7 @@ const ChatView = ({ userId }: ChatViewProps) => {
     }
 
     const tone = message.tone?.trim() || DEFAULT_TTS_TONE;
+    const voiceName = getCharacterVoiceName(message.characterName);
 
     if (!force && message.audioId) {
       if (allowReplay || !playedAudio.current.has(message.id)) {
@@ -335,7 +356,7 @@ const ChatView = ({ userId }: ChatViewProps) => {
 
     pendingAudio.current.add(message.id);
     try {
-      const audioId = await requestTts(content, tone, force);
+      const audioId = await requestTts(content, tone, voiceName || undefined, force);
       if (!audioId) {
         return;
       }

@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { createJournalController } from "../../../../server/src/controllers/journal/journal.controller";
 import JournalEntity from "../../../../server/src/models/journal.entity";
 import MessageEntity from "../../../../server/src/models/message.entity";
+import CharacterEntity from "../../../../server/src/models/character.entity";
 import { buildAudioId } from "../../../../server/src/services/tts.service";
 
 /**
@@ -26,6 +27,7 @@ const createRepository = () => ({
 const createController = () => {
   const journalRepository = createRepository();
   const messageRepository = createRepository();
+  const characterRepository = createRepository();
 
   const dataSource = {
     getRepository: vi.fn((entity) => {
@@ -34,6 +36,9 @@ const createController = () => {
       }
       if (entity === MessageEntity) {
         return messageRepository;
+      }
+      if (entity === CharacterEntity) {
+        return characterRepository;
       }
       return createRepository();
     })
@@ -56,7 +61,7 @@ const createController = () => {
     openAIService
   });
 
-  return { controller, journalRepository, messageRepository, historyStore, openAIService };
+  return { controller, journalRepository, messageRepository, characterRepository, historyStore, openAIService };
 };
 
 describe("Journal controller", () => {
@@ -129,8 +134,12 @@ describe("Journal controller", () => {
   });
 
   it("finalizes a journal and clears history", async () => {
-    const { controller, journalRepository, messageRepository, historyStore, openAIService } = createController();
+    const { controller, journalRepository, messageRepository, characterRepository, historyStore, openAIService } =
+      createController();
     const response = createMockResponse();
+    characterRepository.find.mockResolvedValue([
+      { name: "Mimi", voiceName: "alloy" }
+    ]);
 
     historyStore.load.mockResolvedValue([
       { role: "system", content: "Instruction" },
@@ -149,7 +158,7 @@ describe("Journal controller", () => {
     expect(journalRepository.save).toHaveBeenCalled();
     const savedMessages = messageRepository.save.mock.calls[0]?.[0] as Array<{ translation?: string | null; audio?: string | null }>;
     expect(savedMessages.some((message) => message.translation === "Xin chao.")).toBe(true);
-    const expectedAudio = buildAudioId("안녕.", "neutral, medium pitch");
+    const expectedAudio = buildAudioId("안녕.", "neutral, medium pitch", "alloy");
     expect(savedMessages.some((message) => message.audio === expectedAudio)).toBe(true);
     expect(historyStore.clear).toHaveBeenCalledWith(1, "s1");
     expect(response.json).toHaveBeenCalledWith({ journalId: 5, summary: "Cuoc hoi thoai noi ve..." });

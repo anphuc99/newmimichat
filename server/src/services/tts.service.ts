@@ -27,12 +27,13 @@ export const normalizeForHash = (value: string) => {
  *
  * @param text - Spoken text content.
  * @param tone - Tone instruction used for TTS.
+ * @param voice - Optional voice name for TTS.
  * @returns MD5 hash string for the audio file.
  */
-export const buildAudioId = (text: string, tone: string) => {
+export const buildAudioId = (text: string, tone: string, voice?: string) => {
   return crypto
     .createHash("md5")
-    .update(normalizeForHash(text) + normalizeForHash(tone))
+    .update(normalizeForHash(text) + normalizeForHash(tone) + normalizeForHash(voice ?? ""))
     .digest("hex");
 };
 
@@ -67,9 +68,10 @@ const clampText = (text: string) => {
  * @param text - Text to synthesize.
  * @param tone - Tone instruction string.
  * @param audioId - Target audio file id (hash).
+ * @param voice - Optional voice name override.
  * @returns The audio file id.
  */
-export const createTtsAudio = async (text: string, tone: string, audioId: string) => {
+export const createTtsAudio = async (text: string, tone: string, audioId: string, voice?: string) => {
   const apiKey = process.env.OPENAI_API_KEY ?? "";
   if (!apiKey) {
     throw new Error("OpenAI API key is not configured");
@@ -77,14 +79,14 @@ export const createTtsAudio = async (text: string, tone: string, audioId: string
 
   const client = new OpenAI({ apiKey });
   const model = process.env.OPENAI_TTS_MODEL ?? DEFAULT_MODEL;
-  const voice = process.env.OPENAI_TTS_VOICE ?? DEFAULT_VOICE;
+  const resolvedVoice = voice?.trim() || (process.env.OPENAI_TTS_VOICE ?? DEFAULT_VOICE);
 
   await fs.mkdir(AUDIO_DIR, { recursive: true });
 
   const response = await client.audio.speech.create({
     model,
     input: clampText(text),
-    voice,
+    voice: resolvedVoice,
     response_format: "mp3",
     instructions: tone,
     speed: 0.8

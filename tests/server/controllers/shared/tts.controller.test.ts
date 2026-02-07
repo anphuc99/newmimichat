@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { createTtsController } from "../../../../server/src/controllers/shared/tts.controller";
+import { buildAudioId } from "../../../../server/src/services/tts.service";
 
 vi.mock("fs/promises", () => ({
   __esModule: true,
@@ -44,8 +45,9 @@ describe("TTS controller", () => {
     const fs = (await import("fs/promises")) as unknown as { default: { access: ReturnType<typeof vi.fn> } };
     fs.default.access.mockResolvedValue(undefined);
 
-    await controller.getTextToSpeech({ query: { text: "Hello", tone: "neutral" } } as any, response);
+    await controller.getTextToSpeech({ query: { text: "Hello", tone: "neutral", voice: "alloy" } } as any, response);
 
+    expect(buildAudioId).toHaveBeenCalledWith("Hello", "neutral", "alloy");
     expect(response.json).toHaveBeenCalledWith({ success: true, output: "hash", url: "/audio/hash.mp3" });
   });
 
@@ -55,8 +57,9 @@ describe("TTS controller", () => {
     const fs = (await import("fs/promises")) as unknown as { default: { access: ReturnType<typeof vi.fn> } };
     fs.default.access.mockRejectedValue({ code: "ENOENT" });
 
-    await controller.getTextToSpeech({ query: { text: "Hello", tone: "neutral" } } as any, response);
+    await controller.getTextToSpeech({ query: { text: "Hello", tone: "neutral", voice: "alloy" } } as any, response);
 
+    expect(buildAudioId).toHaveBeenCalledWith("Hello", "neutral", "alloy");
     expect(response.json).toHaveBeenCalledWith({ success: true, output: "hash", url: "/audio/hash.mp3" });
   });
 });

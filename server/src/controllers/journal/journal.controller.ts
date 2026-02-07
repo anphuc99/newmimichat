@@ -2,6 +2,7 @@ import type { Request, Response } from "express";
 import type { DataSource } from "typeorm";
 import JournalEntity from "../../models/journal.entity.js";
 import MessageEntity from "../../models/message.entity.js";
+import CharacterEntity from "../../models/character.entity.js";
 import { createOpenAIChatService, type OpenAIChatService } from "../../services/openai.service.js";
 import { createChatHistoryStore, type ChatHistoryMessage, type ChatHistoryStore } from "../../services/chat-history.service.js";
 import { buildAudioId } from "../../services/tts.service.js";
@@ -37,6 +38,7 @@ export const createJournalController = (
 ): JournalController => {
   const journalRepository = dataSource.getRepository(JournalEntity);
   const messageRepository = dataSource.getRepository(MessageEntity);
+  const characterRepository = dataSource.getRepository(CharacterEntity);
   const apiKey = process.env.OPENAI_API_KEY ?? "";
   const model = process.env.OPENAI_MODEL ?? "gpt-4.1-mini";
   const systemPromptPath = process.env.OPENAI_SYSTEM_PROMPT_PATH;
@@ -45,6 +47,7 @@ export const createJournalController = (
   const historyStore = deps.historyStore ?? createChatHistoryStore();
 
   const getSessionId = (value: unknown) => (typeof value === "string" ? value.trim() : "");
+  const normalizeName = (value: string) => value.trim().toLowerCase();
 
   const parseAssistantReply = (content: string): AssistantTurn[] => {
     const trimmed = content.trim();
@@ -111,7 +114,8 @@ export const createJournalController = (
   const buildMessageEntities = (
     history: ChatHistoryMessage[],
     userId: number,
-    journalId: number
+    journalId: number,
+    voiceByCharacter: Map<string, string>
   ): Array<Pick<MessageEntity, "content" | "characterName" | "translation" | "tone" | "audio" | "userId" | "journalId">> => {
     const result: Array<Pick<MessageEntity, "content" | "characterName" | "translation" | "tone" | "audio" | "userId" | "journalId">> = [];
 
@@ -166,7 +170,9 @@ export const createJournalController = (
         const characterName = typeof turn.CharacterName === "string" ? turn.CharacterName.trim() : "Mimi";
         const translation = typeof turn.Translation === "string" ? turn.Translation.trim() : "";
         const tone = typeof turn.Tone === "string" ? turn.Tone.trim() : "";
-        const audio = tone ? buildAudioId(content, tone) : null;
+        const voiceKey = normalizeName(characterName || "Mimi");
+        const voiceName = voiceByCharacter.get(voiceKey) ?? "";
+        const audio = tone ? buildAudioId(content, tone, voiceName || undefined) : null;
 
         result.push({
           content,
@@ -307,7 +313,14 @@ export const createJournalController = (
       });
 
       const savedJournal = await journalRepository.save(journal);
-      const messageEntities = buildMessageEntities(history, request.user.id, savedJournal.id);
+      const characters = await characterRepository.find({ where: { userId: request.user.id } });
+      const voiceByCharacter = new Map(
+        characters
+          .filter((character) => character.voiceName)
+          .map((character) => [normalizeName(character.name), character.voiceName as string])
+      );
+
+      const messageEntities = buildMessageEntities(history, request.user.id, savedJournal.id, voiceByCharacter);
 
       if (messageEntities.length) {
         await messageRepository.save(messageEntities.map((message) => messageRepository.create(message)));
