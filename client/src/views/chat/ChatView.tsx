@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import MessageInput from "./components/MessageInput";
 import MessageList from "./components/MessageList";
 import { apiUrl } from "../../lib/api";
@@ -12,6 +12,7 @@ interface ChatMessage {
   content: string;
   timestamp: string;
   assistantId?: string;
+  audioId?: string;
   characterName?: string;
   translation?: string;
   tone?: string;
@@ -35,6 +36,12 @@ interface ChatDeveloperStateResponse {
   activeCharacterNames: string[];
 }
 
+interface TtsResponse {
+  success?: boolean;
+  output?: string;
+  url?: string;
+}
+
 type CharacterGender = "male" | "female";
 
 interface Character {
@@ -56,13 +63,14 @@ interface AssistantTurn {
 const createMessage = (
   role: ChatRole,
   content: string,
-  options: { assistantId?: string; characterName?: string; translation?: string; tone?: string } = {}
+  options: { assistantId?: string; audioId?: string; characterName?: string; translation?: string; tone?: string } = {}
 ): ChatMessage => ({
   id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
   role,
   content,
   timestamp: new Date().toISOString(),
   assistantId: options.assistantId,
+  audioId: options.audioId,
   characterName: options.characterName,
   translation: options.translation,
   tone: options.tone
@@ -146,6 +154,37 @@ const toAssistantMessages = (content: string): ChatMessage[] => {
   });
 };
 
+const playAudio = (audioId: string) => {
+  if (!audioId) {
+    return;
+  }
+
+  const audio = new Audio(apiUrl(`/audio/${audioId}.mp3`));
+  void audio.play().catch(() => {
+    // Ignore playback errors.
+  });
+};
+
+const requestTts = async (text: string, tone: string, force = false) => {
+  const params = new URLSearchParams({
+    text,
+    tone
+  });
+
+  if (force) {
+    params.set("force", "true");
+  }
+
+  const response = await authFetch(apiUrl(`/api/text-to-speech?${params.toString()}`));
+
+  if (!response.ok) {
+    return null;
+  }
+
+  const payload = (await response.json()) as TtsResponse;
+  return payload.output ?? null;
+};
+
 const getOrCreateSessionId = (storageKey: string) => {
   const existing = window.localStorage.getItem(storageKey);
 
@@ -178,6 +217,50 @@ const ChatView = ({ userId }: ChatViewProps) => {
   const [characters, setCharacters] = useState<Character[]>([]);
   const [activeCharacterIds, setActiveCharacterIds] = useState<number[]>([]);
   const sessionId = useMemo(() => getOrCreateSessionId(storageKey), [storageKey]);
+  const pendingAudio = useRef(new Set<string>());
+  const playedAudio = useRef(new Set<string>());
+  const skipAutoPlayOnce = useRef(false);
+
+  const ensureAudioForMessage = async (message: ChatMessage, force = false) => {
+    if (message.role !== "assistant") {
+      return;
+    }
+
+    if (!message.content || !message.tone) {
+      return;
+    }
+
+    if (!force && message.audioId) {
+      if (!playedAudio.current.has(message.id)) {
+        playedAudio.current.add(message.id);
+        playAudio(message.audioId);
+      }
+      return;
+    }
+
+    if (pendingAudio.current.has(message.id)) {
+      return;
+    }
+
+    pendingAudio.current.add(message.id);
+    try {
+      const audioId = await requestTts(message.content, message.tone, force);
+      if (!audioId) {
+        return;
+      }
+
+      setMessages((prev) =>
+        prev.map((item) => (item.id === message.id ? { ...item, audioId } : item))
+      );
+
+      if (!playedAudio.current.has(message.id)) {
+        playedAudio.current.add(message.id);
+        playAudio(audioId);
+      }
+    } finally {
+      pendingAudio.current.delete(message.id);
+    }
+  };
 
   useEffect(() => {
     let isActive = true;
@@ -203,6 +286,7 @@ const ChatView = ({ userId }: ChatViewProps) => {
             }
             return [createMessage("user", message.content)];
           });
+          skipAutoPlayOnce.current = true;
           setMessages(hydrated);
         }
       } catch {
@@ -216,6 +300,19 @@ const ChatView = ({ userId }: ChatViewProps) => {
       isActive = false;
     };
   }, [sessionId]);
+
+  useEffect(() => {
+    if (skipAutoPlayOnce.current) {
+      skipAutoPlayOnce.current = false;
+      return;
+    }
+
+    messages.forEach((message) => {
+      if (message.role === "assistant" && message.tone && message.content && !message.audioId) {
+        void ensureAudioForMessage(message);
+      }
+    });
+  }, [messages]);
 
   useEffect(() => {
     let isActive = true;
@@ -392,6 +489,24 @@ const ChatView = ({ userId }: ChatViewProps) => {
     }
   };
 
+  const handlePlayAudio = (messageId: string) => {
+    const message = messages.find((item) => item.id === messageId);
+    if (!message) {
+      return;
+    }
+
+    void ensureAudioForMessage(message);
+  };
+
+  const handleReloadAudio = (messageId: string) => {
+    const message = messages.find((item) => item.id === messageId);
+    if (!message) {
+      return;
+    }
+
+    void ensureAudioForMessage(message, true);
+  };
+
   const handleEndConversation = async () => {
     if (isEnding) {
       return;
@@ -490,7 +605,12 @@ const ChatView = ({ userId }: ChatViewProps) => {
       <section className="chat-window">
         {error ? <p className="chat-error">{error}</p> : null}
         {notice ? <p className="chat-notice">{notice}</p> : null}
-        <MessageList messages={messages} pendingMessage={pendingMessage} />
+        <MessageList
+          messages={messages}
+          pendingMessage={pendingMessage}
+          onPlayAudio={handlePlayAudio}
+          onReloadAudio={handleReloadAudio}
+        />
       </section>
 
       <MessageInput

@@ -8,6 +8,9 @@ interface MessageBubbleProps {
   timestamp: string;
   characterName?: string;
   translation?: string;
+  showAudioControls?: boolean;
+  onPlayAudio?: () => void;
+  onReloadAudio?: () => void;
 }
 
 /**
@@ -16,7 +19,16 @@ interface MessageBubbleProps {
  * @param props - Dependencies injected from the Chat view.
  * @returns The message bubble component.
  */
-const MessageBubble = ({ role, content, timestamp, characterName, translation }: MessageBubbleProps) => {
+const MessageBubble = ({
+  role,
+  content,
+  timestamp,
+  characterName,
+  translation,
+  showAudioControls,
+  onPlayAudio,
+  onReloadAudio
+}: MessageBubbleProps) => {
   const [showTranslation, setShowTranslation] = useState(false);
   const timeLabel = new Date(timestamp).toLocaleTimeString([], {
     hour: "2-digit",
@@ -37,6 +49,16 @@ const MessageBubble = ({ role, content, timestamp, characterName, translation }:
         </button>
       ) : null}
       {translation && showTranslation ? <p className="chat-bubble__translation">{translation}</p> : null}
+      {showAudioControls ? (
+        <div className="chat-bubble__audio-actions">
+          <button type="button" className="chat-bubble__audio-button" onClick={onPlayAudio}>
+            Play
+          </button>
+          <button type="button" className="chat-bubble__audio-button" onClick={onReloadAudio}>
+            Reload
+          </button>
+        </div>
+      ) : null}
       <span className="chat-bubble__meta">{timeLabel}</span>
     </article>
   );

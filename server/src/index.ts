@@ -10,6 +10,7 @@ import { createApiRouter } from "./routes/index.js";
 const DEFAULT_PORT = 4000;
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = path.join(__dirname, "..", "public");
+const AUDIO_DIR = path.join(process.cwd(), "data", "audio");
 
 const resolveEnvPath = () => {
   const cwd = process.cwd();
@@ -37,6 +38,7 @@ const createApp = () => {
   app.use(express.urlencoded({ limit: "10mb", extended: true }));
 
   app.use("/public", express.static(PUBLIC_DIR));
+  app.use("/audio", express.static(AUDIO_DIR));
 
   app.use("/api", createApiRouter(AppDataSource));
 

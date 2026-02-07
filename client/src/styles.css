@@ -664,6 +664,25 @@ body::after {
   opacity: 0.8;
 }
 
+.chat-bubble__audio-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.chat-bubble__audio-button {
+  border: none;
+  background: rgba(15, 23, 42, 0.08);
+  color: var(--ink);
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.chat-bubble__audio-button:hover {
+  background: rgba(15, 23, 42, 0.16);
+}
+
 .chat-bubble__translate-toggle {
   border: none;
   background: transparent;
@@ -948,6 +967,26 @@ body::after {
   margin: 0;
   white-space: pre-wrap;
   color: var(--ink);
+}
+
+.journal-message__audio-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.journal-message__audio-button {
+  border: none;
+  background: rgba(15, 23, 42, 0.08);
+  color: var(--ink);
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.journal-message__audio-button:hover {
+  background: rgba(15, 23, 42, 0.16);
 }
 
 .journal-message__translate-toggle {

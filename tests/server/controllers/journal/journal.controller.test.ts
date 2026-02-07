@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { createJournalController } from "../../../../server/src/controllers/journal/journal.controller";
 import JournalEntity from "../../../../server/src/models/journal.entity";
 import MessageEntity from "../../../../server/src/models/message.entity";
+import { buildAudioId } from "../../../../server/src/services/tts.service";
 
 /**
  * Creates a minimal Express-like response object for unit tests.
@@ -99,6 +100,7 @@ describe("Journal controller", () => {
         content: "Hello",
         characterName: "User",
         translation: null,
+        tone: null,
         audio: null,
         createdAt: new Date("2025-01-02T00:00:01.000Z")
       }
@@ -118,6 +120,7 @@ describe("Journal controller", () => {
           content: "Hello",
           characterName: "User",
           translation: null,
+          tone: null,
           audio: null,
           createdAt: "2025-01-02T00:00:01.000Z"
         }
@@ -144,8 +147,10 @@ describe("Journal controller", () => {
 
     expect(openAIService.createReply).toHaveBeenCalled();
     expect(journalRepository.save).toHaveBeenCalled();
-    const savedMessages = messageRepository.save.mock.calls[0]?.[0] as Array<{ translation?: string | null }>;
+    const savedMessages = messageRepository.save.mock.calls[0]?.[0] as Array<{ translation?: string | null; audio?: string | null }>;
     expect(savedMessages.some((message) => message.translation === "Xin chao.")).toBe(true);
+    const expectedAudio = buildAudioId("안녕.", "neutral, medium pitch");
+    expect(savedMessages.some((message) => message.audio === expectedAudio)).toBe(true);
     expect(historyStore.clear).toHaveBeenCalledWith(1, "s1");
     expect(response.json).toHaveBeenCalledWith({ journalId: 5, summary: "Cuoc hoi thoai noi ve..." });
   });

@@ -10,11 +10,14 @@ interface ChatMessage {
   timestamp: string;
   characterName?: string;
   translation?: string;
+  audioId?: string;
 }
 
 interface MessageListProps {
   messages: ChatMessage[];
   pendingMessage: ChatMessage | null;
+  onPlayAudio?: (messageId: string) => void;
+  onReloadAudio?: (messageId: string) => void;
 }
 
 /**
@@ -23,7 +26,7 @@ interface MessageListProps {
  * @param props - Dependencies injected from the Chat view.
  * @returns The message list component.
  */
-const MessageList = ({ messages, pendingMessage }: MessageListProps) => {
+const MessageList = ({ messages, pendingMessage, onPlayAudio, onReloadAudio }: MessageListProps) => {
   const endRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -41,6 +44,9 @@ const MessageList = ({ messages, pendingMessage }: MessageListProps) => {
           timestamp={message.timestamp}
           characterName={message.characterName}
           translation={message.translation}
+          showAudioControls={message.role === "assistant"}
+          onPlayAudio={onPlayAudio ? () => onPlayAudio(message.id) : undefined}
+          onReloadAudio={onReloadAudio ? () => onReloadAudio(message.id) : undefined}
         />
       ))}
       {pendingMessage ? (
@@ -51,6 +57,7 @@ const MessageList = ({ messages, pendingMessage }: MessageListProps) => {
           timestamp={pendingMessage.timestamp}
           characterName={pendingMessage.characterName}
           translation={pendingMessage.translation}
+          showAudioControls={false}
         />
       ) : null}
       <div ref={endRef} />

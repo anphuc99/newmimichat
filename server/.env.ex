@@ -14,6 +14,9 @@ PORT=4000
 # OpenAI
 OPENAI_API_KEY=
 OPENAI_MODEL=gpt-4o-mini
+# Optional TTS settings
+# OPENAI_TTS_MODEL=gpt-4o-mini-tts-2025-03-20
+# OPENAI_TTS_VOICE=alloy
 # Optional override for the system prompt file
 # OPENAI_SYSTEM_PROMPT_PATH=src/prompts/chat.system.txt
 

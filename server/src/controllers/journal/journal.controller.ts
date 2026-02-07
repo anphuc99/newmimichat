@@ -4,6 +4,7 @@ import JournalEntity from "../../models/journal.entity.js";
 import MessageEntity from "../../models/message.entity.js";
 import { createOpenAIChatService, type OpenAIChatService } from "../../services/openai.service.js";
 import { createChatHistoryStore, type ChatHistoryMessage, type ChatHistoryStore } from "../../services/chat-history.service.js";
+import { buildAudioId } from "../../services/tts.service.js";
 
 interface JournalController {
   listJournals: (request: Request, response: Response) => Promise<void>;
@@ -111,8 +112,8 @@ export const createJournalController = (
     history: ChatHistoryMessage[],
     userId: number,
     journalId: number
-  ): Array<Pick<MessageEntity, "content" | "characterName" | "translation" | "audio" | "userId" | "journalId">> => {
-    const result: Array<Pick<MessageEntity, "content" | "characterName" | "translation" | "audio" | "userId" | "journalId">> = [];
+  ): Array<Pick<MessageEntity, "content" | "characterName" | "translation" | "tone" | "audio" | "userId" | "journalId">> => {
+    const result: Array<Pick<MessageEntity, "content" | "characterName" | "translation" | "tone" | "audio" | "userId" | "journalId">> = [];
 
     for (const message of history) {
       if (message.role === "user") {
@@ -125,6 +126,7 @@ export const createJournalController = (
           content,
           characterName: "User",
           translation: null,
+          tone: null,
           audio: null,
           userId,
           journalId
@@ -147,6 +149,7 @@ export const createJournalController = (
           content: fallback,
           characterName: "Mimi",
           translation: null,
+          tone: null,
           audio: null,
           userId,
           journalId
@@ -162,12 +165,15 @@ export const createJournalController = (
 
         const characterName = typeof turn.CharacterName === "string" ? turn.CharacterName.trim() : "Mimi";
         const translation = typeof turn.Translation === "string" ? turn.Translation.trim() : "";
+        const tone = typeof turn.Tone === "string" ? turn.Tone.trim() : "";
+        const audio = tone ? buildAudioId(content, tone) : null;
 
         result.push({
           content,
           characterName: characterName || "Mimi",
           translation: translation || null,
-          audio: null,
+          tone: tone || null,
+          audio,
           userId,
           journalId
         });
@@ -243,6 +249,7 @@ export const createJournalController = (
           content: message.content,
           characterName: message.characterName,
           translation: message.translation,
+          tone: message.tone,
           audio: message.audio,
           createdAt: message.createdAt.toISOString()
         }))

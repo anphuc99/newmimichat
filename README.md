@@ -7,6 +7,7 @@ Core features implemented so far:
 - CEFR levels A0–C2 stored in DB (seed script) + user can select their level
 - Characters CRUD, avatar upload (served under `/public`), optional voice selection
 - Chat endpoint backed by OpenAI
+- OpenAI TTS playback with cached audio
 - Journal summaries + message persistence on conversation end
 - File-backed chat history (JSONL stored in `.txt`) scoped by `sessionId`
 - System instruction stored in history (for stable prompting / caching)
@@ -52,6 +53,9 @@ REGISTRATION_TOKEN=replace_me
 # OpenAI
 OPENAI_API_KEY=replace_me
 OPENAI_MODEL=gpt-4.1-mini
+# Optional TTS overrides
+# OPENAI_TTS_MODEL=gpt-4o-mini-tts-2025-03-20
+# OPENAI_TTS_VOICE=alloy
 # Optional (defaults to server/src/prompts/chat.system.txt)
 # OPENAI_SYSTEM_PROMPT_PATH=
 
@@ -197,6 +201,9 @@ Journals:
 - `GET /api/journals` (list summaries)
 - `GET /api/journals/:id` (journal + messages)
 
+TTS:
+- `GET /api/text-to-speech?text=...&tone=...` (cached by MD5 of text+tone)
+
 Chat response format:
 - The assistant reply is a JSON array of objects with `CharacterName`, `Text`, `Tone`, `Translation`.
 
@@ -209,3 +216,4 @@ Characters:
 
 Static assets:
 - `GET /public/...` (serves uploaded avatars from the server)
+- `GET /audio/<hash>.mp3` (serves generated TTS audio)

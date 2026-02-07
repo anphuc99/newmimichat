@@ -13,6 +13,7 @@ interface JournalMessage {
   content: string;
   characterName: string;
   translation?: string | null;
+  tone?: string | null;
   audio?: string | null;
   createdAt: string;
 }
@@ -118,6 +119,58 @@ const JournalView = () => {
     };
   }, [activeJournal]);
 
+  const playAudio = (audioId: string) => {
+    if (!audioId) {
+      return;
+    }
+
+    const audio = new Audio(apiUrl(`/audio/${audioId}.mp3`));
+    void audio.play().catch(() => {
+      // Ignore playback errors.
+    });
+  };
+
+  const requestTts = async (text: string, tone: string, force = false) => {
+    const params = new URLSearchParams({
+      text,
+      tone
+    });
+
+    if (force) {
+      params.set("force", "true");
+    }
+
+    const response = await authFetch(apiUrl(`/api/text-to-speech?${params.toString()}`));
+
+    if (!response.ok) {
+      return null;
+    }
+
+    const payload = (await response.json()) as { output?: string };
+    return payload.output ?? null;
+  };
+
+  const ensureAudio = async (message: JournalMessage, force = false) => {
+    if (!message.content || !message.tone) {
+      return;
+    }
+
+    if (!force && message.audio) {
+      playAudio(message.audio);
+      return;
+    }
+
+    const audioId = await requestTts(message.content, message.tone, force);
+    if (!audioId) {
+      return;
+    }
+
+    setMessages((prev) =>
+      prev.map((item) => (item.id === message.id ? { ...item, audio: audioId } : item))
+    );
+    playAudio(audioId);
+  };
+
   return (
     <main className="journal-shell">
       <header className="journal-header">
@@ -173,6 +226,24 @@ const JournalView = () => {
                     </span>
                   </div>
                   <p className="journal-message__text">{message.content}</p>
+                  {message.tone ? (
+                    <div className="journal-message__audio-actions">
+                      <button
+                        type="button"
+                        className="journal-message__audio-button"
+                        onClick={() => void ensureAudio(message)}
+                      >
+                        Play
+                      </button>
+                      <button
+                        type="button"
+                        className="journal-message__audio-button"
+                        onClick={() => void ensureAudio(message, true)}
+                      >
+                        Reload
+                      </button>
+                    </div>
+                  ) : null}
                   {message.translation ? (
                     <button
                       type="button"
