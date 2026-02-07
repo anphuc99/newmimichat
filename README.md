@@ -83,7 +83,16 @@ Set environment variables before starting the server:
 - DB_PASSWORD (default: empty)
 - DB_NAME (default: mimi_chat)
 
+## OpenAI
+
+Set the following environment variables before starting the server:
+
+- OPENAI_API_KEY
+- OPENAI_MODEL (default: gpt-4o-mini)
+- OPENAI_SYSTEM_PROMPT_PATH (optional)
+
 ## API
 
 - GET /api/health
 - GET /api/home/message
+- POST /api/chat/send

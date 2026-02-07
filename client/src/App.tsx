@@ -1,4 +1,4 @@
-import HomeView from "./views/home/HomeView";
+import ChatView from "./views/chat";
 
 /**
  * Renders the main application view shell.
@@ -6,7 +6,7 @@ import HomeView from "./views/home/HomeView";
  * @returns The React component for the client app.
  */
 const App = () => {
-  return <HomeView />;
+  return <ChatView />;
 };
 
 export default App;

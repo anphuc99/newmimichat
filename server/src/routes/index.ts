@@ -1,5 +1,6 @@
 import { Router } from "express";
 import type { DataSource } from "typeorm";
+import { createChatRoutes } from "./chat.routes.js";
 import { createHomeRoutes } from "./home.routes.js";
 import { createSharedRoutes } from "./shared.routes.js";
 // mvc-gen:imports
@@ -14,6 +15,7 @@ export const createApiRouter = (dataSource: DataSource) => {
   const router = Router();
 
   // mvc-gen:routes
+  router.use("/chat", createChatRoutes(dataSource));
   router.use("/home", createHomeRoutes(dataSource));
   router.use("/", createSharedRoutes());
 
