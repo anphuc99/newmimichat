@@ -41,8 +41,41 @@ npm run format
 
 - client: React (Vite) app
 - server: Express API server
+- Tool: MVC scaffolding scripts
+
+## MVC Structure
+
+- View: client/src/views/<group>
+- Controller: server/src/controllers/<group>
+- Model: server/src/models
+
+Rules and generator details: Tool/MVC_RULES.md
+
+### MVC Generator
+
+Scaffold a new view group with controller/model:
+
+```bash
+npm run mvc:gen -- --group home
+```
+
+Optional flags:
+- --view <ViewName>
+- --entity <EntityName>
+- --child <ChildName>
+- --force
+
+## Database (MySQL + TypeORM)
+
+Set environment variables before starting the server:
+
+- DB_HOST (default: localhost)
+- DB_PORT (default: 3306)
+- DB_USER (default: root)
+- DB_PASSWORD (default: empty)
+- DB_NAME (default: mimi_chat)
 
 ## API
 
 - GET /api/health
-- GET /api/message
+- GET /api/home/message
