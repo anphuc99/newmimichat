@@ -2,7 +2,6 @@ import type { Request, Response } from "express";
 import type { DataSource } from "typeorm";
 import { createOpenAIChatService, type OpenAIChatService } from "../../services/openai.service.js";
 import { buildChatSystemPrompt } from "../../services/chat-prompt.service.js";
-import MessageEntity from "../../models/message.entity.js";
 import UserEntity from "../../models/user.entity.js";
 import { createChatHistoryStore, type ChatHistoryStore } from "../../services/chat-history.service.js";
 
@@ -35,7 +34,6 @@ export const createChatController = (
   deps: ChatControllerDeps = {}
 ): ChatController => {
   const dataSource = _dataSource;
-  const repository = dataSource.getRepository(MessageEntity);
   const userRepository = dataSource.getRepository(UserEntity);
   const apiKey = process.env.OPENAI_API_KEY ?? "";
   const model = process.env.OPENAI_MODEL ?? "gpt-4.1-mini";
@@ -165,19 +163,6 @@ export const createChatController = (
       await historyStore.ensureSystemMessage(request.user.id, sessionId, systemPrompt);
       const history = await historyStore.load(request.user.id, sessionId);
       const result = await openAIService.createReply(message, history);
-
-      const userMessage = repository.create({
-        content: message,
-        role: "user",
-        userId: request.user.id
-      });
-      const assistantMessage = repository.create({
-        content: result.reply,
-        role: "assistant",
-        userId: request.user.id
-      });
-
-      await repository.save([userMessage, assistantMessage]);
 
       await historyStore.append(request.user.id, sessionId, [
         { role: "user", content: message },

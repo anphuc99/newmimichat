@@ -21,6 +21,11 @@ interface ChatResponse {
   model?: string;
 }
 
+interface JournalEndResponse {
+  journalId: number;
+  summary: string;
+}
+
 interface ChatHistoryResponse {
   messages: Array<{ role: ChatRole; content: string }>;
 }
@@ -162,7 +167,9 @@ const ChatView = ({ userId }: ChatViewProps) => {
   const [messages, setMessages] = useState<ChatMessage[]>(() => []);
   const [input, setInput] = useState("");
   const [isSending, setIsSending] = useState(false);
+  const [isEnding, setIsEnding] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [characters, setCharacters] = useState<Character[]>([]);
   const [activeCharacterIds, setActiveCharacterIds] = useState<number[]>([]);
   const sessionId = useMemo(() => getOrCreateSessionId(storageKey), [storageKey]);
@@ -354,6 +361,7 @@ const ChatView = ({ userId }: ChatViewProps) => {
     setInput("");
     setIsSending(true);
     setError(null);
+    setNotice(null);
 
     try {
       const response = await authFetch(apiUrl("/api/chat/send"), {
@@ -379,6 +387,42 @@ const ChatView = ({ userId }: ChatViewProps) => {
     }
   };
 
+  const handleEndConversation = async () => {
+    if (isEnding) {
+      return;
+    }
+
+    setIsEnding(true);
+    setError(null);
+    setNotice(null);
+
+    try {
+      const response = await authFetch(apiUrl("/api/journals/end"), {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ sessionId })
+      });
+
+      if (!response.ok) {
+        const payload = (await response.json().catch(() => null)) as { message?: string } | null;
+        throw new Error(payload?.message ?? "Failed to end conversation");
+      }
+
+      const payload = (await response.json()) as JournalEndResponse;
+
+      setMessages([]);
+      setActiveCharacterIds([]);
+      setInput("");
+      setNotice(`Journal saved (#${payload.journalId}).`);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Unknown error");
+    } finally {
+      setIsEnding(false);
+    }
+  };
+
   return (
     <main className="chat-shell">
       <header className="chat-header">
@@ -387,6 +431,14 @@ const ChatView = ({ userId }: ChatViewProps) => {
           <h1>Focus on real conversations</h1>
           <p className="chat-subtitle">Practice Korean with short, friendly replies.</p>
         </div>
+        <button
+          type="button"
+          className="chat-end-button"
+          onClick={handleEndConversation}
+          disabled={isEnding}
+        >
+          {isEnding ? "Ending..." : "End conversation"}
+        </button>
       </header>
 
       <section className="chat-characters">
@@ -432,6 +484,7 @@ const ChatView = ({ userId }: ChatViewProps) => {
 
       <section className="chat-window">
         {error ? <p className="chat-error">{error}</p> : null}
+        {notice ? <p className="chat-notice">{notice}</p> : null}
         <MessageList messages={messages} pendingMessage={pendingMessage} />
       </section>
 

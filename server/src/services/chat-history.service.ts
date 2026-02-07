@@ -12,6 +12,7 @@ export interface ChatHistoryStore {
   load: (userId: number, sessionId: string) => Promise<ChatHistoryMessage[]>;
   append: (userId: number, sessionId: string, messages: ChatHistoryMessage[]) => Promise<void>;
   ensureSystemMessage: (userId: number, sessionId: string, content: string) => Promise<void>;
+  clear: (userId: number, sessionId: string) => Promise<void>;
 }
 
 const DEFAULT_DIR = path.join(process.cwd(), "data", "chat-history");
@@ -170,9 +171,30 @@ export const createChatHistoryStore = (dir: string = process.env.CHAT_HISTORY_DI
     }
   };
 
+  /**
+   * Clears the stored history for a user/session.
+   *
+   * @param userId - Authenticated user id.
+   * @param sessionId - Session id for the conversation.
+   */
+  const clear: ChatHistoryStore["clear"] = async (userId, sessionId) => {
+    const filePath = toHistoryPath(dir, userId, sessionId);
+
+    try {
+      await fs.unlink(filePath);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException)?.code === "ENOENT") {
+        return;
+      }
+
+      throw error;
+    }
+  };
+
   return {
     load,
     append,
-    ensureSystemMessage
+    ensureSystemMessage,
+    clear
   };
 };

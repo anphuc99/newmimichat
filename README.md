@@ -7,6 +7,7 @@ Core features implemented so far:
 - CEFR levels A0–C2 stored in DB (seed script) + user can select their level
 - Characters CRUD, avatar upload (served under `/public`), optional voice selection
 - Chat endpoint backed by OpenAI
+- Journal summaries + message persistence on conversation end
 - File-backed chat history (JSONL stored in `.txt`) scoped by `sessionId`
 - System instruction stored in history (for stable prompting / caching)
 - Character context injected via per-session **developer messages** (add/remove)
@@ -157,6 +158,14 @@ Details:
 Optional env:
 - `CHAT_HISTORY_DIR` (default: `server/data/chat-history`)
 
+## Journals and message persistence
+
+Chat messages are **not** saved to MySQL during the conversation. When the user ends a conversation, the server:
+- Sends a developer instruction asking OpenAI to summarize the session
+- Creates a Journal entry from the summary
+- Persists all messages from the session history into the `messages` table
+- Clears the session history file
+
 ## Characters in chat (developer messages)
 
 Characters are not embedded into the system prompt. Instead, the client explicitly adds/removes characters for a chat session.
@@ -182,6 +191,11 @@ Chat:
 - `GET /api/chat/history?sessionId=...`
 - `GET /api/chat/developer-state?sessionId=...` (returns active character names)
 - `POST /api/chat/developer` (append developer messages; e.g. `character_added` / `character_removed`)
+
+Journals:
+- `POST /api/journals/end` (summarize current session and persist messages)
+- `GET /api/journals` (list summaries)
+- `GET /api/journals/:id` (journal + messages)
 
 Chat response format:
 - The assistant reply is a JSON array of objects with `CharacterName`, `Text`, `Tone`, `Translation`.

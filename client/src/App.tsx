@@ -1,6 +1,7 @@
 import { useEffect, useState, type ChangeEvent } from "react";
 import ChatView from "./views/chat";
 import CharactersView from "./views/characters";
+import JournalView from "./views/journal";
 import LoginView from "./views/auth";
 import { apiUrl } from "./lib/api";
 import {
@@ -11,7 +12,7 @@ import {
   type AuthSession
 } from "./lib/auth";
 
-type AppView = "chat" | "characters";
+type AppView = "chat" | "characters" | "journal";
 
 /**
  * Describes a selectable proficiency level option.
@@ -187,6 +188,13 @@ const App = () => {
         >
           Characters
         </button>
+        <button
+          type="button"
+          className={`app-nav__button ${view === "journal" ? "active" : ""}`}
+          onClick={() => setView("journal")}
+        >
+          Journal
+        </button>
         <div className="app-nav__level">
           <label>
             Level
@@ -212,7 +220,13 @@ const App = () => {
         </button>
       </nav>
 
-      {view === "chat" ? <ChatView userId={auth.user.id} /> : <CharactersView />}
+      {view === "chat" ? (
+        <ChatView userId={auth.user.id} />
+      ) : view === "characters" ? (
+        <CharactersView />
+      ) : (
+        <JournalView />
+      )}
     </div>
   );
 };

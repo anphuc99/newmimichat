@@ -32,7 +32,8 @@ const createController = (repository: ReturnType<typeof createRepository>, openA
         { role: "user", content: "previous" }
       ]),
     append: vi.fn().mockResolvedValue(undefined),
-    ensureSystemMessage: vi.fn().mockResolvedValue(undefined)
+    ensureSystemMessage: vi.fn().mockResolvedValue(undefined),
+    clear: vi.fn().mockResolvedValue(undefined)
   };
 
   const controller = createChatController(dataSource, {
@@ -116,7 +117,6 @@ describe("Chat controller", () => {
       { role: "user", content: "Hi" },
       { role: "assistant", content: "Hello there" }
     ]);
-    expect(repository.save).toHaveBeenCalledTimes(1);
     expect(response.status).not.toHaveBeenCalled();
     expect(response.json).toHaveBeenCalledWith({ reply: "Hello there", model: "test-model" });
   });
