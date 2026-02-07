@@ -16,9 +16,14 @@ export interface ChatPromptParams {
    */
   level?: string | null;
   /**
-    * Optional guideline coming from the database.
-    * Note: today this is stored in the `levels.descript` column.
+    * Optional human-readable level description coming from the database.
+    * Note: this is stored in the `levels.descript` column.
    */
+    levelDescription?: string | null;
+    /**
+    * Optional grammar guideline coming from the database.
+    * Note: this is stored in the `levels.guideline` column.
+    */
     levelGuideline?: string | null;
     /**
     * Optional per-level max word limit coming from the database.
@@ -136,6 +141,8 @@ export const buildChatSystemPrompt = (params: ChatPromptParams): string => {
     return `\n${label}:\n${trimmed}\n`;
   };
 
+  const dbDescription = (params.levelDescription ?? "").trim();
+  const levelDescriptionBlock = dbDescription ? `\nLevel description (DB):\n${dbDescription}\n` : "";
   const levelGuidelineBlock = dbGuideline ? `\nLevel guideline (DB):\n${dbGuideline}\n` : "";
 
   const relatedStoryMessages = (params.relatedStoryMessages ?? "").trim();
@@ -164,7 +171,8 @@ ABSOLUTE RULES (SYSTEM CRITICAL)
 ====================================
 LANGUAGE LEVEL: ${level}
 ====================================
-${levelCfg.guideline}
+${guideline}
+${levelDescriptionBlock}
 ${levelGuidelineBlock}
 
 ====================================

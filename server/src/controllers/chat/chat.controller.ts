@@ -75,7 +75,8 @@ export const createChatController = (
     return buildChatSystemPrompt({
       level: user?.level?.level ?? null,
       levelMaxWords: user?.level?.maxWords ?? null,
-      levelGuideline: user?.level?.descript ?? null,
+      levelDescription: user?.level?.descript ?? null,
+      levelGuideline: user?.level?.guideline ?? null,
       characters: characters.map((character) => ({
         name: character.name,
         gender: character.gender,
