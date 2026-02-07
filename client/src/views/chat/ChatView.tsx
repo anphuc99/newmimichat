@@ -217,6 +217,7 @@ const getOrCreateSessionId = (storageKey: string) => {
 
 interface ChatViewProps {
   userId: number;
+  model?: string;
 }
 
 /**
@@ -224,7 +225,7 @@ interface ChatViewProps {
  *
  * @returns The Chat view React component.
  */
-const ChatView = ({ userId }: ChatViewProps) => {
+const ChatView = ({ userId, model }: ChatViewProps) => {
   const storageKey = `mimi_chat_session_id_${userId}`;
   const [messages, setMessages] = useState<ChatMessage[]>(() => []);
   const [input, setInput] = useState("");
@@ -651,7 +652,11 @@ const ChatView = ({ userId }: ChatViewProps) => {
         headers: {
           "Content-Type": "application/json"
         },
-        body: JSON.stringify({ message: trimmed, sessionId })
+        body: JSON.stringify({
+          message: trimmed,
+          sessionId,
+          model: model?.trim() || undefined
+        })
       });
 
       if (!response.ok) {

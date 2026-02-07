@@ -108,17 +108,42 @@ describe("Chat controller", () => {
 
     expect(historyStore.ensureSystemMessage).toHaveBeenCalledWith(1, "s1", expect.any(String));
     expect(historyStore.load).toHaveBeenCalledWith(1, "s1");
-    expect(openAIService.createReply).toHaveBeenCalledWith("Hi", [
-      { role: "system", content: "Instruction" },
-      { role: "developer", content: "Character X added" },
-      { role: "user", content: "previous" }
-    ]);
+    expect(openAIService.createReply).toHaveBeenCalledWith(
+      "Hi",
+      [
+        { role: "system", content: "Instruction" },
+        { role: "developer", content: "Character X added" },
+        { role: "user", content: "previous" }
+      ],
+      undefined
+    );
     expect(historyStore.append).toHaveBeenCalledWith(1, "s1", [
       { role: "user", content: "Hi" },
       { role: "assistant", content: "Hello there" }
     ]);
     expect(response.status).not.toHaveBeenCalled();
     expect(response.json).toHaveBeenCalledWith({ reply: "Hello there", model: "test-model" });
+  });
+
+  it("passes model overrides to OpenAI", async () => {
+    const openAIService = {
+      createReply: vi.fn().mockResolvedValue({ reply: "Hello there", model: "override-model" })
+    };
+
+    const repository = createRepository();
+    const { controller } = createController(repository, openAIService);
+    const response = createMockResponse();
+
+    await controller.sendMessage(
+      { body: { message: "Hi", sessionId: "s1", model: "gpt-4.1-mini" }, user: { id: 1, username: "mimi" } } as any,
+      response
+    );
+
+    expect(openAIService.createReply).toHaveBeenCalledWith(
+      "Hi",
+      expect.any(Array),
+      "gpt-4.1-mini"
+    );
   });
 
   it("returns 500 when OpenAI fails", async () => {

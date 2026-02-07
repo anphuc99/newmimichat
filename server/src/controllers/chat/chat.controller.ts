@@ -143,6 +143,7 @@ export const createChatController = (
 
     const message = typeof request.body?.message === "string" ? request.body.message.trim() : "";
     const sessionId = getSessionId(request.body?.sessionId);
+    const modelOverride = getOptionalString(request.body?.model);
 
     if (!message) {
       response.status(400).json({
@@ -162,7 +163,11 @@ export const createChatController = (
       const systemPrompt = await buildSystemPrompt(request.user.id, request.body);
       await historyStore.ensureSystemMessage(request.user.id, sessionId, systemPrompt);
       const history = await historyStore.load(request.user.id, sessionId);
-      const result = await openAIService.createReply(message, history);
+      const result = await openAIService.createReply(
+        message,
+        history,
+        modelOverride || undefined
+      );
 
       await historyStore.append(request.user.id, sessionId, [
         { role: "user", content: message },

@@ -15,7 +15,8 @@ export interface OpenAIChatServiceConfig {
 export interface OpenAIChatService {
   createReply: (
     message: string,
-    history?: Array<{ role: "system" | "developer" | "user" | "assistant"; content: string }>
+    history?: Array<{ role: "system" | "developer" | "user" | "assistant"; content: string }>,
+    modelOverride?: string
   ) => Promise<{ reply: string; model: string }>;
 }
 
@@ -41,7 +42,7 @@ export const createOpenAIChatService = (config: OpenAIChatServiceConfig): OpenAI
     return cachedPrompt;
   };
 
-  const createReply: OpenAIChatService["createReply"] = async (message, history = []) => {
+  const createReply: OpenAIChatService["createReply"] = async (message, history = [], modelOverride) => {
     const normalizedHistory = history
       .filter(
         (entry) =>
@@ -61,8 +62,10 @@ export const createOpenAIChatService = (config: OpenAIChatServiceConfig): OpenAI
       return { role: entry.role as "system" | "user" | "assistant", content: entry.content };
     });
 
+    const resolvedModel = modelOverride?.trim() || model;
+
     const completion = await client.chat.completions.create({
-      model,
+      model: resolvedModel,
       messages: [
         ...systemMessages,
         ...messages,
@@ -78,7 +81,7 @@ export const createOpenAIChatService = (config: OpenAIChatServiceConfig): OpenAI
 
     return {
       reply,
-      model: completion.model ?? model
+      model: completion.model ?? resolvedModel
     };
   };
 

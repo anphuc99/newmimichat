@@ -13,6 +13,8 @@ import {
 } from "./lib/auth";
 
 type AppView = "chat" | "characters" | "journal";
+const MODEL_STORAGE_KEY = "mimi_chat_model";
+const MODEL_OPTIONS = ["gpt-4o-mini", "gpt-4.1-mini", "gpt-4.1", "gpt-4o"];
 
 /**
  * Describes a selectable proficiency level option.
@@ -35,6 +37,9 @@ const App = () => {
   const [levelError, setLevelError] = useState<string | null>(null);
   const [isLevelLoading, setIsLevelLoading] = useState(false);
   const [isLevelSaving, setIsLevelSaving] = useState(false);
+  const [chatModel, setChatModel] = useState(() => {
+    return window.localStorage.getItem(MODEL_STORAGE_KEY) ?? "gpt-4o-mini";
+  });
 
   const handleAuth = (session: AuthSession) => {
     setStoredAuth(session);
@@ -44,6 +49,11 @@ const App = () => {
   const handleLogout = () => {
     clearStoredAuth();
     setAuth(null);
+  };
+  const handleModelChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const nextValue = event.target.value.trim();
+    setChatModel(nextValue);
+    window.localStorage.setItem(MODEL_STORAGE_KEY, nextValue);
   };
 
   useEffect(() => {
@@ -219,11 +229,27 @@ const App = () => {
           Logout
         </button>
       </nav>
+        <div className="app-nav__model">
+          <label htmlFor="model-selector">Model</label>
+          <input
+            id="model-selector"
+            list="model-options"
+            value={chatModel}
+            onChange={handleModelChange}
+            placeholder="gpt-4o-mini"
+          />
+          <datalist id="model-options">
+            {MODEL_OPTIONS.map((option) => (
+              <option key={option} value={option} />
+            ))}
+          </datalist>
+        </div>
 
       {view === "chat" ? (
         <ChatView userId={auth.user.id} />
       ) : view === "characters" ? (
         <CharactersView />
+        {view === "chat" ? <ChatView userId={auth.user.id} model={chatModel} /> : null}
       ) : (
         <JournalView />
       )}

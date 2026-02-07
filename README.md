@@ -191,7 +191,7 @@ Levels:
 - `GET /api/levels`
 
 Chat:
-- `POST /api/chat/send` (expects `message` and `sessionId`; also accepts optional context fields)
+- `POST /api/chat/send` (expects `message` and `sessionId`; also accepts optional context fields and `model`)
 - `GET /api/chat/history?sessionId=...`
 - `GET /api/chat/developer-state?sessionId=...` (returns active character names)
 - `POST /api/chat/developer` (append developer messages; e.g. `character_added` / `character_removed`)
