@@ -96,3 +96,7 @@ Set the following environment variables before starting the server:
 - GET /api/health
 - GET /api/home/message
 - POST /api/chat/send
+- GET /api/characters
+- POST /api/characters
+- PUT /api/characters/:id
+- DELETE /api/characters/:id
