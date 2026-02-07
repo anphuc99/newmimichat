@@ -11,6 +11,7 @@ interface ChatMessage {
   role: ChatRole;
   content: string;
   timestamp: string;
+  assistantId?: string;
   characterName?: string;
   translation?: string;
   tone?: string;
@@ -45,6 +46,7 @@ interface Character {
 }
 
 interface AssistantTurn {
+  MessageId?: string;
   CharacterName?: string;
   Text?: string;
   Tone?: string;
@@ -54,12 +56,13 @@ interface AssistantTurn {
 const createMessage = (
   role: ChatRole,
   content: string,
-  options: { characterName?: string; translation?: string; tone?: string } = {}
+  options: { assistantId?: string; characterName?: string; translation?: string; tone?: string } = {}
 ): ChatMessage => ({
   id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
   role,
   content,
   timestamp: new Date().toISOString(),
+  assistantId: options.assistantId,
   characterName: options.characterName,
   translation: options.translation,
   tone: options.tone
@@ -128,12 +131,14 @@ const toAssistantMessages = (content: string): ChatMessage[] => {
   }
 
   return turns.map((turn) => {
+    const assistantId = typeof turn.MessageId === "string" ? turn.MessageId.trim() : "";
     const text = typeof turn.Text === "string" ? turn.Text.trim() : "";
     const characterName = typeof turn.CharacterName === "string" ? turn.CharacterName.trim() : "Mimi";
     const translation = typeof turn.Translation === "string" ? turn.Translation.trim() : "";
     const tone = typeof turn.Tone === "string" ? turn.Tone.trim() : "";
 
     return createMessage("assistant", text || content, {
+      assistantId: assistantId || undefined,
       characterName: characterName || "Mimi",
       translation,
       tone

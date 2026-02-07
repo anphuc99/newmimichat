@@ -159,7 +159,8 @@ DIALOGUE RULES
 RESPONSE FORMAT (JSON ARRAY)
 ====================================
 - Return a JSON array of 1-10 objects.
-- Each object must include: CharacterName, Text, Tone, Translation.
+- Each object must include: MessageId, CharacterName, Text, Tone, Translation.
+- MessageId: unique identifier for this message within the current reply/session.
 - CharacterName: speaker name. Use "Mimi" if no character is specified.
 - Text: Korean only.
 - Tone: short English description for TTS (e.g. "neutral, medium pitch").
@@ -169,6 +170,7 @@ RESPONSE FORMAT (JSON ARRAY)
 Example:
 [
   {
+    "MessageId": "m1",
     "CharacterName": "Mimi",
     "Text": "안녕하세요.",
     "Tone": "neutral, medium pitch",
