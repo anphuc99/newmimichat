@@ -225,18 +225,13 @@ const App = () => {
         </div>
         <div className="app-nav__model">
           <label htmlFor="model-selector">Model</label>
-          <input
-            id="model-selector"
-            list="model-options"
-            value={chatModel}
-            onChange={handleModelChange}
-            placeholder="gpt-4o-mini"
-          />
-          <datalist id="model-options">
+          <select id="model-selector" value={chatModel} onChange={handleModelChange}>
             {MODEL_OPTIONS.map((option) => (
-              <option key={option} value={option} />
+              <option key={option} value={option}>
+                {option}
+              </option>
             ))}
-          </datalist>
+          </select>
         </div>
         <div className="app-nav__spacer" />
         <span className="app-nav__user">{auth.user.username}</span>
