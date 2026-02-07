@@ -166,5 +166,6 @@ Whenever a controller is created or modified:
 - Follow existing style and conventions
 - Prefer clarity over cleverness
 - Every code change must be documented, validated, and traceable
+- When there are changes to the model, automatically run a database sync using the command npm run db:sync to update it.
 - **No syntax errors are allowed at completion please check carefully server and client**
 - **Every request ends with a Git commit**

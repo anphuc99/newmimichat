@@ -126,7 +126,7 @@ const toResponse = (entity: CharacterEntity): CharacterResponse => ({
   gender: entity.gender,
   appearance: entity.appearance ?? null,
   avatar: entity.avatar ?? null,
-  voiceModel: entity.voiceModel ?? null,
+  voiceModel: entity.voiceModel === "openai" ? "openai" : null,
   voiceName: entity.voiceName ?? null,
   pitch: entity.pitch ?? null,
   speakingRate: entity.speakingRate ?? null,
@@ -197,6 +197,7 @@ export const createCharactersController = (dataSource: DataSource): CharactersCo
 
       response.status(201).json(toResponse(saved));
     } catch (error) {
+      console.log(error);
       response.status(500).json({
         message: "Failed to create character",
         error: error instanceof Error ? error.message : "Unknown error"

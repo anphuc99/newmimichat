@@ -83,6 +83,14 @@ Set environment variables before starting the server:
 - DB_PASSWORD (default: empty)
 - DB_NAME (default: mimi_chat)
 
+### Database sync (local)
+
+Create/update tables in local dev using TypeORM sync (do not use in production):
+
+```bash
+npm run db:sync
+```
+
 ## OpenAI
 
 Set the following environment variables before starting the server:
