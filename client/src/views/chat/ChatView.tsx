@@ -16,6 +16,7 @@ interface ChatMessage {
   characterName?: string;
   translation?: string;
   tone?: string;
+  suppressAutoPlay?: boolean;
 }
 
 interface ChatResponse {
@@ -66,7 +67,14 @@ interface AssistantTurn {
 const createMessage = (
   role: ChatRole,
   content: string,
-  options: { assistantId?: string; audioId?: string; characterName?: string; translation?: string; tone?: string } = {}
+  options: {
+    assistantId?: string;
+    audioId?: string;
+    characterName?: string;
+    translation?: string;
+    tone?: string;
+    suppressAutoPlay?: boolean;
+  } = {}
 ): ChatMessage => ({
   id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
   role,
@@ -76,7 +84,8 @@ const createMessage = (
   audioId: options.audioId,
   characterName: options.characterName,
   translation: options.translation,
-  tone: options.tone
+  tone: options.tone,
+  suppressAutoPlay: options.suppressAutoPlay
 });
 
 /**
@@ -312,9 +321,57 @@ const ChatView = ({ userId }: ChatViewProps) => {
       }
 
       source.connect(context.destination);
-      source.start();
+
+      await new Promise<void>((resolve) => {
+        source.onended = () => resolve();
+        source.start();
+      });
     } catch {
       // Ignore playback errors.
+    }
+  };
+
+  /**
+   * Appends assistant messages one-by-one and waits for TTS playback before continuing.
+   *
+   * @param reply - Raw assistant reply payload.
+   */
+  const appendAssistantMessagesSequentially = async (reply: string) => {
+    const turns = parseAssistantReply(reply);
+    const normalizedTurns = turns.length
+      ? turns
+      : [{ Text: reply } as AssistantTurn];
+
+    for (const turn of normalizedTurns) {
+      const assistantId = typeof turn.MessageId === "string" ? turn.MessageId.trim() : "";
+      const content = typeof turn.Text === "string" ? turn.Text.trim() : reply.trim();
+      const characterName = typeof turn.CharacterName === "string" ? turn.CharacterName.trim() : "Mimi";
+      const translation = typeof turn.Translation === "string" ? turn.Translation.trim() : "";
+      const tone = typeof turn.Tone === "string" ? turn.Tone.trim() : DEFAULT_TTS_TONE;
+      const nextMessage = createMessage("assistant", content || reply, {
+        assistantId: assistantId || undefined,
+        characterName: characterName || "Mimi",
+        translation,
+        tone,
+        suppressAutoPlay: true
+      });
+
+      setMessages((prev) => [...prev, nextMessage]);
+
+      const voiceName = getCharacterVoiceName(characterName);
+      const audioId = content
+        ? await requestTts(content, tone || DEFAULT_TTS_TONE, voiceName || undefined)
+        : null;
+
+      if (audioId) {
+        setMessages((prev) =>
+          prev.map((item) => (item.id === nextMessage.id ? { ...item, audioId } : item))
+        );
+
+        const settings = getCharacterAudioSettings(characterName || "Mimi");
+        playedAudio.current.add(nextMessage.id);
+        await playAudio(audioId, settings.speakingRate, settings.pitch);
+      }
     }
   };
 
@@ -432,7 +489,7 @@ const ChatView = ({ userId }: ChatViewProps) => {
     }
 
     messages.slice(startIndex).forEach((message) => {
-      if (message.role === "assistant" && message.content && !message.audioId) {
+      if (message.role === "assistant" && message.content && !message.audioId && !message.suppressAutoPlay) {
         void ensureAudioForMessage(message);
       }
     });
@@ -607,7 +664,7 @@ const ChatView = ({ userId }: ChatViewProps) => {
 
       const payload = (await response.json()) as ChatResponse;
 
-      setMessages((prev) => [...prev, ...toAssistantMessages(payload.reply)]);
+      await appendAssistantMessagesSequentially(payload.reply);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Unknown error");
     } finally {
