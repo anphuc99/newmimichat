@@ -68,28 +68,13 @@ const buildPayload = (form: CharacterFormState) => {
   };
 };
 
-const getOrCreateSessionId = (storageKey: string) => {
-  const existing = window.localStorage.getItem(storageKey);
-
-  if (existing) {
-    return existing;
-  }
-
-  const next = typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`;
-  window.localStorage.setItem(storageKey, next);
-  return next;
-};
-
-interface CharactersViewProps {
-  userId: number;
-}
 
 /**
  * Renders the character management view.
  *
  * @returns The Characters view React component.
  */
-const CharactersView = ({ userId }: CharactersViewProps) => {
+const CharactersView = () => {
   const [characters, setCharacters] = useState<Character[]>([]);
   const [formState, setFormState] = useState<CharacterFormState>(emptyFormState);
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -97,9 +82,6 @@ const CharactersView = ({ userId }: CharactersViewProps) => {
   const [isSaving, setIsSaving] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const sessionStorageKey = `mimi_chat_session_id_${userId}`;
-  const sessionId = useMemo(() => getOrCreateSessionId(sessionStorageKey), [sessionStorageKey]);
 
   const sortedCharacters = useMemo(() => {
     return [...characters].sort((left, right) => right.id - left.id);
@@ -255,25 +237,6 @@ const CharactersView = ({ userId }: CharactersViewProps) => {
 
         return [saved, ...prev];
       });
-
-      if (!editingId) {
-        await authFetch(apiUrl("/api/chat/developer"), {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({
-            sessionId,
-            kind: "character_added",
-            character: {
-              name: saved.name,
-              personality: saved.personality,
-              gender: saved.gender,
-              appearance: saved.appearance ?? null
-            }
-          })
-        }).catch(() => null);
-      }
 
       handleCancel();
     } catch (caught) {

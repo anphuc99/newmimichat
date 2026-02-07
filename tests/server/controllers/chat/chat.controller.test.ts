@@ -186,4 +186,32 @@ describe("Chat controller", () => {
     ]);
     expect(response.json).toHaveBeenCalledWith({ ok: true });
   });
+
+  it("appends a developer message for character removed", async () => {
+    const repository = createRepository();
+    const { controller, historyStore } = createController(repository, {
+      createReply: vi.fn()
+    });
+    const response = createMockResponse();
+
+    await controller.appendDeveloperMessage(
+      {
+        body: {
+          sessionId: "s1",
+          kind: "character_removed",
+          character: { name: "Mimi" }
+        },
+        user: { id: 1, username: "mimi" }
+      } as any,
+      response
+    );
+
+    expect(historyStore.append).toHaveBeenCalledWith(1, "s1", [
+      {
+        role: "developer",
+        content: expect.stringContaining("đã bị gỡ")
+      }
+    ]);
+    expect(response.json).toHaveBeenCalledWith({ ok: true });
+  });
 });

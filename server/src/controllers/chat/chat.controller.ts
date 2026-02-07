@@ -75,6 +75,20 @@ export const createChatController = (
     return lines.join("\n");
   };
 
+  const formatCharacterRemovedMessage = (payload: Record<string, unknown>) => {
+    const character = (payload.character ?? {}) as Record<string, unknown>;
+    const name = typeof character.name === "string" ? character.name.trim() : "";
+
+    if (!name) {
+      return "";
+    }
+
+    return [
+      `Nhân vật \"${name}\" đã bị gỡ khỏi cuộc trò chuyện.`,
+      "Không được dùng nhân vật này nữa trừ khi được thêm lại."
+    ].join("\n");
+  };
+
   /**
    * Builds a dynamic system instruction string for the current user/session.
    *
@@ -199,12 +213,13 @@ export const createChatController = (
     const sessionId = getSessionId(payload.sessionId);
     const kind = typeof payload.kind === "string" ? payload.kind.trim() : "";
 
-    if (kind !== "character_added") {
+    if (kind !== "character_added" && kind !== "character_removed") {
       response.status(400).json({ message: "Invalid developer message kind" });
       return;
     }
 
-    const content = formatCharacterAddedMessage(payload);
+    const content =
+      kind === "character_added" ? formatCharacterAddedMessage(payload) : formatCharacterRemovedMessage(payload);
 
     if (!content) {
       response.status(400).json({ message: "Character name is required" });
