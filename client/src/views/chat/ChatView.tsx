@@ -237,7 +237,11 @@ const ChatView = ({ userId }: ChatViewProps) => {
    * @param message - Chat message to synthesize.
    * @param force - Force regeneration of audio.
    */
-  const ensureAudioForMessage = async (message: ChatMessage, force = false) => {
+  const ensureAudioForMessage = async (
+    message: ChatMessage,
+    options: { force?: boolean; allowReplay?: boolean } = {}
+  ) => {
+    const { force = false, allowReplay = false } = options;
     if (message.role !== "assistant") {
       return;
     }
@@ -250,7 +254,7 @@ const ChatView = ({ userId }: ChatViewProps) => {
     const tone = message.tone?.trim() || DEFAULT_TTS_TONE;
 
     if (!force && message.audioId) {
-      if (!playedAudio.current.has(message.id)) {
+      if (allowReplay || !playedAudio.current.has(message.id)) {
         playedAudio.current.add(message.id);
         playAudio(message.audioId);
       }
@@ -272,7 +276,7 @@ const ChatView = ({ userId }: ChatViewProps) => {
         prev.map((item) => (item.id === message.id ? { ...item, audioId } : item))
       );
 
-      if (!playedAudio.current.has(message.id)) {
+      if (allowReplay || !playedAudio.current.has(message.id)) {
         playedAudio.current.add(message.id);
         playAudio(audioId);
       }
@@ -514,7 +518,7 @@ const ChatView = ({ userId }: ChatViewProps) => {
       return;
     }
 
-    void ensureAudioForMessage(message);
+    void ensureAudioForMessage(message, { allowReplay: true });
   };
 
   const handleReloadAudio = (messageId: string) => {
@@ -523,7 +527,7 @@ const ChatView = ({ userId }: ChatViewProps) => {
       return;
     }
 
-    void ensureAudioForMessage(message, true);
+    void ensureAudioForMessage(message, { force: true, allowReplay: true });
   };
 
   const handleEndConversation = async () => {
