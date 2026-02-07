@@ -1,6 +1,19 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { apiUrl } from "../../lib/api";
 import { authFetch } from "../../lib/auth";
+
+type CharacterGender = "male" | "female";
+
+interface Character {
+  id: number;
+  name: string;
+  personality: string;
+  gender: CharacterGender;
+  appearance?: string | null;
+  voiceName?: string | null;
+  pitch?: number | null;
+  speakingRate?: number | null;
+}
 
 interface JournalSummary {
   id: number;
@@ -24,6 +37,8 @@ interface JournalDetailResponse {
 }
 
 const DEFAULT_TTS_TONE = "neutral, medium pitch";
+const DEFAULT_SPEAKING_RATE = 1.0;
+const DEFAULT_PITCH = 0;
 
 /**
  * Renders the Journal list and detail view.
@@ -37,6 +52,9 @@ const JournalView = () => {
   const [openTranslations, setOpenTranslations] = useState<Record<number, boolean>>({});
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [characters, setCharacters] = useState<Character[]>([]);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const audioCacheRef = useRef<Map<string, AudioBuffer>>(new Map());
 
   useEffect(() => {
     let isActive = true;
@@ -85,6 +103,58 @@ const JournalView = () => {
   useEffect(() => {
     let isActive = true;
 
+    const loadCharacters = async () => {
+      try {
+        const response = await authFetch(apiUrl("/api/characters"));
+
+        if (!response.ok) {
+          return;
+        }
+
+        const payload = (await response.json()) as Character[];
+
+        if (isActive) {
+          setCharacters(payload ?? []);
+        }
+      } catch {
+        // Ignore character load errors.
+      }
+    };
+
+    void loadCharacters();
+
+    return () => {
+      isActive = false;
+    };
+  }, []);
+
+  const getCharacterAudioSettings = (characterName?: string) => {
+    if (!characterName) {
+      return {
+        speakingRate: DEFAULT_SPEAKING_RATE,
+        pitch: DEFAULT_PITCH
+      };
+    }
+
+    const character = characters.find((item) => item.name === characterName);
+    return {
+      speakingRate: character?.speakingRate ?? DEFAULT_SPEAKING_RATE,
+      pitch: character?.pitch ?? DEFAULT_PITCH
+    };
+  };
+
+  const getCharacterVoiceName = (characterName?: string) => {
+    if (!characterName) {
+      return "";
+    }
+
+    const character = characters.find((item) => item.name === characterName);
+    return character?.voiceName?.trim() ?? "";
+  };
+
+  useEffect(() => {
+    let isActive = true;
+
     if (!activeJournal) {
       setMessages([]);
       return () => {
@@ -121,15 +191,46 @@ const JournalView = () => {
     };
   }, [activeJournal]);
 
-  const playAudio = (audioId: string) => {
+  const playAudio = async (audioId: string, speakingRate = DEFAULT_SPEAKING_RATE, pitch = DEFAULT_PITCH) => {
     if (!audioId) {
       return;
     }
 
-    const audio = new Audio(apiUrl(`/audio/${audioId}.mp3`));
-    void audio.play().catch(() => {
+    try {
+      if (!audioContextRef.current) {
+        audioContextRef.current = new AudioContext();
+      }
+
+      const context = audioContextRef.current;
+      if (context.state === "suspended") {
+        await context.resume();
+      }
+
+      let audioBuffer = audioCacheRef.current.get(audioId);
+
+      if (!audioBuffer) {
+        const response = await fetch(apiUrl(`/audio/${audioId}.mp3`));
+        if (!response.ok) {
+          return;
+        }
+
+        const arrayBuffer = await response.arrayBuffer();
+        audioBuffer = await context.decodeAudioData(arrayBuffer);
+        audioCacheRef.current.set(audioId, audioBuffer);
+      }
+
+      const source = context.createBufferSource();
+      source.buffer = audioBuffer;
+      source.playbackRate.value = speakingRate || DEFAULT_SPEAKING_RATE;
+      if (source.detune) {
+        source.detune.value = (pitch || DEFAULT_PITCH) * 50;
+      }
+
+      source.connect(context.destination);
+      source.start();
+    } catch {
       // Ignore playback errors.
-    });
+    }
   };
 
   /**
@@ -140,11 +241,15 @@ const JournalView = () => {
    * @param force - Regenerate even if cached.
    * @returns The audio id string or null when unavailable.
    */
-  const requestTts = async (text: string, tone: string, force = false) => {
+  const requestTts = async (text: string, tone: string, voice?: string, force = false) => {
     const params = new URLSearchParams({
       text,
       tone
     });
+
+    if (voice) {
+      params.set("voice", voice);
+    }
 
     if (force) {
       params.set("force", "true");
@@ -168,7 +273,8 @@ const JournalView = () => {
    */
   const ensureAudio = async (message: JournalMessage, force = false) => {
     if (!force && message.audio) {
-      playAudio(message.audio);
+      const settings = getCharacterAudioSettings(message.characterName);
+      void playAudio(message.audio, settings.speakingRate, settings.pitch);
       return;
     }
 
@@ -178,7 +284,8 @@ const JournalView = () => {
     }
 
     const tone = message.tone?.trim() || DEFAULT_TTS_TONE;
-    const audioId = await requestTts(content, tone, force);
+    const voiceName = getCharacterVoiceName(message.characterName);
+    const audioId = await requestTts(content, tone, voiceName || undefined, force);
     if (!audioId) {
       return;
     }
@@ -186,7 +293,8 @@ const JournalView = () => {
     setMessages((prev) =>
       prev.map((item) => (item.id === message.id ? { ...item, audio: audioId } : item))
     );
-    playAudio(audioId);
+    const settings = getCharacterAudioSettings(message.characterName);
+    void playAudio(audioId, settings.speakingRate, settings.pitch);
   };
 
   return (
