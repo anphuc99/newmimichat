@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import MessageCard from "./components/MessageCard";
+import { apiUrl } from "../../lib/api";
 
 interface ApiMessage {
   message: string;
@@ -20,7 +21,7 @@ const HomeView = () => {
 
     const loadMessage = async () => {
       try {
-        const response = await fetch("/api/home/message");
+        const response = await fetch(apiUrl("/api/home/message"));
 
         if (!response.ok) {
           throw new Error("Failed to fetch message");
