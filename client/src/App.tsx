@@ -50,7 +50,7 @@ const App = () => {
     clearStoredAuth();
     setAuth(null);
   };
-  const handleModelChange = (event: ChangeEvent<HTMLInputElement>) => {
+  const handleModelChange = (event: ChangeEvent<HTMLSelectElement>) => {
     const nextValue = event.target.value.trim();
     setChatModel(nextValue);
     window.localStorage.setItem(MODEL_STORAGE_KEY, nextValue);
