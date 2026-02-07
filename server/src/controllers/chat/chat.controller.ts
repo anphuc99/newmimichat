@@ -10,6 +10,7 @@ interface ChatController {
   sendMessage: (request: Request, response: Response) => Promise<void>;
   getHistory: (request: Request, response: Response) => Promise<void>;
   appendDeveloperMessage: (request: Request, response: Response) => Promise<void>;
+  getDeveloperState: (request: Request, response: Response) => Promise<void>;
 }
 
 interface ChatControllerDeps {
@@ -87,6 +88,20 @@ export const createChatController = (
       `Character \"${name}\" has been removed from this conversation.`,
       "Do not use this character again unless it is added back."
     ].join("\n");
+  };
+
+  const parseDeveloperCharacterAction = (content: string) => {
+    const addedMatch = content.match(/^Character\s+"([^"]+)"\s+has been added\./m);
+    if (addedMatch) {
+      return { name: addedMatch[1].trim(), active: true };
+    }
+
+    const removedMatch = content.match(/^Character\s+"([^"]+)"\s+has been removed from this conversation\./m);
+    if (removedMatch) {
+      return { name: removedMatch[1].trim(), active: false };
+    }
+
+    return null;
   };
 
   /**
@@ -237,9 +252,46 @@ export const createChatController = (
     }
   };
 
+  const getDeveloperState: ChatController["getDeveloperState"] = async (request, response) => {
+    if (!request.user) {
+      response.status(401).json({ message: "Unauthorized" });
+      return;
+    }
+
+    const sessionId = getSessionId(request.query?.sessionId);
+
+    try {
+      const messages = await historyStore.load(request.user.id, sessionId);
+      const activeMap = new Map<string, boolean>();
+
+      for (const message of messages) {
+        if (message.role !== "developer") {
+          continue;
+        }
+
+        const action = parseDeveloperCharacterAction(message.content);
+        if (action?.name) {
+          activeMap.set(action.name, action.active);
+        }
+      }
+
+      const activeCharacterNames = Array.from(activeMap.entries())
+        .filter(([, isActive]) => isActive)
+        .map(([name]) => name);
+
+      response.json({ activeCharacterNames });
+    } catch (error) {
+      response.status(500).json({
+        message: "Failed to load developer state",
+        error: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  };
+
   return {
     sendMessage,
     getHistory,
-    appendDeveloperMessage
+    appendDeveloperMessage,
+    getDeveloperState
   };
 };

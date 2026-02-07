@@ -25,6 +25,10 @@ interface ChatHistoryResponse {
   messages: Array<{ role: ChatRole; content: string }>;
 }
 
+interface ChatDeveloperStateResponse {
+  activeCharacterNames: string[];
+}
+
 type CharacterGender = "male" | "female";
 
 interface Character {
@@ -155,9 +159,7 @@ interface ChatViewProps {
  */
 const ChatView = ({ userId }: ChatViewProps) => {
   const storageKey = `mimi_chat_session_id_${userId}`;
-  const [messages, setMessages] = useState<ChatMessage[]>(() => [
-    createMessage("assistant", "Hi! I am MimiChat. What would you like to practice today?")
-  ]);
+  const [messages, setMessages] = useState<ChatMessage[]>(() => []);
   const [input, setInput] = useState("");
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -230,6 +232,52 @@ const ChatView = ({ userId }: ChatViewProps) => {
       isActive = false;
     };
   }, []);
+
+  useEffect(() => {
+    let isActive = true;
+
+    if (!characters.length) {
+      setActiveCharacterIds([]);
+      return () => {
+        isActive = false;
+      };
+    }
+
+    const normalizeName = (value: string) => value.trim().toLowerCase();
+
+    const loadDeveloperState = async () => {
+      try {
+        const response = await authFetch(
+          apiUrl(`/api/chat/developer-state?sessionId=${encodeURIComponent(sessionId)}`)
+        );
+
+        if (!response.ok) {
+          return;
+        }
+
+        const payload = (await response.json()) as ChatDeveloperStateResponse;
+
+        if (!isActive) {
+          return;
+        }
+
+        const activeNames = new Set((payload.activeCharacterNames ?? []).map(normalizeName));
+        const nextActiveIds = characters
+          .filter((character) => activeNames.has(normalizeName(character.name)))
+          .map((character) => character.id);
+
+        setActiveCharacterIds(nextActiveIds);
+      } catch {
+        // Ignore developer state load errors.
+      }
+    };
+
+    void loadDeveloperState();
+
+    return () => {
+      isActive = false;
+    };
+  }, [characters, sessionId]);
 
   const addCharacterToChat = async (character: Character) => {
     if (activeCharacterIds.includes(character.id)) {

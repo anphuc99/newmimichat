@@ -214,4 +214,26 @@ describe("Chat controller", () => {
     ]);
     expect(response.json).toHaveBeenCalledWith({ ok: true });
   });
+
+  it("returns active characters from developer history", async () => {
+    const repository = createRepository();
+    const { controller, historyStore } = createController(repository, {
+      createReply: vi.fn()
+    });
+    const response = createMockResponse();
+
+    historyStore.load.mockResolvedValue([
+      { role: "developer", content: "Character \"Mimi\" has been added." },
+      { role: "developer", content: "Character \"Luna\" has been added." },
+      { role: "developer", content: "Character \"Mimi\" has been removed from this conversation." }
+    ]);
+
+    await controller.getDeveloperState(
+      { query: { sessionId: "s1" }, user: { id: 1, username: "mimi" } } as any,
+      response
+    );
+
+    expect(historyStore.load).toHaveBeenCalledWith(1, "s1");
+    expect(response.json).toHaveBeenCalledWith({ activeCharacterNames: ["Luna"] });
+  });
 });

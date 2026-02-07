@@ -151,7 +151,7 @@ ${maybe("STORY PLOT", params.storyPlot)}${maybe("RELATIONSHIPS", params.relation
 ====================================
 DIALOGUE RULES
 ====================================
-- Prefer 1-3 short sentences per reply.
+- Prefer 1-10 short sentences per reply.
 - If the user mixes Vietnamese/Korean, still respond in Korean.
 - If the user asks for translation/explanation, keep it short and at the same level.
 

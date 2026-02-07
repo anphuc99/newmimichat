@@ -113,7 +113,6 @@ Whenever a controller is created or modified:
 1. **MUST create a Git commit**
    - No exceptions
    - No uncommitted changes
-   - No mixing unrelated work
 
 2. **Commit MUST include**
    - All modified and newly created files
@@ -155,7 +154,6 @@ Whenever a controller is created or modified:
 - ❌ Do NOT guess project structure or logic
 - ❌ Do NOT skip Git commit
 - ❌ Do NOT end with syntax errors
-- ❌ Do NOT mix unrelated changes
 - ❌ Do NOT remove existing documentation unless explicitly requested
 
 ---
