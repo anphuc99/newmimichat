@@ -58,18 +58,18 @@ export const createChatController = (
       return "";
     }
 
-    const lines = [`Nhân vật \"${name}\" đã được thêm.`];
+    const lines = [`Character \"${name}\" has been added.`];
 
     if (gender) {
-      lines.push(`Giới tính: ${gender}`);
+      lines.push(`Gender: ${gender}`);
     }
 
     if (personality) {
-      lines.push(`Tính cách: ${personality}`);
+      lines.push(`Personality: ${personality}`);
     }
 
     if (appearance) {
-      lines.push(`Ngoại hình: ${appearance}`);
+      lines.push(`Appearance: ${appearance}`);
     }
 
     return lines.join("\n");
@@ -84,8 +84,8 @@ export const createChatController = (
     }
 
     return [
-      `Nhân vật \"${name}\" đã bị gỡ khỏi cuộc trò chuyện.`,
-      "Không được dùng nhân vật này nữa trừ khi được thêm lại."
+      `Character \"${name}\" has been removed from this conversation.`,
+      "Do not use this character again unless it is added back."
     ].join("\n");
   };
 

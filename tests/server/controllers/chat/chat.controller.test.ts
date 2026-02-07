@@ -181,7 +181,7 @@ describe("Chat controller", () => {
     expect(historyStore.append).toHaveBeenCalledWith(1, "s1", [
       {
         role: "developer",
-        content: expect.stringContaining("Nhân vật \"Mimi\" đã được thêm")
+        content: expect.stringContaining("Character \"Mimi\" has been added")
       }
     ]);
     expect(response.json).toHaveBeenCalledWith({ ok: true });
@@ -209,7 +209,7 @@ describe("Chat controller", () => {
     expect(historyStore.append).toHaveBeenCalledWith(1, "s1", [
       {
         role: "developer",
-        content: expect.stringContaining("đã bị gỡ")
+        content: expect.stringContaining("has been removed")
       }
     ]);
     expect(response.json).toHaveBeenCalledWith({ ok: true });
