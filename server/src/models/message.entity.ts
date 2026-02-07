@@ -16,6 +16,9 @@ class MessageEntity {
   @Column({ name: "character_name", type: "varchar", length: 120 })
   characterName!: string;
 
+  @Column({ name: "translation", type: "text", nullable: true })
+  translation?: string | null;
+
   @Column({ name: "audio", type: "varchar", length: 255, nullable: true })
   audio?: string | null;
 

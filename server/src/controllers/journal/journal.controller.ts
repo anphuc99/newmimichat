@@ -111,8 +111,8 @@ export const createJournalController = (
     history: ChatHistoryMessage[],
     userId: number,
     journalId: number
-  ): Array<Pick<MessageEntity, "content" | "characterName" | "audio" | "userId" | "journalId">> => {
-    const result: Array<Pick<MessageEntity, "content" | "characterName" | "audio" | "userId" | "journalId">> = [];
+  ): Array<Pick<MessageEntity, "content" | "characterName" | "translation" | "audio" | "userId" | "journalId">> => {
+    const result: Array<Pick<MessageEntity, "content" | "characterName" | "translation" | "audio" | "userId" | "journalId">> = [];
 
     for (const message of history) {
       if (message.role === "user") {
@@ -124,6 +124,7 @@ export const createJournalController = (
         result.push({
           content,
           characterName: "User",
+          translation: null,
           audio: null,
           userId,
           journalId
@@ -145,6 +146,7 @@ export const createJournalController = (
         result.push({
           content: fallback,
           characterName: "Mimi",
+          translation: null,
           audio: null,
           userId,
           journalId
@@ -159,10 +161,12 @@ export const createJournalController = (
         }
 
         const characterName = typeof turn.CharacterName === "string" ? turn.CharacterName.trim() : "Mimi";
+        const translation = typeof turn.Translation === "string" ? turn.Translation.trim() : "";
 
         result.push({
           content,
           characterName: characterName || "Mimi",
+          translation: translation || null,
           audio: null,
           userId,
           journalId
@@ -238,6 +242,7 @@ export const createJournalController = (
           id: message.id,
           content: message.content,
           characterName: message.characterName,
+          translation: message.translation,
           audio: message.audio,
           createdAt: message.createdAt.toISOString()
         }))

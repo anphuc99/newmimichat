@@ -12,6 +12,7 @@ interface JournalMessage {
   id: number;
   content: string;
   characterName: string;
+  translation?: string | null;
   audio?: string | null;
   createdAt: string;
 }
@@ -30,6 +31,7 @@ const JournalView = () => {
   const [journals, setJournals] = useState<JournalSummary[]>([]);
   const [activeJournal, setActiveJournal] = useState<JournalSummary | null>(null);
   const [messages, setMessages] = useState<JournalMessage[]>([]);
+  const [openTranslations, setOpenTranslations] = useState<Record<number, boolean>>({});
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -100,6 +102,7 @@ const JournalView = () => {
 
         if (isActive) {
           setMessages(payload.messages ?? []);
+          setOpenTranslations({});
         }
       } catch (caught) {
         if (isActive) {
@@ -170,6 +173,23 @@ const JournalView = () => {
                     </span>
                   </div>
                   <p className="journal-message__text">{message.content}</p>
+                  {message.translation ? (
+                    <button
+                      type="button"
+                      className="journal-message__translate-toggle"
+                      onClick={() =>
+                        setOpenTranslations((prev) => ({
+                          ...prev,
+                          [message.id]: !prev[message.id]
+                        }))
+                      }
+                    >
+                      {openTranslations[message.id] ? "Hide translation" : "Translate"}
+                    </button>
+                  ) : null}
+                  {message.translation && openTranslations[message.id] ? (
+                    <p className="journal-message__translation">{message.translation}</p>
+                  ) : null}
                 </article>
               ))}
             </div>

@@ -98,6 +98,7 @@ describe("Journal controller", () => {
         id: 10,
         content: "Hello",
         characterName: "User",
+        translation: null,
         audio: null,
         createdAt: new Date("2025-01-02T00:00:01.000Z")
       }
@@ -116,6 +117,7 @@ describe("Journal controller", () => {
           id: 10,
           content: "Hello",
           characterName: "User",
+          translation: null,
           audio: null,
           createdAt: "2025-01-02T00:00:01.000Z"
         }
@@ -142,7 +144,8 @@ describe("Journal controller", () => {
 
     expect(openAIService.createReply).toHaveBeenCalled();
     expect(journalRepository.save).toHaveBeenCalled();
-    expect(messageRepository.save).toHaveBeenCalled();
+    const savedMessages = messageRepository.save.mock.calls[0]?.[0] as Array<{ translation?: string | null }>;
+    expect(savedMessages.some((message) => message.translation === "Xin chao.")).toBe(true);
     expect(historyStore.clear).toHaveBeenCalledWith(1, "s1");
     expect(response.json).toHaveBeenCalledWith({ journalId: 5, summary: "Cuoc hoi thoai noi ve..." });
   });
