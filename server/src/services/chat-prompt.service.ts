@@ -16,9 +16,14 @@ export interface ChatPromptParams {
    */
   level?: string | null;
   /**
-   * Optional level description coming from the database.
+    * Optional guideline coming from the database.
+    * Note: today this is stored in the `levels.descript` column.
    */
-  levelDescription?: string | null;
+    levelGuideline?: string | null;
+    /**
+    * Optional per-level max word limit coming from the database.
+    */
+    levelMaxWords?: number | null;
   /**
    * Characters available to the user. When omitted/empty, character rules are skipped.
    */
@@ -114,6 +119,10 @@ const buildCharacterSection = (characters: ChatPromptCharacter[]) => {
 export const buildChatSystemPrompt = (params: ChatPromptParams): string => {
   const level = normalizeLevel(params.level);
   const levelCfg = LEVEL_CONFIG[level];
+  const dbMaxWords = typeof params.levelMaxWords === "number" ? params.levelMaxWords : null;
+  const maxWords = Number.isFinite(dbMaxWords) && (dbMaxWords as number) > 0 ? (dbMaxWords as number) : levelCfg.maxWords;
+  const dbGuideline = (params.levelGuideline ?? "").trim();
+  const guideline = dbGuideline || levelCfg.guideline;
   const context = params.context?.trim() ? params.context.trim() : "A casual Korean practice chat between the user and the assistant.";
 
   const characters = (params.characters ?? []).filter((character) => character.name?.trim());
@@ -127,8 +136,7 @@ export const buildChatSystemPrompt = (params: ChatPromptParams): string => {
     return `\n${label}:\n${trimmed}\n`;
   };
 
-  const levelDescription = (params.levelDescription ?? "").trim();
-  const levelDescriptionBlock = levelDescription ? `\nLevel description (DB):\n${levelDescription}\n` : "";
+  const levelGuidelineBlock = dbGuideline ? `\nLevel guideline (DB):\n${dbGuideline}\n` : "";
 
   const relatedStoryMessages = (params.relatedStoryMessages ?? "").trim();
   const relatedStoryBlock = relatedStoryMessages
@@ -150,14 +158,14 @@ ABSOLUTE RULES (SYSTEM CRITICAL)
 ====================================
 1. Reply in Korean.
 2. Keep replies short and friendly.
-3. Max ${levelCfg.maxWords} Korean words per sentence when possible.
+3. Max ${maxWords} Korean words per sentence when possible.
 4. Avoid numerals; write numbers in Korean words.
 
 ====================================
 LANGUAGE LEVEL: ${level}
 ====================================
 ${levelCfg.guideline}
-${levelDescriptionBlock}
+${levelGuidelineBlock}
 
 ====================================
 SCENE / CONTEXT

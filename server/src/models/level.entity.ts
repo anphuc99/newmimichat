@@ -11,6 +11,9 @@ class LevelEntity {
   @Column({ type: "varchar", length: 8, unique: true })
   level!: string;
 
+  @Column({ name: "max_words", type: "int", default: 5 })
+  maxWords!: number;
+
   @Column({ type: "text" })
   descript!: string;
 
