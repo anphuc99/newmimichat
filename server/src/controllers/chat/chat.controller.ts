@@ -2,6 +2,7 @@ import type { Request, Response } from "express";
 import type { DataSource } from "typeorm";
 import { createOpenAIChatService, type OpenAIChatService } from "../../services/openai.service.js";
 import MessageEntity from "../../models/message.entity.js";
+import { createChatHistoryStore, type ChatHistoryStore } from "../../services/chat-history.service.js";
 
 interface ChatController {
   sendMessage: (request: Request, response: Response) => Promise<void>;
@@ -9,6 +10,7 @@ interface ChatController {
 
 interface ChatControllerDeps {
   openAIService?: OpenAIChatService;
+  historyStore?: ChatHistoryStore;
 }
 
 /**
@@ -29,6 +31,7 @@ export const createChatController = (
   const systemPromptPath = process.env.OPENAI_SYSTEM_PROMPT_PATH;
   const openAIService =
     deps.openAIService ?? (apiKey ? createOpenAIChatService({ apiKey, model, systemPromptPath }) : null);
+  const historyStore = deps.historyStore ?? createChatHistoryStore();
 
   const sendMessage: ChatController["sendMessage"] = async (request, response) => {
     if (!request.user) {
@@ -53,7 +56,8 @@ export const createChatController = (
     }
 
     try {
-      const result = await openAIService.createReply(message);
+      const history = await historyStore.load(request.user.id);
+      const result = await openAIService.createReply(message, history);
 
       const userMessage = repository.create({
         content: message,
@@ -67,6 +71,11 @@ export const createChatController = (
       });
 
       await repository.save([userMessage, assistantMessage]);
+
+      await historyStore.append(request.user.id, [
+        { role: "user", content: message },
+        { role: "assistant", content: result.reply }
+      ]);
 
       response.json({
         reply: result.reply,

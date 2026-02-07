@@ -13,7 +13,10 @@ export interface OpenAIChatServiceConfig {
 }
 
 export interface OpenAIChatService {
-  createReply: (message: string) => Promise<{ reply: string; model: string }>;
+  createReply: (
+    message: string,
+    history?: Array<{ role: "user" | "assistant"; content: string }>
+  ) => Promise<{ reply: string; model: string }>;
 }
 
 /**
@@ -38,12 +41,17 @@ export const createOpenAIChatService = (config: OpenAIChatServiceConfig): OpenAI
     return cachedPrompt;
   };
 
-  const createReply: OpenAIChatService["createReply"] = async (message) => {
+  const createReply: OpenAIChatService["createReply"] = async (message, history = []) => {
     const systemPrompt = await loadSystemPrompt();
+    const normalizedHistory = history
+      .filter((entry) => entry && (entry.role === "user" || entry.role === "assistant"))
+      .map((entry) => ({ role: entry.role, content: entry.content }));
+
     const completion = await client.chat.completions.create({
       model,
       messages: [
         { role: "system", content: systemPrompt },
+        ...normalizedHistory,
         { role: "user", content: message }
       ]
     });

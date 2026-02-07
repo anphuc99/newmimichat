@@ -21,6 +21,10 @@ OPENAI_MODEL=gpt-4o-mini
 JWT_SECRET=change-me
 REGISTRATION_TOKEN=change-me
 
+# Chat history persistence (optional)
+# Defaults to server/data/chat-history
+# CHAT_HISTORY_DIR=
+
 # TypeORM / ORM options (optional)
 # TYPEORM_SYNCHRONIZE=false
 # TYPEORM_LOGGING=false

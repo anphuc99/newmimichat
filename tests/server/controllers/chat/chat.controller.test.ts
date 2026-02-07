@@ -23,7 +23,15 @@ const createController = (repository: ReturnType<typeof createRepository>, openA
     getRepository: vi.fn(() => repository)
   } as any;
 
-  return createChatController(dataSource, openAIService ? { openAIService } : undefined);
+  const historyStore = {
+    load: vi.fn().mockResolvedValue([]),
+    append: vi.fn().mockResolvedValue(undefined)
+  };
+
+  return createChatController(dataSource, {
+    ...(openAIService ? { openAIService } : {}),
+    historyStore
+  });
 };
 
 describe("Chat controller", () => {
@@ -87,7 +95,7 @@ describe("Chat controller", () => {
       response
     );
 
-    expect(openAIService.createReply).toHaveBeenCalledWith("Hi");
+    expect(openAIService.createReply).toHaveBeenCalledWith("Hi", []);
     expect(repository.save).toHaveBeenCalledTimes(1);
     expect(response.status).not.toHaveBeenCalled();
     expect(response.json).toHaveBeenCalledWith({ reply: "Hello there", model: "test-model" });

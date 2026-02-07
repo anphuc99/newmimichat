@@ -118,6 +118,15 @@ Set the following environment variable before starting the server:
 - JWT_SECRET
 - REGISTRATION_TOKEN
 
+## Chat history (file-backed)
+
+Chat requests persist user message history to newline-delimited JSON stored in a `.txt` file.
+This allows the server to reload history after restarts and keeps OpenAI prompts consistent to
+benefit from prompt caching.
+
+Optional env:
+- CHAT_HISTORY_DIR (default: `server/data/chat-history`)
+
 ## API
 
 - GET /api/health
