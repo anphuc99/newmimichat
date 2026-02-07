@@ -11,9 +11,12 @@
     "build": "npm run build --workspace server && npm run build --workspace client",
     "lint": "npm run lint --workspace server && npm run lint --workspace client",
     "format": "npm run format --workspace server && npm run format --workspace client",
-    "mvc:gen": "node Tool/mvc-gen.js"
+    "mvc:gen": "node Tool/mvc-gen.js",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "devDependencies": {
-    "concurrently": "^8.2.2"
+    "concurrently": "^8.2.2",
+    "vitest": "^2.1.9"
   }
 }

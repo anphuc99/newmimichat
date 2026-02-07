@@ -37,6 +37,14 @@ npm run lint
 npm run format
 ```
 
+## Tests
+
+Run all unit tests (tests live outside client/server):
+
+```bash
+npm test
+```
+
 ## Project Structure
 
 - client: React (Vite) app

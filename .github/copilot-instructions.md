@@ -88,6 +88,21 @@ Before ending any response that includes code, the AI MUST:
 
 ---
 
+## ✅ Unit Tests (MANDATORY)
+
+Whenever a controller is created or modified:
+
+1. **MUST add/update a UnitTest**
+   - Tests live outside `server/` and `client/` under `tests/`
+   - Path convention:
+     - `tests/server/controllers/<group>/<group>.controller.test.ts`
+
+2. **MUST run all tests and ensure they pass**
+   - Run: `npm test`
+   - The AI must not stop until tests pass.
+
+---
+
 ## 🔒 Mandatory Git Commit (NON-NEGOTIABLE)
 
 **AFTER EVERY CODE GENERATION OR MODIFICATION:**

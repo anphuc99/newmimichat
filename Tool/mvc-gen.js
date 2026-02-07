@@ -143,11 +143,13 @@ const clientComponentDir = path.join(clientViewDir, "components");
 const serverControllerDir = path.join(rootDir, "server", "src", "controllers", groupName);
 const serverRoutesDir = path.join(rootDir, "server", "src", "routes");
 const serverModelsDir = path.join(rootDir, "server", "src", "models");
+const testsControllerDir = path.join(rootDir, "tests", "server", "controllers", groupName);
 
 ensureDir(clientComponentDir);
 ensureDir(serverControllerDir);
 ensureDir(serverRoutesDir);
 ensureDir(serverModelsDir);
+ensureDir(testsControllerDir);
 
 const viewFilePath = path.join(clientViewDir, `${viewName}.tsx`);
 const childFilePath = path.join(clientComponentDir, `${childName}.tsx`);
@@ -155,6 +157,7 @@ const indexFilePath = path.join(clientViewDir, "index.ts");
 const controllerFilePath = path.join(serverControllerDir, `${groupName}.controller.ts`);
 const routeFilePath = path.join(serverRoutesDir, `${groupName}.routes.ts`);
 const modelFilePath = path.join(serverModelsDir, `${entityName.toLowerCase()}.entity.ts`);
+const testFilePath = path.join(testsControllerDir, `${groupName}.controller.test.ts`);
 
 const viewTemplate = `import { useEffect, useState } from "react";\nimport ${childName} from "./components/${childName}";\n\ninterface ApiMessage {\n  message: string;\n  timestamp: string;\n}\n\n/**\n * Renders the ${viewName} view.\n *\n * @returns The ${viewName} React component.\n */\nconst ${viewName} = () => {\n  const [apiMessage, setApiMessage] = useState<ApiMessage | null>(null);\n  const [error, setError] = useState<string | null>(null);\n\n  useEffect(() => {\n    let isMounted = true;\n\n    const loadMessage = async () => {\n      try {\n        const response = await fetch("/api/${groupName}/message");\n\n        if (!response.ok) {\n          throw new Error("Failed to fetch message");\n        }\n\n        const data = (await response.json()) as ApiMessage;\n\n        if (isMounted) {\n          setApiMessage(data);\n        }\n      } catch (caught) {\n        if (isMounted) {\n          setError(caught instanceof Error ? caught.message : "Unknown error");\n        }\n      }\n    };\n\n    loadMessage();\n\n    return () => {\n      isMounted = false;\n    };\n  }, []);\n\n  return (\n    <main className=\"app\">\n      <header className=\"app__header\">\n        <h1>${pascalGroup}</h1>\n        <p>${viewName} view group</p>\n      </header>\n\n      <${childName} apiMessage={apiMessage} error={error} />\n    </main>\n  );\n};\n\nexport default ${viewName};\n`;
 
@@ -168,12 +171,15 @@ const routeTemplate = `import { Router } from \"express\";\nimport type { DataSo
 
 const modelTemplate = `import { Column, CreateDateColumn, Entity, PrimaryGeneratedColumn } from \"typeorm\";\n\n/**\n * Persists ${pascalGroup} messages for the view group.\n */\n@Entity({ name: \"${groupName}_messages\" })\nclass ${entityName}Entity {\n  @PrimaryGeneratedColumn(\"increment\")\n  id!: number;\n\n  @Column({ type: \"varchar\", length: 255 })\n  content!: string;\n\n  @CreateDateColumn({ name: \"created_at\", type: \"timestamp\" })\n  createdAt!: Date;\n}\n\nexport default ${entityName}Entity;\n`;
 
+const testTemplate = `import { describe, expect, it, vi } from \"vitest\";\nimport { create${pascalGroup}Controller } from \"../../../../server/src/controllers/${groupName}/${groupName}.controller\";\n\n/**\n * Creates a minimal Express-like response object for unit tests.\n *\n * @returns A mock response with json/status spies.\n */\nconst createMockResponse = () => {\n  const response = {};\n  response.json = vi.fn();\n  response.status = vi.fn(() => response);\n  return response;\n};\n\ndescribe(\"${pascalGroup} controller\", () => {\n  it(\"returns a fallback message when no message exists\", async () => {\n    const repository = {\n      findOne: vi.fn().mockResolvedValue(null)\n    };\n\n    const dataSource = {\n      getRepository: vi.fn(() => repository)\n    };\n\n    const controller = create${pascalGroup}Controller(dataSource);\n    const response = createMockResponse();\n\n    await controller.getMessage({}, response);\n\n    expect(repository.findOne).toHaveBeenCalledTimes(1);\n    expect(response.status).not.toHaveBeenCalled();\n    expect(response.json).toHaveBeenCalledTimes(1);\n  });\n});\n`;
+
 writeFile(viewFilePath, viewTemplate, force);
 writeFile(childFilePath, childTemplate, force);
 writeFile(indexFilePath, indexTemplate, force);
 writeFile(controllerFilePath, controllerTemplate, force);
 writeFile(routeFilePath, routeTemplate, force);
 writeFile(modelFilePath, modelTemplate, force);
+writeFile(testFilePath, testTemplate, force);
 
 updateRoutesIndex(rootDir, groupName, pascalGroup);
 

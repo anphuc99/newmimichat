@@ -7,6 +7,7 @@
 - Each controller handles exactly one view group.
 - Each view group has one main view and optional child views.
 - Child views receive dependencies via props from the main view.
+- Each controller must have a UnitTest outside server/client.
 
 ## View Group Structure
 
@@ -57,3 +58,11 @@ Use the generator to scaffold a new MVC group:
 Notes:
 - --force overwrites existing files.
 - The generator inserts routes using the mvc-gen markers in server/src/routes/index.ts.
+
+## Unit Tests (Mandatory)
+
+- All unit tests live under tests/ (outside client/ and server/).
+- Each controller requires at least one test file:
+  - tests/server/controllers/<group>/<group>.controller.test.ts
+- The work is considered complete only when all tests pass:
+  - npm test
