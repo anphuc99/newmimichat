@@ -164,6 +164,66 @@ Details:
 Optional env:
 - `CHAT_HISTORY_DIR` (default: `server/data/chat-history`)
 
+## Chat editing (server-side)
+
+The server supports editing existing chat messages via `POST /api/chat/edit`.
+
+There are two edit modes:
+
+### 1) Editing a user message (regenerates assistant reply)
+
+When a user message is edited, the server:
+- Finds the Nth user message (zero-based `userMessageIndex`) in the session history
+- Truncates history from that user message onward
+- Rebuilds the system prompt (level/story/context fields from the request body)
+- Re-generates the assistant reply from that point
+- Rewrites the session history file with the updated conversation
+
+Request body:
+
+```json
+{
+  "sessionId": "...",
+  "kind": "user",
+  "userMessageIndex": 0,
+  "content": "edited user text",
+  "storyId": 123,
+  "model": "gpt-4.1-mini"
+}
+```
+
+Notes:
+- `userMessageIndex` counts only messages with `role === "user"` in that session (zero-based).
+- `storyId` and `model` are optional. The server also accepts other optional prompt fields used by the system prompt builder.
+
+### 2) Editing an assistant message (developer note only)
+
+When an assistant message is edited, the server does **not** rewrite the assistant message in the history file.
+Instead, it appends a `developer` note that records the edit, using the assistant turn's `MessageId`.
+
+Request body:
+
+```json
+{
+  "sessionId": "...",
+  "kind": "assistant",
+  "assistantMessageId": "msg-123",
+  "content": "updated assistant text"
+}
+```
+
+Developer note format:
+
+```text
+Assistant message edited: msg-123.
+New content:
+updated assistant text
+```
+
+How the edit is applied:
+- `GET /api/chat/history` applies these developer edit notes in-memory before returning messages, so edited assistant text persists after reload.
+- `POST /api/journals/end` also applies these developer edit notes before generating the journal summary and before persisting `messages` rows.
+
 ## Journals and message persistence
 
 Chat messages are **not** saved to MySQL during the conversation. When the user ends a conversation, the server:
@@ -176,6 +236,9 @@ Chat messages are **not** saved to MySQL during the conversation. When the user 
 
 Characters are not embedded into the system prompt. Instead, the client explicitly adds/removes characters for a chat session.
 Those actions append a `developer` message to the session history.
+
+The client can also append a free-form developer context message (stored in history as `role: developer`) to guide the assistant.
+This is sent via `POST /api/chat/developer` with `kind: "context_update"`.
 
 ## API
 
@@ -196,8 +259,8 @@ Chat:
 - `POST /api/chat/send` (expects `message` and `sessionId`; also accepts optional context fields and `model`)
 - `GET /api/chat/history?sessionId=...`
 - `GET /api/chat/developer-state?sessionId=...` (returns active character names)
-- `POST /api/chat/developer` (append developer messages; e.g. `character_added` / `character_removed`)
-- `POST /api/chat/edit` (edit user/assistant messages; regenerates history when user edits)
+- `POST /api/chat/developer` (append developer messages; kinds: `character_added`, `character_removed`, `context_update`)
+- `POST /api/chat/edit` (edit messages: `kind: user` regenerates history; `kind: assistant` appends an edit developer note)
 
 Journals:
 - `POST /api/journals/end` (summarize current session and persist messages)
