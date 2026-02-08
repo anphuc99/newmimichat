@@ -935,6 +935,34 @@ body::after {
   gap: 24px;
 }
 
+.journal-story-filter {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.75rem;
+  color: var(--ink-soft);
+  min-width: 200px;
+}
+
+.journal-story-filter label {
+  font-weight: 600;
+}
+
+.journal-story-filter select {
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 0.9rem;
+  font-family: inherit;
+  background: #ffffff;
+  color: var(--ink-soft);
+}
+
+.journal-story-filter__error {
+  color: #b91c1c;
+  font-weight: 600;
+}
+
 .journal-kicker {
   margin: 0 0 6px;
   text-transform: uppercase;
@@ -1299,6 +1327,15 @@ body::after {
 
   .journal-content {
     grid-template-columns: 1fr;
+  }
+
+  .journal-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .journal-story-filter {
+    width: 100%;
   }
 
   .story-layout {

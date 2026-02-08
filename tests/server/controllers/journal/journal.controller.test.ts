@@ -84,8 +84,31 @@ describe("Journal controller", () => {
 
     await controller.listJournals({ user: { id: 1 } } as any, response);
 
+    expect(journalRepository.find).toHaveBeenCalledWith({
+      where: { userId: 1 },
+      order: { createdAt: "DESC" }
+    });
     expect(response.json).toHaveBeenCalledWith({
       journals: [{ id: 1, summary: "Summary", createdAt: "2025-01-01T00:00:00.000Z" }]
+    });
+  });
+
+  it("filters journals by story", async () => {
+    const { controller, journalRepository } = createController();
+    const response = createMockResponse();
+
+    journalRepository.find.mockResolvedValue([
+      { id: 2, summary: "Summary", createdAt: new Date("2025-01-02T00:00:00.000Z") }
+    ]);
+
+    await controller.listJournals({ user: { id: 1 }, query: { storyId: "3" } } as any, response);
+
+    expect(journalRepository.find).toHaveBeenCalledWith({
+      where: { userId: 1, storyId: 3 },
+      order: { createdAt: "DESC" }
+    });
+    expect(response.json).toHaveBeenCalledWith({
+      journals: [{ id: 2, summary: "Summary", createdAt: "2025-01-02T00:00:00.000Z" }]
     });
   });
 

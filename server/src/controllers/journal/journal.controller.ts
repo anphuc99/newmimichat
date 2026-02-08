@@ -246,9 +246,20 @@ export const createJournalController = (
       return;
     }
 
+    const rawStoryId = request.query?.storyId;
+    const storyId = rawStoryId === undefined ? null : parseStoryId(rawStoryId);
+
+    if (rawStoryId !== undefined && !storyId) {
+      response.status(400).json({ message: "Invalid story id" });
+      return;
+    }
+
     try {
       const journals = await journalRepository.find({
-        where: { userId: request.user.id },
+        where: {
+          userId: request.user.id,
+          ...(storyId ? { storyId } : {})
+        },
         order: { createdAt: "DESC" }
       });
 

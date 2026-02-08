@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import { apiUrl } from "../../lib/api";
 import { authFetch } from "../../lib/auth";
 
@@ -36,6 +36,17 @@ interface JournalDetailResponse {
   messages: JournalMessage[];
 }
 
+interface Story {
+  id: number;
+  name: string;
+  description: string;
+  currentProgress: string | null;
+}
+
+interface StoryListResponse {
+  stories: Story[];
+}
+
 const DEFAULT_TTS_TONE = "neutral, medium pitch";
 const DEFAULT_SPEAKING_RATE = 1.0;
 const DEFAULT_PITCH = 0;
@@ -45,7 +56,12 @@ const DEFAULT_PITCH = 0;
  *
  * @returns The Journal view React component.
  */
-const JournalView = () => {
+interface JournalViewProps {
+  userId: number;
+}
+
+const JournalView = ({ userId }: JournalViewProps) => {
+  const storyStorageKey = `mimi_chat_story_id_${userId}`;
   const [journals, setJournals] = useState<JournalSummary[]>([]);
   const [activeJournal, setActiveJournal] = useState<JournalSummary | null>(null);
   const [messages, setMessages] = useState<JournalMessage[]>([]);
@@ -53,6 +69,13 @@ const JournalView = () => {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [characters, setCharacters] = useState<Character[]>([]);
+  const [stories, setStories] = useState<Story[]>([]);
+  const [storyError, setStoryError] = useState<string | null>(null);
+  const [activeStoryId, setActiveStoryId] = useState<number | null>(() => {
+    const stored = window.localStorage.getItem(storyStorageKey);
+    const parsed = stored ? Number.parseInt(stored, 10) : NaN;
+    return Number.isInteger(parsed) ? parsed : null;
+  });
   const audioContextRef = useRef<AudioContext | null>(null);
   const audioCacheRef = useRef<Map<string, AudioBuffer>>(new Map());
 
@@ -64,7 +87,12 @@ const JournalView = () => {
       setError(null);
 
       try {
-        const response = await authFetch(apiUrl("/api/journals"));
+        const params = new URLSearchParams();
+        if (activeStoryId) {
+          params.set("storyId", String(activeStoryId));
+        }
+        const url = params.toString() ? `/api/journals?${params.toString()}` : "/api/journals";
+        const response = await authFetch(apiUrl(url));
 
         if (!response.ok) {
           const payload = (await response.json().catch(() => null)) as { message?: string } | null;
@@ -98,7 +126,54 @@ const JournalView = () => {
     return () => {
       isActive = false;
     };
-  }, []);
+  }, [activeStoryId]);
+
+  useEffect(() => {
+    let isActive = true;
+
+    const loadStories = async () => {
+      setStoryError(null);
+
+      try {
+        const response = await authFetch(apiUrl("/api/stories"));
+
+        if (!response.ok) {
+          const payload = (await response.json().catch(() => null)) as { message?: string } | null;
+          throw new Error(payload?.message ?? "Failed to load stories");
+        }
+
+        const payload = (await response.json()) as StoryListResponse;
+        const nextStories = payload.stories ?? [];
+
+        if (!isActive) {
+          return;
+        }
+
+        setStories(nextStories);
+        const stored = window.localStorage.getItem(storyStorageKey);
+        const storedId = stored ? Number.parseInt(stored, 10) : NaN;
+        const storedValid = Number.isInteger(storedId) && nextStories.some((story) => story.id === storedId);
+        const nextActiveId = storedValid ? storedId : nextStories[0]?.id ?? null;
+        setActiveStoryId(nextActiveId ?? null);
+
+        if (nextActiveId) {
+          window.localStorage.setItem(storyStorageKey, String(nextActiveId));
+        } else {
+          window.localStorage.removeItem(storyStorageKey);
+        }
+      } catch (caught) {
+        if (isActive) {
+          setStoryError(caught instanceof Error ? caught.message : "Unknown error");
+        }
+      }
+    };
+
+    void loadStories();
+
+    return () => {
+      isActive = false;
+    };
+  }, [storyStorageKey]);
 
   useEffect(() => {
     let isActive = true;
@@ -297,6 +372,21 @@ const JournalView = () => {
     void playAudio(audioId, settings.speakingRate, settings.pitch);
   };
 
+  const handleStoryChange = (event: ChangeEvent<HTMLSelectElement>) => {
+    const nextValue = event.target.value;
+    const nextId = nextValue ? Number.parseInt(nextValue, 10) : NaN;
+    const resolvedId = Number.isInteger(nextId) ? nextId : null;
+    setActiveStoryId(resolvedId);
+    setActiveJournal(null);
+    setMessages([]);
+
+    if (resolvedId) {
+      window.localStorage.setItem(storyStorageKey, String(resolvedId));
+    } else {
+      window.localStorage.removeItem(storyStorageKey);
+    }
+  };
+
   return (
     <main className="journal-shell">
       <header className="journal-header">
@@ -304,6 +394,18 @@ const JournalView = () => {
           <p className="journal-kicker">Journal</p>
           <h1>Conversation summaries</h1>
           <p className="journal-subtitle">Review past chats and all messages.</p>
+        </div>
+        <div className="journal-story-filter">
+          <label htmlFor="journal-story-selector">Story</label>
+          <select id="journal-story-selector" value={activeStoryId ?? ""} onChange={handleStoryChange}>
+            <option value="">All stories</option>
+            {stories.map((story) => (
+              <option key={story.id} value={story.id}>
+                {story.name}
+              </option>
+            ))}
+          </select>
+          {storyError ? <span className="journal-story-filter__error">{storyError}</span> : null}
         </div>
       </header>
 

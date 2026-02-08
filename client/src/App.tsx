@@ -252,7 +252,7 @@ const App = () => {
       ) : view === "characters" ? (
         <CharactersView />
       ) : view === "journal" ? (
-        <JournalView />
+        <JournalView userId={auth.user.id} />
       ) : (
         <StoryView />
       )}
