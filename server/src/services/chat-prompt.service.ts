@@ -133,7 +133,7 @@ export const buildChatSystemPrompt = (params: ChatPromptParams): string => {
 
   const characterRules = "";
 
-  return `YOU ARE A CONVERSATION PARTNER FOR KOREAN LEARNERS.
+  const p = `YOU ARE A CONVERSATION PARTNER FOR KOREAN LEARNERS.
 
 ====================================
 ABSOLUTE RULES (SYSTEM CRITICAL)
@@ -147,7 +147,6 @@ ABSOLUTE RULES (SYSTEM CRITICAL)
 ====================================
 LANGUAGE LEVEL: ${level}
 ====================================
-${guideline}
 ${levelDescriptionBlock}
 ${levelGuidelineBlock}
 
@@ -206,4 +205,8 @@ Example:
 FINAL CHECK
 ====================================
 Silently verify all ABSOLUTE RULES before responding.`;
+
+  console.log("Generated system prompt:", p);
+  return p;
 };
+

@@ -240,6 +240,34 @@ describe("Chat controller", () => {
     expect(response.json).toHaveBeenCalledWith({ ok: true });
   });
 
+  it("appends a developer message for context update", async () => {
+    const repository = createRepository();
+    const { controller, historyStore } = createController(repository, {
+      createReply: vi.fn()
+    });
+    const response = createMockResponse();
+
+    await controller.appendDeveloperMessage(
+      {
+        body: {
+          sessionId: "s1",
+          kind: "context_update",
+          context: "Use a gentle, encouraging tone."
+        },
+        user: { id: 1, username: "mimi" }
+      } as any,
+      response
+    );
+
+    expect(historyStore.append).toHaveBeenCalledWith(1, "s1", [
+      {
+        role: "developer",
+        content: expect.stringContaining("Developer context update")
+      }
+    ]);
+    expect(response.json).toHaveBeenCalledWith({ ok: true });
+  });
+
   it("returns active characters from developer history", async () => {
     const repository = createRepository();
     const { controller, historyStore } = createController(repository, {

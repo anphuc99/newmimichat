@@ -125,6 +125,22 @@ export const createChatController = (
     ].join("\n");
   };
 
+  /**
+   * Builds a developer context update message.
+   *
+   * @param payload - Request payload containing the context string.
+   * @returns A formatted developer message or an empty string when missing.
+   */
+  const formatContextMessage = (payload: Record<string, unknown>) => {
+    const context = typeof payload.context === "string" ? payload.context.trim() : "";
+
+    if (!context) {
+      return "";
+    }
+
+    return ["Developer context update:", context].join("\n");
+  };
+
   const parseDeveloperCharacterAction = (content: string) => {
     const addedMatch = content.match(/^Character\s+"([^"]+)"\s+has been added\./m);
     if (addedMatch) {
@@ -259,16 +275,21 @@ export const createChatController = (
     const sessionId = getSessionId(payload.sessionId);
     const kind = typeof payload.kind === "string" ? payload.kind.trim() : "";
 
-    if (kind !== "character_added" && kind !== "character_removed") {
+    if (kind !== "character_added" && kind !== "character_removed" && kind !== "context_update") {
       response.status(400).json({ message: "Invalid developer message kind" });
       return;
     }
 
     const content =
-      kind === "character_added" ? formatCharacterAddedMessage(payload) : formatCharacterRemovedMessage(payload);
+      kind === "character_added"
+        ? formatCharacterAddedMessage(payload)
+        : kind === "character_removed"
+        ? formatCharacterRemovedMessage(payload)
+        : formatContextMessage(payload);
 
     if (!content) {
-      response.status(400).json({ message: "Character name is required" });
+      const message = kind === "context_update" ? "Context is required" : "Character name is required";
+      response.status(400).json({ message });
       return;
     }
 

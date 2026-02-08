@@ -271,6 +271,8 @@ const ChatView = ({ userId, model }: ChatViewProps) => {
   const storyPanelKey = `mimi_chat_show_story_${userId}`;
   const [messages, setMessages] = useState<ChatMessage[]>(() => []);
   const [input, setInput] = useState("");
+  const [contextInput, setContextInput] = useState("");
+  const [isContextSending, setIsContextSending] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [isEnding, setIsEnding] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -850,6 +852,47 @@ const ChatView = ({ userId, model }: ChatViewProps) => {
     }
   };
 
+  /**
+   * Sends developer context to the chat history.
+   */
+  const handleSendContext = async () => {
+    const trimmed = contextInput.trim();
+
+    if (!trimmed || isContextSending) {
+      return;
+    }
+
+    setIsContextSending(true);
+    setError(null);
+    setNotice(null);
+
+    try {
+      const response = await authFetch(apiUrl("/api/chat/developer"), {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          sessionId,
+          kind: "context_update",
+          context: trimmed
+        })
+      });
+
+      if (!response.ok) {
+        const payload = (await response.json().catch(() => null)) as { message?: string } | null;
+        throw new Error(payload?.message ?? "Failed to save context");
+      }
+
+      setContextInput("");
+      setNotice("Context saved.");
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Unknown error");
+    } finally {
+      setIsContextSending(false);
+    }
+  };
+
   return (
     <main className="chat-shell">
       <header className="chat-header">
@@ -969,6 +1012,31 @@ const ChatView = ({ userId, model }: ChatViewProps) => {
           </div>
         </section>
       ) : null}
+
+      <section className="chat-context">
+        <div className="chat-context__panel">
+          <div className="chat-context__header">
+            <h2>Developer context</h2>
+            <button
+              type="button"
+              className="chat-context__button"
+              onClick={handleSendContext}
+              disabled={isContextSending}
+            >
+              {isContextSending ? "Saving..." : "Save context"}
+            </button>
+          </div>
+          <textarea
+            className="chat-context__field"
+            rows={3}
+            placeholder="Add developer context for the assistant..."
+            value={contextInput}
+            onChange={(event) => setContextInput(event.target.value)}
+            disabled={isContextSending}
+          />
+          <p className="chat-context__hint">This context is stored as a developer message for this session.</p>
+        </div>
+      </section>
 
       <section className="chat-window">
         {error ? <p className="chat-error">{error}</p> : null}
