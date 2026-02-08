@@ -24,6 +24,14 @@ interface ChatControllerDeps {
   systemPromptBuilder?: (params: { userId: number; body: unknown }) => Promise<string> | string;
 }
 
+interface AssistantTurn {
+  MessageId?: string;
+  CharacterName?: string;
+  Text?: string;
+  Tone?: string;
+  Translation?: string;
+}
+
 /**
  * Builds the Chat controller with injected data source dependencies.
  *
@@ -181,6 +189,55 @@ export const createChatController = (
     ].join("\n");
   };
 
+  const parseAssistantReply = (content: string): AssistantTurn[] => {
+    const trimmed = content.trim();
+
+    if (!trimmed) {
+      return [];
+    }
+
+    const tryParse = (input: string) => {
+      try {
+        const parsed = JSON.parse(input) as unknown;
+        if (Array.isArray(parsed)) {
+          return parsed as AssistantTurn[];
+        }
+        if (parsed && typeof parsed === "object") {
+          return [parsed as AssistantTurn];
+        }
+      } catch {
+        return null;
+      }
+
+      return null;
+    };
+
+    const direct = tryParse(trimmed);
+    if (direct) {
+      return direct;
+    }
+
+    const arrayStart = trimmed.indexOf("[");
+    const arrayEnd = trimmed.lastIndexOf("]");
+    if (arrayStart !== -1 && arrayEnd > arrayStart) {
+      const sliced = tryParse(trimmed.slice(arrayStart, arrayEnd + 1));
+      if (sliced) {
+        return sliced;
+      }
+    }
+
+    const objectStart = trimmed.indexOf("{");
+    const objectEnd = trimmed.lastIndexOf("}");
+    if (objectStart !== -1 && objectEnd > objectStart) {
+      const sliced = tryParse(trimmed.slice(objectStart, objectEnd + 1));
+      if (sliced) {
+        return sliced;
+      }
+    }
+
+    return [];
+  };
+
   /**
    * Finds the history index for the Nth user message.
    *
@@ -217,6 +274,83 @@ export const createChatController = (
     }
 
     return null;
+  };
+
+  const parseAssistantEditNote = (content: string) => {
+    const englishMatch = content.match(/^Assistant\s+message\s+edited:\s+([^\.\n]+)\./i);
+    const vietnameseMatch = content.match(/^Chat\s+co\s+messageID\s+duoc\s+sua\s+thanh\s+([^\.\n]+)\./i);
+    const idMatch = englishMatch ?? vietnameseMatch;
+
+    if (!idMatch) {
+      return null;
+    }
+
+    const messageId = idMatch[1].trim();
+    if (!messageId) {
+      return null;
+    }
+
+    const englishContentMatch = content.match(/New\s+content:\s*([\s\S]+)/i);
+    const vietnameseContentMatch = content.match(/Noi\s+dung\s+moi:\s*([\s\S]+)/i);
+    const contentMatch = englishContentMatch ?? vietnameseContentMatch;
+    const updatedText = contentMatch ? contentMatch[1].trim() : "";
+    if (!updatedText) {
+      return null;
+    }
+
+    return { messageId, updatedText };
+  };
+
+  const applyAssistantEdits = (history: { role: string; content: string }[]) => {
+    const edits = new Map<string, string>();
+
+    for (const message of history) {
+      if (message.role !== "developer") {
+        continue;
+      }
+
+      const edit = parseAssistantEditNote(message.content);
+      if (edit) {
+        edits.set(edit.messageId, edit.updatedText);
+      }
+    }
+
+    if (!edits.size) {
+      return history;
+    }
+
+    return history.map((message) => {
+      if (message.role !== "assistant") {
+        return message;
+      }
+
+      const turns = parseAssistantReply(message.content);
+      if (!turns.length) {
+        return message;
+      }
+
+      let didUpdate = false;
+      const nextTurns = turns.map((turn) => {
+        const turnId = typeof turn.MessageId === "string" ? turn.MessageId.trim() : "";
+        const updatedText = turnId ? edits.get(turnId) : null;
+
+        if (updatedText) {
+          didUpdate = true;
+          return { ...turn, Text: updatedText };
+        }
+
+        return turn;
+      });
+
+      if (!didUpdate) {
+        return message;
+      }
+
+      return {
+        ...message,
+        content: JSON.stringify(nextTurns)
+      };
+    });
   };
 
   /**
@@ -318,8 +452,9 @@ export const createChatController = (
 
     try {
       const messages = await historyStore.load(request.user.id, sessionId);
+      const adjustedMessages = applyAssistantEdits(messages);
       response.json({
-        messages: messages.filter((message) => message.role !== "system" && message.role !== "developer")
+        messages: adjustedMessages.filter((message) => message.role !== "system" && message.role !== "developer")
       });
     } catch (error) {
       response.status(500).json({

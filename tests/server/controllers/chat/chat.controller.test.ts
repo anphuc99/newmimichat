@@ -184,6 +184,42 @@ describe("Chat controller", () => {
     expect(response.json).toHaveBeenCalledWith({ messages: [{ role: "user", content: "previous" }] });
   });
 
+  it("applies assistant edit notes to history responses", async () => {
+    const openAIService = {
+      createReply: vi.fn()
+    };
+
+    const repository = createRepository();
+    const { controller, historyStore } = createController(repository, openAIService);
+    const response = createMockResponse();
+
+    historyStore.load.mockResolvedValueOnce([
+      { role: "system", content: "Instruction" },
+      {
+        role: "assistant",
+        content: "[{\"MessageId\":\"msg-123\",\"CharacterName\":\"Mimi\",\"Text\":\"Old text\",\"Tone\":\"neutral\",\"Translation\":\"Cu\"}]"
+      },
+      {
+        role: "developer",
+        content: "Assistant message edited: msg-123.\nNew content:\nNew text"
+      }
+    ]);
+
+    await controller.getHistory(
+      { query: { sessionId: "s1" }, user: { id: 1, username: "mimi" } } as any,
+      response
+    );
+
+    expect(response.json).toHaveBeenCalledWith({
+      messages: [
+        {
+          role: "assistant",
+          content: expect.stringContaining("New text")
+        }
+      ]
+    });
+  });
+
   it("edits a user message and regenerates the reply", async () => {
     const openAIService = {
       createReply: vi.fn().mockResolvedValue({ reply: "New reply", model: "test-model" })
