@@ -129,7 +129,10 @@ export const createJournalController = (
   };
 
   const parseAssistantEditNote = (content: string) => {
-    const idMatch = content.match(/^Chat\s+co\s+messageID\s+duoc\s+sua\s+thanh\s+([^\.\n]+)\./i);
+    const englishMatch = content.match(/^Assistant\s+message\s+edited:\s+([^\.\n]+)\./i);
+    const vietnameseMatch = content.match(/^Chat\s+co\s+messageID\s+duoc\s+sua\s+thanh\s+([^\.\n]+)\./i);
+    const idMatch = englishMatch ?? vietnameseMatch;
+
     if (!idMatch) {
       return null;
     }
@@ -139,7 +142,9 @@ export const createJournalController = (
       return null;
     }
 
-    const contentMatch = content.match(/Noi\s+dung\s+moi:\s*([\s\S]+)/i);
+    const englishContentMatch = content.match(/New\s+content:\s*([\s\S]+)/i);
+    const vietnameseContentMatch = content.match(/Noi\s+dung\s+moi:\s*([\s\S]+)/i);
+    const contentMatch = englishContentMatch ?? vietnameseContentMatch;
     const updatedText = contentMatch ? contentMatch[1].trim() : "";
     if (!updatedText) {
       return null;

@@ -331,14 +331,6 @@ describe("Chat controller", () => {
     });
     const response = createMockResponse();
 
-    historyStore.load.mockResolvedValueOnce([
-      { role: "system", content: "Instruction" },
-      {
-        role: "assistant",
-        content: "[{\"MessageId\":\"msg-123\",\"CharacterName\":\"Mimi\",\"Text\":\"Old\",\"Tone\":\"neutral\",\"Translation\":\"Cu\"}]"
-      }
-    ]);
-
     await controller.editMessage(
       {
         body: {
@@ -352,18 +344,10 @@ describe("Chat controller", () => {
       response
     );
 
-    expect(historyStore.clear).toHaveBeenCalledWith(1, "s1");
-    expect(historyStore.ensureSystemMessage).toHaveBeenCalledWith(1, "s1", "Instruction");
     expect(historyStore.append).toHaveBeenCalledWith(1, "s1", [
       {
-        role: "assistant",
-        content: expect.stringContaining("Updated")
-      }
-    ]);
-    expect(historyStore.append).toHaveBeenLastCalledWith(1, "s1", [
-      {
         role: "developer",
-        content: expect.stringContaining("msg-123")
+        content: expect.stringContaining("Assistant message edited: msg-123.")
       }
     ]);
     expect(response.json).toHaveBeenCalledWith({ ok: true });

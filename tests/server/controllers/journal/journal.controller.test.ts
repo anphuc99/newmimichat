@@ -204,7 +204,7 @@ describe("Journal controller", () => {
       },
       {
         role: "developer",
-        content: "Chat co messageID duoc sua thanh msg-999.\nNoi dung moi:\nNew text"
+        content: "Assistant message edited: msg-999.\nNew content:\nNew text"
       }
     ]);
 
