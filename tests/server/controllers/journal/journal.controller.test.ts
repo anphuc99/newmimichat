@@ -186,4 +186,35 @@ describe("Journal controller", () => {
     expect(historyStore.clear).toHaveBeenCalledWith(1, "s1");
     expect(response.json).toHaveBeenCalledWith({ journalId: 5, summary: "Cuoc hoi thoai noi ve..." });
   });
+
+  it("applies assistant edit notes before saving messages", async () => {
+    const { controller, journalRepository, messageRepository, characterRepository, historyStore } = createController();
+    const response = createMockResponse();
+
+    characterRepository.find.mockResolvedValue([
+      { name: "Mimi", voiceName: "alloy" }
+    ]);
+
+    historyStore.load.mockResolvedValue([
+      { role: "system", content: "Instruction" },
+      { role: "user", content: "Hi" },
+      {
+        role: "assistant",
+        content: "[{\"MessageId\":\"msg-999\",\"CharacterName\":\"Mimi\",\"Text\":\"Old text\",\"Tone\":\"neutral, medium pitch\",\"Translation\":\"Cu\"}]"
+      },
+      {
+        role: "developer",
+        content: "Chat co messageID duoc sua thanh msg-999.\nNoi dung moi:\nNew text"
+      }
+    ]);
+
+    journalRepository.save.mockResolvedValue({ id: 7, summary: "Cuoc hoi thoai noi ve...", userId: 1 });
+
+    await controller.endConversation({ user: { id: 1 }, body: { sessionId: "s1" } } as any, response);
+
+    const savedMessages = messageRepository.save.mock.calls[0]?.[0] as Array<{ content: string; audio?: string | null }>;
+    expect(savedMessages.some((message) => message.content === "New text")).toBe(true);
+    const expectedAudio = buildAudioId("New text", "neutral, medium pitch", "alloy");
+    expect(savedMessages.some((message) => message.audio === expectedAudio)).toBe(true);
+  });
 });

@@ -20,6 +20,7 @@ interface JournalControllerDeps {
 }
 
 interface AssistantTurn {
+  MessageId?: string;
   CharacterName?: string;
   Text?: string;
   Tone?: string;
@@ -125,6 +126,78 @@ export const createJournalController = (
     const text = typeof first.Text === "string" ? first.Text.trim() : "";
 
     return translation || text || reply.trim();
+  };
+
+  const parseAssistantEditNote = (content: string) => {
+    const idMatch = content.match(/^Chat\s+co\s+messageID\s+duoc\s+sua\s+thanh\s+([^\.\n]+)\./i);
+    if (!idMatch) {
+      return null;
+    }
+
+    const messageId = idMatch[1].trim();
+    if (!messageId) {
+      return null;
+    }
+
+    const contentMatch = content.match(/Noi\s+dung\s+moi:\s*([\s\S]+)/i);
+    const updatedText = contentMatch ? contentMatch[1].trim() : "";
+    if (!updatedText) {
+      return null;
+    }
+
+    return { messageId, updatedText };
+  };
+
+  const applyAssistantEdits = (history: ChatHistoryMessage[]) => {
+    const edits = new Map<string, string>();
+
+    for (const message of history) {
+      if (message.role !== "developer") {
+        continue;
+      }
+
+      const edit = parseAssistantEditNote(message.content);
+      if (edit) {
+        edits.set(edit.messageId, edit.updatedText);
+      }
+    }
+
+    if (!edits.size) {
+      return history;
+    }
+
+    return history.map((message) => {
+      if (message.role !== "assistant") {
+        return message;
+      }
+
+      const turns = parseAssistantReply(message.content);
+      if (!turns.length) {
+        return message;
+      }
+
+      let didUpdate = false;
+      const nextTurns = turns.map((turn) => {
+        const turnId = typeof turn.MessageId === "string" ? turn.MessageId.trim() : "";
+        const updatedText = turnId ? edits.get(turnId) : null;
+
+        if (updatedText) {
+          didUpdate = true;
+          return { ...turn, Text: updatedText };
+        }
+
+        return turn;
+      });
+
+      if (!didUpdate) {
+        return message;
+      }
+
+      return {
+        ...message,
+        content: JSON.stringify(nextTurns)
+      };
+    });
   };
 
   /**
@@ -359,7 +432,8 @@ export const createJournalController = (
       }
 
       const history = await historyStore.load(request.user.id, sessionId);
-      const hasConversation = history.some((message) => message.role === "user" || message.role === "assistant");
+      const adjustedHistory = applyAssistantEdits(history);
+      const hasConversation = adjustedHistory.some((message) => message.role === "user" || message.role === "assistant");
 
       if (!hasConversation) {
         response.status(400).json({ message: "No conversation history to summarize" });
@@ -377,7 +451,7 @@ export const createJournalController = (
       ].join("\n");
 
       const summaryReply = await openAIService.createReply("Please summarize the conversation.", [
-        ...history,
+        ...adjustedHistory,
         { role: "developer", content: summaryInstruction }
       ]);
 
@@ -397,7 +471,7 @@ export const createJournalController = (
           .map((character) => [normalizeName(character.name), character.voiceName as string])
       );
 
-      const messageEntities = buildMessageEntities(history, request.user.id, savedJournal.id, voiceByCharacter);
+      const messageEntities = buildMessageEntities(adjustedHistory, request.user.id, savedJournal.id, voiceByCharacter);
 
       if (messageEntities.length) {
         await messageRepository.save(messageEntities.map((message) => messageRepository.create(message)));

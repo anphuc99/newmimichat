@@ -24,6 +24,14 @@ interface ChatControllerDeps {
   systemPromptBuilder?: (params: { userId: number; body: unknown }) => Promise<string> | string;
 }
 
+interface AssistantTurn {
+  MessageId?: string;
+  CharacterName?: string;
+  Text?: string;
+  Tone?: string;
+  Translation?: string;
+}
+
 /**
  * Builds the Chat controller with injected data source dependencies.
  *
@@ -162,12 +170,91 @@ export const createChatController = (
    * @param messageId - Message identifier from the assistant output.
    * @returns A developer message string.
    */
-  const formatAssistantEditMessage = (messageId: string) => {
+  const formatAssistantEditMessage = (messageId: string, content: string) => {
     const trimmed = messageId.trim();
     if (!trimmed) {
       return "";
     }
-    return `Chat co messageID duoc sua thanh ${trimmed}.`;
+
+    const updatedContent = content.trim();
+    if (!updatedContent) {
+      return "";
+    }
+
+    return [
+      `Chat co messageID duoc sua thanh ${trimmed}.`,
+      "Noi dung moi:",
+      updatedContent
+    ].join("\n");
+  };
+
+  const parseAssistantReply = (content: string): AssistantTurn[] => {
+    const trimmed = content.trim();
+
+    if (!trimmed) {
+      return [];
+    }
+
+    const tryParse = (input: string) => {
+      try {
+        const parsed = JSON.parse(input) as unknown;
+        if (Array.isArray(parsed)) {
+          return parsed as AssistantTurn[];
+        }
+        if (parsed && typeof parsed === "object") {
+          return [parsed as AssistantTurn];
+        }
+      } catch {
+        return null;
+      }
+
+      return null;
+    };
+
+    const direct = tryParse(trimmed);
+    if (direct) {
+      return direct;
+    }
+
+    const arrayStart = trimmed.indexOf("[");
+    const arrayEnd = trimmed.lastIndexOf("]");
+    if (arrayStart !== -1 && arrayEnd > arrayStart) {
+      const sliced = tryParse(trimmed.slice(arrayStart, arrayEnd + 1));
+      if (sliced) {
+        return sliced;
+      }
+    }
+
+    const objectStart = trimmed.indexOf("{");
+    const objectEnd = trimmed.lastIndexOf("}");
+    if (objectStart !== -1 && objectEnd > objectStart) {
+      const sliced = tryParse(trimmed.slice(objectStart, objectEnd + 1));
+      if (sliced) {
+        return sliced;
+      }
+    }
+
+    return [];
+  };
+
+  const rewriteHistory = async (
+    userId: number,
+    sessionId: string,
+    history: { role: string; content: string }[],
+    fallbackSystemPrompt: string
+  ) => {
+    const systemEntry = history.find((message) => message.role === "system");
+    const systemContent = systemEntry?.content ?? fallbackSystemPrompt;
+
+    await historyStore.clear(userId, sessionId);
+    if (systemContent.trim()) {
+      await historyStore.ensureSystemMessage(userId, sessionId, systemContent);
+    }
+
+    const nonSystem = history.filter((message) => message.role !== "system");
+    if (nonSystem.length) {
+      await historyStore.append(userId, sessionId, nonSystem);
+    }
   };
 
   /**
@@ -378,19 +465,67 @@ export const createChatController = (
 
     if (kind === "assistant") {
       const messageId = typeof payload.assistantMessageId === "string" ? payload.assistantMessageId.trim() : "";
-      const content = formatAssistantEditMessage(messageId);
+      const editedContent = typeof payload.content === "string" ? payload.content.trim() : "";
+      const content = formatAssistantEditMessage(messageId, editedContent);
 
-      if (!content) {
+      if (!messageId) {
         response.status(400).json({ message: "Assistant messageId is required" });
         return;
       }
 
+      if (!editedContent) {
+        response.status(400).json({ message: "Edited content is required" });
+        return;
+      }
+
       try {
+        const history = await historyStore.load(request.user.id, sessionId);
+        let updated = false;
+
+        const updatedHistory = history.map((message) => {
+          if (message.role !== "assistant") {
+            return message;
+          }
+
+          const turns = parseAssistantReply(message.content);
+          if (!turns.length) {
+            return message;
+          }
+
+          let didUpdate = false;
+          const nextTurns = turns.map((turn) => {
+            const turnId = typeof turn.MessageId === "string" ? turn.MessageId.trim() : "";
+            if (turnId && turnId === messageId) {
+              didUpdate = true;
+              updated = true;
+              return { ...turn, Text: editedContent };
+            }
+            return turn;
+          });
+
+          if (!didUpdate) {
+            return message;
+          }
+
+          return {
+            ...message,
+            content: JSON.stringify(nextTurns)
+          };
+        });
+
+        if (!updated) {
+          response.status(404).json({ message: "Assistant message not found" });
+          return;
+        }
+
+        const fallbackPrompt = await buildSystemPrompt(request.user.id, request.body);
+        await rewriteHistory(request.user.id, sessionId, updatedHistory, fallbackPrompt);
         await historyStore.append(request.user.id, sessionId, [{ role: "developer", content }]);
+
         response.json({ ok: true });
       } catch (error) {
         response.status(500).json({
-          message: "Failed to append developer message",
+          message: "Failed to update assistant message",
           error: error instanceof Error ? error.message : "Unknown error"
         });
       }

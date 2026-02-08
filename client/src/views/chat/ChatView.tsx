@@ -945,7 +945,8 @@ const ChatView = ({ userId, model }: ChatViewProps) => {
         body: JSON.stringify({
           sessionId,
           kind: "assistant",
-          assistantMessageId
+          assistantMessageId,
+          content: trimmed
         })
       });
 
