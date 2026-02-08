@@ -249,6 +249,8 @@ const ChatView = ({ userId, model }: ChatViewProps) => {
   const [activeCharacterIds, setActiveCharacterIds] = useState<number[]>([]);
   const [stories, setStories] = useState<Story[]>([]);
   const [storyError, setStoryError] = useState<string | null>(null);
+  const [showCharacters, setShowCharacters] = useState(true);
+  const [showStory, setShowStory] = useState(true);
   const [activeStoryId, setActiveStoryId] = useState<number | null>(() => {
     const stored = window.localStorage.getItem(storyStorageKey);
     const parsed = stored ? Number.parseInt(stored, 10) : NaN;
@@ -818,85 +820,105 @@ const ChatView = ({ userId, model }: ChatViewProps) => {
           <h1>Focus on real conversations</h1>
           <p className="chat-subtitle">Practice Korean with short, friendly replies.</p>
         </div>
-        <button
-          type="button"
-          className="chat-end-button"
-          onClick={handleEndConversation}
-          disabled={isEnding}
-        >
-          {isEnding ? "Ending..." : "End conversation"}
-        </button>
+        <div className="chat-header__actions">
+          <button
+            type="button"
+            className="chat-toggle-button"
+            onClick={() => setShowCharacters((prev) => !prev)}
+          >
+            {showCharacters ? "Hide characters" : "Show characters"}
+          </button>
+          <button
+            type="button"
+            className="chat-toggle-button"
+            onClick={() => setShowStory((prev) => !prev)}
+          >
+            {showStory ? "Hide story" : "Show story"}
+          </button>
+          <button
+            type="button"
+            className="chat-end-button"
+            onClick={handleEndConversation}
+            disabled={isEnding}
+          >
+            {isEnding ? "Ending..." : "End conversation"}
+          </button>
+        </div>
       </header>
 
-      <section className="chat-characters">
-        <div className="chat-characters__panel">
-          <h2>Characters</h2>
-          {characters.length === 0 ? (
-            <p className="chat-characters__muted">No characters yet. Create one in the Characters tab.</p>
-          ) : (
-            <ul className="chat-characters__list">
-              {characters.map((character) => {
-                const isActive = activeCharacterIds.includes(character.id);
+      {showCharacters ? (
+        <section className="chat-characters">
+          <div className="chat-characters__panel">
+            <h2>Characters</h2>
+            {characters.length === 0 ? (
+              <p className="chat-characters__muted">No characters yet. Create one in the Characters tab.</p>
+            ) : (
+              <ul className="chat-characters__list">
+                {characters.map((character) => {
+                  const isActive = activeCharacterIds.includes(character.id);
 
-                return (
-                  <li key={character.id} className="chat-characters__item">
-                    <div className="chat-characters__meta">
-                      <p className="chat-characters__name">{character.name}</p>
-                      <p className="chat-characters__desc">{character.personality}</p>
-                    </div>
-                    {isActive ? (
-                      <button
-                        type="button"
-                        className="chat-characters__button"
-                        onClick={() => removeCharacterFromChat(character)}
-                      >
-                        Remove
-                      </button>
-                    ) : (
-                      <button
-                        type="button"
-                        className="chat-characters__button"
-                        onClick={() => addCharacterToChat(character)}
-                      >
-                        Add
-                      </button>
-                    )}
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </div>
-      </section>
-
-      <section className="chat-story">
-        <div className="chat-story__panel">
-          <div className="chat-story__header">
-            <h2>Story</h2>
-            <select value={activeStoryId ?? ""} onChange={handleStoryChange}>
-              <option value="">No story</option>
-              {stories.map((story) => (
-                <option key={story.id} value={story.id}>
-                  {story.name}
-                </option>
-              ))}
-            </select>
+                  return (
+                    <li key={character.id} className="chat-characters__item">
+                      <div className="chat-characters__meta">
+                        <p className="chat-characters__name">{character.name}</p>
+                        <p className="chat-characters__desc">{character.personality}</p>
+                      </div>
+                      {isActive ? (
+                        <button
+                          type="button"
+                          className="chat-characters__button"
+                          onClick={() => removeCharacterFromChat(character)}
+                        >
+                          Remove
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          className="chat-characters__button"
+                          onClick={() => addCharacterToChat(character)}
+                        >
+                          Add
+                        </button>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
           </div>
-          {storyError ? <p className="chat-story__error">{storyError}</p> : null}
-          {activeStory ? (
-            <div className="chat-story__content">
-              <p className="chat-story__label">Description</p>
-              <p className="chat-story__text">{activeStory.description}</p>
-              <p className="chat-story__label">Current progress</p>
-              <p className="chat-story__text">
-                {activeStory.currentProgress?.trim() ? activeStory.currentProgress : "No progress yet."}
-              </p>
+        </section>
+      ) : null}
+
+      {showStory ? (
+        <section className="chat-story">
+          <div className="chat-story__panel">
+            <div className="chat-story__header">
+              <h2>Story</h2>
+              <select value={activeStoryId ?? ""} onChange={handleStoryChange}>
+                <option value="">No story</option>
+                {stories.map((story) => (
+                  <option key={story.id} value={story.id}>
+                    {story.name}
+                  </option>
+                ))}
+              </select>
             </div>
-          ) : (
-            <p className="chat-story__muted">No story selected. Create one in the Story tab.</p>
-          )}
-        </div>
-      </section>
+            {storyError ? <p className="chat-story__error">{storyError}</p> : null}
+            {activeStory ? (
+              <div className="chat-story__content">
+                <p className="chat-story__label">Description</p>
+                <p className="chat-story__text">{activeStory.description}</p>
+                <p className="chat-story__label">Current progress</p>
+                <p className="chat-story__text">
+                  {activeStory.currentProgress?.trim() ? activeStory.currentProgress : "No progress yet."}
+                </p>
+              </div>
+            ) : (
+              <p className="chat-story__muted">No story selected. Create one in the Story tab.</p>
+            )}
+          </div>
+        </section>
+      ) : null}
 
       <section className="chat-window">
         {error ? <p className="chat-error">{error}</p> : null}
