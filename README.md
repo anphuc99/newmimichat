@@ -5,9 +5,9 @@ Full-stack MimiChat refactor: React (Vite) client + Express (TypeScript) server 
 Core features implemented so far:
 - JWT auth (register/login) + signup gated by a `REGISTRATION_TOKEN`
 - CEFR levels A0–C2 stored in DB (seed script) + user can select their level
-- Characters CRUD, avatar upload (served under `/public`), optional voice selection
+- Characters CRUD, avatar upload (served under `/public`), optional voiceName selection + per-character pitch/speakingRate
 - Chat endpoint backed by OpenAI
-- OpenAI TTS playback with cached audio
+- OpenAI TTS playback with cached audio (hash includes text + tone + voice)
 - Journal summaries + message persistence on conversation end
 - File-backed chat history (JSONL stored in `.txt`) scoped by `sessionId`
 - System instruction stored in history (for stable prompting / caching)
@@ -53,6 +53,7 @@ REGISTRATION_TOKEN=replace_me
 # OpenAI
 OPENAI_API_KEY=replace_me
 OPENAI_MODEL=gpt-4.1-mini
+# Note: `OPENAI_MODEL` is the server default. The client can override it per request via the Model dropdown (sent as `model`).
 # Optional TTS overrides
 # OPENAI_TTS_MODEL=gpt-4o-mini-tts-2025-03-20
 # OPENAI_TTS_VOICE=alloy
@@ -202,10 +203,18 @@ Journals:
 - `GET /api/journals/:id` (journal + messages)
 
 TTS:
-- `GET /api/text-to-speech?text=...&tone=...` (cached by MD5 of text+tone)
+- `GET /api/text-to-speech?text=...&tone=...&voice=...` (cached by MD5 of text+tone+voice)
+  - `tone` defaults to `neutral, medium pitch` when omitted
+  - `voice` is optional; when provided, it overrides `OPENAI_TTS_VOICE` for generation
+  - `force=true` deletes any existing cached mp3 before regenerating
 
 Chat response format:
-- The assistant reply is a JSON array of objects with `CharacterName`, `Text`, `Tone`, `Translation`.
+- The assistant reply is a JSON array of objects with `MessageId`, `CharacterName`, `Text`, `Tone`, `Translation`.
+
+Client notes:
+- Chat model selection is stored in localStorage and sent with `/api/chat/send` as `model`.
+- If the assistant returns multiple turns, the chat UI generates/plays TTS sequentially and only renders a message after its audio is ready.
+- Journal audio playback applies per-character voiceName + pitch/speakingRate.
 
 Characters:
 - `GET /api/characters`
