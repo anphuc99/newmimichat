@@ -2,6 +2,7 @@ import type { Request, Response } from "express";
 import type { DataSource } from "typeorm";
 import { createOpenAIChatService, type OpenAIChatService } from "../../services/openai.service.js";
 import { buildChatSystemPrompt } from "../../services/chat-prompt.service.js";
+import StoryEntity from "../../models/story.entity.js";
 import UserEntity from "../../models/user.entity.js";
 import { createChatHistoryStore, type ChatHistoryStore } from "../../services/chat-history.service.js";
 
@@ -35,6 +36,7 @@ export const createChatController = (
 ): ChatController => {
   const dataSource = _dataSource;
   const userRepository = dataSource.getRepository(UserEntity);
+  const storyRepository = dataSource.getRepository(StoryEntity);
   const apiKey = process.env.OPENAI_API_KEY ?? "";
   const model = process.env.OPENAI_MODEL ?? "gpt-4.1-mini";
   const systemPromptPath = process.env.OPENAI_SYSTEM_PROMPT_PATH;
@@ -45,6 +47,41 @@ export const createChatController = (
   const getSessionId = (value: unknown) => (typeof value === "string" ? value.trim() : "");
 
   const getOptionalString = (value: unknown) => (typeof value === "string" ? value.trim() : "");
+
+  /**
+   * Parses a numeric story id from user input.
+   *
+   * @param value - Input value from the request body.
+   * @returns Story id or null when invalid.
+   */
+  const parseStoryId = (value: unknown) => {
+    const parsed = typeof value === "number" ? value : Number.parseInt(String(value ?? ""), 10);
+    if (!Number.isInteger(parsed) || parsed <= 0) {
+      return null;
+    }
+    return parsed;
+  };
+
+  /**
+   * Loads the story used for prompt enrichment.
+   *
+   * @param userId - Authenticated user id.
+   * @param payload - Request payload for the chat call.
+   * @returns The matching story or null when not found.
+   */
+  const loadStoryForPrompt = async (userId: number, payload: Record<string, unknown>) => {
+    const storyId = parseStoryId(payload.storyId);
+    if (!storyId) {
+      return null;
+    }
+
+    return storyRepository.findOne({
+      where: {
+        id: storyId,
+        userId
+      }
+    });
+  };
 
   const formatCharacterAddedMessage = (payload: Record<string, unknown>) => {
     const character = (payload.character ?? {}) as Record<string, unknown>;
@@ -121,6 +158,8 @@ export const createChatController = (
       relations: { level: true }
     });
 
+    const story = await loadStoryForPrompt(userId, payload);
+
     return buildChatSystemPrompt({
       level: user?.level?.level ?? null,
       levelMaxWords: user?.level?.maxWords ?? null,
@@ -128,6 +167,8 @@ export const createChatController = (
       levelGuideline: user?.level?.guideline ?? null,
       context: getOptionalString(payload.context) || null,
       storyPlot: getOptionalString(payload.storyPlot) || null,
+      storyDescription: story?.description ?? null,
+      storyProgress: story?.currentProgress ?? null,
       relationshipSummary: getOptionalString(payload.relationshipSummary) || null,
       contextSummary: getOptionalString(payload.contextSummary) || null,
       relatedStoryMessages: getOptionalString(payload.relatedStoryMessages) || null,

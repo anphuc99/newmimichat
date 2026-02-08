@@ -31,6 +31,14 @@ export interface ChatPromptParams {
    */
   storyPlot?: string | null;
   /**
+   * Optional story description provided by the user.
+   */
+  storyDescription?: string | null;
+  /**
+   * Optional current story progress provided by the user or AI.
+   */
+  storyProgress?: string | null;
+  /**
    * Optional relationship summary.
    */
   relationshipSummary?: string | null;
@@ -147,7 +155,7 @@ ${levelGuidelineBlock}
 SCENE / CONTEXT
 ====================================
 ${context}
-${maybe("STORY PLOT", params.storyPlot)}${maybe("RELATIONSHIPS", params.relationshipSummary)}${maybe("PREVIOUS SUMMARY", params.contextSummary)}${relatedStoryBlock}${characterRules}${pronunciationBlock}
+${maybe("STORY PLOT", params.storyPlot)}${maybe("STORY DESCRIPTION", params.storyDescription)}${maybe("STORY PROGRESS", params.storyProgress)}${maybe("RELATIONSHIPS", params.relationshipSummary)}${maybe("PREVIOUS SUMMARY", params.contextSummary)}${relatedStoryBlock}${characterRules}${pronunciationBlock}
 ====================================
 DIALOGUE RULES
 ====================================

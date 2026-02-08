@@ -9,6 +9,7 @@ Core features implemented so far:
 - Chat endpoint backed by OpenAI
 - OpenAI TTS playback with cached audio (hash includes text + tone + voice)
 - Journal summaries + message persistence on conversation end
+- Stories (user-created) with description + current progress, linked to journals
 - File-backed chat history (JSONL stored in `.txt`) scoped by `sessionId`
 - System instruction stored in history (for stable prompting / caching)
 - Character context injected via per-session **developer messages** (add/remove)
@@ -226,3 +227,10 @@ Characters:
 Static assets:
 - `GET /public/...` (serves uploaded avatars from the server)
 - `GET /audio/<hash>.mp3` (serves generated TTS audio)
+
+## Stories
+- `GET /api/stories`
+- `GET /api/stories/:id`
+- `POST /api/stories`
+- `PUT /api/stories/:id`
+- `DELETE /api/stories/:id`

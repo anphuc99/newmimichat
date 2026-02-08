@@ -3,6 +3,7 @@ import type { DataSource } from "typeorm";
 import JournalEntity from "../../models/journal.entity.js";
 import MessageEntity from "../../models/message.entity.js";
 import CharacterEntity from "../../models/character.entity.js";
+import StoryEntity from "../../models/story.entity.js";
 import { createOpenAIChatService, type OpenAIChatService } from "../../services/openai.service.js";
 import { createChatHistoryStore, type ChatHistoryMessage, type ChatHistoryStore } from "../../services/chat-history.service.js";
 import { buildAudioId } from "../../services/tts.service.js";
@@ -39,6 +40,7 @@ export const createJournalController = (
   const journalRepository = dataSource.getRepository(JournalEntity);
   const messageRepository = dataSource.getRepository(MessageEntity);
   const characterRepository = dataSource.getRepository(CharacterEntity);
+  const storyRepository = dataSource.getRepository(StoryEntity);
   const apiKey = process.env.OPENAI_API_KEY ?? "";
   const model = process.env.OPENAI_MODEL ?? "gpt-4.1-mini";
   const systemPromptPath = process.env.OPENAI_SYSTEM_PROMPT_PATH;
@@ -48,6 +50,20 @@ export const createJournalController = (
 
   const getSessionId = (value: unknown) => (typeof value === "string" ? value.trim() : "");
   const normalizeName = (value: string) => value.trim().toLowerCase();
+
+  /**
+   * Parses a numeric story id from user input.
+   *
+   * @param value - Input value from the request body.
+   * @returns Story id or null when invalid.
+   */
+  const parseStoryId = (value: unknown) => {
+    const parsed = typeof value === "number" ? value : Number.parseInt(String(value ?? ""), 10);
+    if (!Number.isInteger(parsed) || parsed <= 0) {
+      return null;
+    }
+    return parsed;
+  };
 
   const parseAssistantReply = (content: string): AssistantTurn[] => {
     const trimmed = content.trim();
@@ -109,6 +125,41 @@ export const createJournalController = (
     const text = typeof first.Text === "string" ? first.Text.trim() : "";
 
     return translation || text || reply.trim();
+  };
+
+  /**
+   * Requests an updated story progress from OpenAI using the summary.
+   *
+   * @param story - Story entity to update.
+   * @param summary - Vietnamese summary of the conversation.
+   * @returns The updated progress text or null when unavailable.
+   */
+  const requestStoryProgressUpdate = async (story: StoryEntity, summary: string) => {
+    const trimmedSummary = summary.trim();
+    if (!trimmedSummary) {
+      return null;
+    }
+
+    const systemInstruction = [
+      "You are a story progress editor.",
+      "Update the current story progress based on the latest conversation summary.",
+      "Return updated story progress in Vietnamese only.",
+      "Keep it concise (1-3 sentences).",
+      "Return plain text only. No JSON, no labels."
+    ].join("\n");
+
+    const message = [
+      `Story description: ${story.description.trim() || "(none)"}`,
+      `Current progress: ${(story.currentProgress ?? "").trim() || "(none)"}`,
+      `Conversation summary: ${trimmedSummary}`
+    ].join("\n");
+
+    const reply = await openAIService?.createReply(message, [
+      { role: "system", content: systemInstruction }
+    ]);
+
+    const updatedProgress = reply?.reply?.trim() ?? "";
+    return updatedProgress || null;
   };
 
   const buildMessageEntities = (
@@ -275,6 +326,7 @@ export const createJournalController = (
     }
 
     const sessionId = getSessionId(request.body?.sessionId);
+    const storyId = parseStoryId(request.body?.storyId);
 
     if (!openAIService) {
       response.status(500).json({ message: "OpenAI API key is not configured" });
@@ -282,6 +334,19 @@ export const createJournalController = (
     }
 
     try {
+      let story: StoryEntity | null = null;
+
+      if (storyId) {
+        story = await storyRepository.findOne({
+          where: { id: storyId, userId: request.user.id }
+        });
+
+        if (!story) {
+          response.status(404).json({ message: "Story not found" });
+          return;
+        }
+      }
+
       const history = await historyStore.load(request.user.id, sessionId);
       const hasConversation = history.some((message) => message.role === "user" || message.role === "assistant");
 
@@ -309,7 +374,8 @@ export const createJournalController = (
 
       const journal = journalRepository.create({
         summary,
-        userId: request.user.id
+        userId: request.user.id,
+        storyId: story?.id ?? null
       });
 
       const savedJournal = await journalRepository.save(journal);
@@ -324,6 +390,18 @@ export const createJournalController = (
 
       if (messageEntities.length) {
         await messageRepository.save(messageEntities.map((message) => messageRepository.create(message)));
+      }
+
+      if (story) {
+        try {
+          const updatedProgress = await requestStoryProgressUpdate(story, summary);
+          if (updatedProgress) {
+            story.currentProgress = updatedProgress;
+            await storyRepository.save(story);
+          }
+        } catch {
+          // Ignore progress update failures.
+        }
       }
 
       await historyStore.clear(request.user.id, sessionId);

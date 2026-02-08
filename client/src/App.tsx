@@ -2,6 +2,7 @@ import { useEffect, useState, type ChangeEvent } from "react";
 import ChatView from "./views/chat";
 import CharactersView from "./views/characters";
 import JournalView from "./views/journal";
+import StoryView from "./views/story";
 import LoginView from "./views/auth";
 import { apiUrl } from "./lib/api";
 import {
@@ -12,7 +13,7 @@ import {
   type AuthSession
 } from "./lib/auth";
 
-type AppView = "chat" | "characters" | "journal";
+type AppView = "chat" | "characters" | "journal" | "story";
 const MODEL_STORAGE_KEY = "mimi_chat_model";
 const MODEL_OPTIONS = ["gpt-4o-mini", "gpt-4.1-mini", "gpt-4.1", "gpt-4o", "gpt-5-mini", "gpt-5", "gpt-5.1"];
 
@@ -205,6 +206,13 @@ const App = () => {
         >
           Journal
         </button>
+        <button
+          type="button"
+          className={`app-nav__button ${view === "story" ? "active" : ""}`}
+          onClick={() => setView("story")}
+        >
+          Story
+        </button>
         <div className="app-nav__level">
           <label>
             Level
@@ -243,8 +251,10 @@ const App = () => {
         <ChatView userId={auth.user.id} model={chatModel} />
       ) : view === "characters" ? (
         <CharactersView />
-      ) : (
+      ) : view === "journal" ? (
         <JournalView />
+      ) : (
+        <StoryView />
       )}
     </div>
   );

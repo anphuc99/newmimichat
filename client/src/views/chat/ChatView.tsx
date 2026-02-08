@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import MessageInput from "./components/MessageInput";
 import MessageList from "./components/MessageList";
 import { apiUrl } from "../../lib/api";
@@ -35,6 +35,17 @@ interface ChatHistoryResponse {
 
 interface ChatDeveloperStateResponse {
   activeCharacterNames: string[];
+}
+
+interface Story {
+  id: number;
+  name: string;
+  description: string;
+  currentProgress: string | null;
+}
+
+interface StoryListResponse {
+  stories: Story[];
 }
 
 interface TtsResponse {
@@ -227,6 +238,7 @@ interface ChatViewProps {
  */
 const ChatView = ({ userId, model }: ChatViewProps) => {
   const storageKey = `mimi_chat_session_id_${userId}`;
+  const storyStorageKey = `mimi_chat_story_id_${userId}`;
   const [messages, setMessages] = useState<ChatMessage[]>(() => []);
   const [input, setInput] = useState("");
   const [isSending, setIsSending] = useState(false);
@@ -235,6 +247,13 @@ const ChatView = ({ userId, model }: ChatViewProps) => {
   const [notice, setNotice] = useState<string | null>(null);
   const [characters, setCharacters] = useState<Character[]>([]);
   const [activeCharacterIds, setActiveCharacterIds] = useState<number[]>([]);
+  const [stories, setStories] = useState<Story[]>([]);
+  const [storyError, setStoryError] = useState<string | null>(null);
+  const [activeStoryId, setActiveStoryId] = useState<number | null>(() => {
+    const stored = window.localStorage.getItem(storyStorageKey);
+    const parsed = stored ? Number.parseInt(stored, 10) : NaN;
+    return Number.isInteger(parsed) ? parsed : null;
+  });
   const sessionId = useMemo(() => getOrCreateSessionId(storageKey), [storageKey]);
   const pendingAudio = useRef(new Set<string>());
   const playedAudio = useRef(new Set<string>());
@@ -242,6 +261,40 @@ const ChatView = ({ userId, model }: ChatViewProps) => {
   const lastAutoPlayIndex = useRef(0);
   const audioContextRef = useRef<AudioContext | null>(null);
   const audioCacheRef = useRef<Map<string, AudioBuffer>>(new Map());
+
+  /**
+   * Loads stories for the current user and keeps the active story selection.
+   */
+  const loadStories = async () => {
+    setStoryError(null);
+
+    try {
+      const response = await authFetch(apiUrl("/api/stories"));
+
+      if (!response.ok) {
+        const payload = (await response.json().catch(() => null)) as { message?: string } | null;
+        throw new Error(payload?.message ?? "Failed to load stories");
+      }
+
+      const payload = (await response.json()) as StoryListResponse;
+      const nextStories = payload.stories ?? [];
+      setStories(nextStories);
+
+      const stored = window.localStorage.getItem(storyStorageKey);
+      const storedId = stored ? Number.parseInt(stored, 10) : NaN;
+      const storedValid = Number.isInteger(storedId) && nextStories.some((story) => story.id === storedId);
+      const nextActiveId = storedValid ? storedId : nextStories[0]?.id ?? null;
+
+      setActiveStoryId(nextActiveId ?? null);
+      if (nextActiveId) {
+        window.localStorage.setItem(storyStorageKey, String(nextActiveId));
+      } else {
+        window.localStorage.removeItem(storyStorageKey);
+      }
+    } catch (caught) {
+      setStoryError(caught instanceof Error ? caught.message : "Unknown error");
+    }
+  };
 
   /**
    * Resolves playback settings for a character by name.
@@ -569,6 +622,28 @@ const ChatView = ({ userId, model }: ChatViewProps) => {
     };
   }, [characters, sessionId]);
 
+  useEffect(() => {
+    void loadStories();
+  }, [storyStorageKey]);
+
+  const activeStory = useMemo(
+    () => stories.find((story) => story.id === activeStoryId) ?? null,
+    [stories, activeStoryId]
+  );
+
+  const handleStoryChange = (event: ChangeEvent<HTMLSelectElement>) => {
+    const nextValue = event.target.value;
+    const nextId = nextValue ? Number.parseInt(nextValue, 10) : NaN;
+    const resolvedId = Number.isInteger(nextId) ? nextId : null;
+    setActiveStoryId(resolvedId);
+
+    if (resolvedId) {
+      window.localStorage.setItem(storyStorageKey, String(resolvedId));
+    } else {
+      window.localStorage.removeItem(storyStorageKey);
+    }
+  };
+
   const addCharacterToChat = async (character: Character) => {
     if (activeCharacterIds.includes(character.id)) {
       return;
@@ -655,7 +730,8 @@ const ChatView = ({ userId, model }: ChatViewProps) => {
         body: JSON.stringify({
           message: trimmed,
           sessionId,
-          model: model?.trim() || undefined
+          model: model?.trim() || undefined,
+          storyId: activeStoryId ?? undefined
         })
       });
 
@@ -707,7 +783,10 @@ const ChatView = ({ userId, model }: ChatViewProps) => {
         headers: {
           "Content-Type": "application/json"
         },
-        body: JSON.stringify({ sessionId })
+        body: JSON.stringify({
+          sessionId,
+          storyId: activeStoryId ?? undefined
+        })
       });
 
       if (!response.ok) {
@@ -720,6 +799,9 @@ const ChatView = ({ userId, model }: ChatViewProps) => {
       setMessages([]);
       setActiveCharacterIds([]);
       setInput("");
+      if (activeStoryId) {
+        await loadStories();
+      }
       setNotice(`Journal saved (#${payload.journalId}).`);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Unknown error");
@@ -783,6 +865,35 @@ const ChatView = ({ userId, model }: ChatViewProps) => {
                 );
               })}
             </ul>
+          )}
+        </div>
+      </section>
+
+      <section className="chat-story">
+        <div className="chat-story__panel">
+          <div className="chat-story__header">
+            <h2>Story</h2>
+            <select value={activeStoryId ?? ""} onChange={handleStoryChange}>
+              <option value="">No story</option>
+              {stories.map((story) => (
+                <option key={story.id} value={story.id}>
+                  {story.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          {storyError ? <p className="chat-story__error">{storyError}</p> : null}
+          {activeStory ? (
+            <div className="chat-story__content">
+              <p className="chat-story__label">Description</p>
+              <p className="chat-story__text">{activeStory.description}</p>
+              <p className="chat-story__label">Current progress</p>
+              <p className="chat-story__text">
+                {activeStory.currentProgress?.trim() ? activeStory.currentProgress : "No progress yet."}
+              </p>
+            </div>
+          ) : (
+            <p className="chat-story__muted">No story selected. Create one in the Story tab.</p>
           )}
         </div>
       </section>

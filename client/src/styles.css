@@ -823,6 +823,75 @@ body::after {
   flex-shrink: 0;
 }
 
+.chat-story {
+  margin: 0 0 18px;
+}
+
+.chat-story__panel {
+  background: rgba(255, 255, 255, 0.75);
+  border: 1px solid rgba(15, 23, 42, 0.06);
+  border-radius: 18px;
+  padding: 16px;
+  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.06);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.chat-story__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.chat-story__header h2 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.chat-story__header select {
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 0.9rem;
+  font-family: inherit;
+  background: #ffffff;
+  color: var(--ink-soft);
+}
+
+.chat-story__content {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.chat-story__label {
+  margin: 0;
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  font-weight: 700;
+}
+
+.chat-story__text {
+  margin: 0;
+  color: var(--ink);
+  white-space: pre-wrap;
+}
+
+.chat-story__muted {
+  margin: 0;
+  color: var(--ink-soft);
+}
+
+.chat-story__error {
+  margin: 0;
+  color: #b91c1c;
+  font-weight: 600;
+}
+
 .chat-input__field:focus {
   outline: none;
   box-shadow: inset 0 0 0 2px rgba(14, 165, 164, 0.45);
@@ -1037,6 +1106,166 @@ body::after {
   color: var(--ink);
 }
 
+.story-shell {
+  max-width: 1040px;
+  margin: 0 auto;
+  padding: calc(28px + env(safe-area-inset-top)) 20px calc(32px + env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  min-height: 100dvh;
+}
+
+.story-header h1 {
+  margin: 0 0 8px;
+  font-size: clamp(2rem, 3vw, 3rem);
+}
+
+.story-kicker {
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  font-weight: 600;
+  margin: 0 0 12px;
+  color: var(--accent-strong);
+}
+
+.story-subtitle {
+  margin: 0;
+  color: var(--ink-soft);
+}
+
+.story-error {
+  color: #b91c1c;
+  font-weight: 600;
+  margin: 0;
+}
+
+.story-notice {
+  color: #0f766e;
+  font-weight: 600;
+  margin: 0;
+}
+
+.story-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  gap: 20px;
+}
+
+.story-panel {
+  background: var(--surface);
+  border-radius: 24px;
+  padding: 20px;
+  box-shadow: 0 20px 40px var(--shadow);
+  border: 1px solid rgba(15, 23, 42, 0.06);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.story-panel__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.story-panel__header span {
+  color: var(--ink-soft);
+  font-size: 0.9rem;
+}
+
+.story-form,
+.story-edit {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.story-form label,
+.story-edit label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.85rem;
+  color: var(--ink-soft);
+}
+
+.story-form input,
+.story-form textarea,
+.story-edit input,
+.story-edit textarea {
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  border-radius: 14px;
+  padding: 10px 12px;
+  font-size: 0.95rem;
+  font-family: inherit;
+}
+
+.story-form button,
+.story-card__actions button {
+  border: none;
+  border-radius: 999px;
+  padding: 10px 18px;
+  font-weight: 600;
+  background: var(--accent-strong);
+  color: #ffffff;
+  cursor: pointer;
+}
+
+.story-card__actions button.ghost {
+  background: transparent;
+  color: var(--accent-strong);
+}
+
+.story-card__actions button.danger {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.story-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-height: 540px;
+  overflow-y: auto;
+}
+
+.story-card {
+  border-radius: 18px;
+  padding: 16px;
+  background: var(--surface-alt);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.story-card h3 {
+  margin: 0 0 6px;
+}
+
+.story-card__description,
+.story-card__progress {
+  margin: 0;
+  color: var(--ink-soft);
+  white-space: pre-wrap;
+}
+
+.story-card__actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.story-muted {
+  margin: 0;
+  color: var(--ink-soft);
+}
+
 @media (max-width: 720px) {
   .chat-shell {
     padding: calc(24px + env(safe-area-inset-top)) 16px calc(20px + env(safe-area-inset-bottom));
@@ -1069,6 +1298,10 @@ body::after {
   }
 
   .journal-content {
+    grid-template-columns: 1fr;
+  }
+
+  .story-layout {
     grid-template-columns: 1fr;
   }
 }
