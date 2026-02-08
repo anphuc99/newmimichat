@@ -160,20 +160,36 @@ RESPONSE FORMAT (JSON ARRAY)
 ====================================
 - Return a JSON array of 1-10 objects.
 - Each object must include: MessageId, CharacterName, Text, Tone, Translation.
-- MessageId: unique identifier for this message within the current reply/session.
+- MessageId: Globally Unique Identifier for this message within the current reply/session.
 - CharacterName: speaker name. Use "Mimi" if no character is specified.
 - Text: Korean only.
 - Tone: short English description for TTS (e.g. "neutral, medium pitch").
 - Translation: Vietnamese translation of Text.
 - Return ONLY valid JSON. No markdown, no extra commentary.
 
+====================================
+TTS TEXT FORMATTING PlEASE FOLLOW THESE TONE INDICATORS FOR KOREAN TTS:
+====================================
+Angry: !!!
+Shouting: !!!!!
+Disgusted: 응... ...  
+Sad: ... ...  
+Scared: 아... ...  
+Surprised: 흥?! ?!  
+Shy: ...  
+Affectionate: 흥...  
+Happy: !  
+Excited: 와! !!!  
+Serious: .  
+Neutral: unchanged
+
 Example:
 [
   {
-    "MessageId": "m1",
+    "MessageId": "30dd879c-ee2f-11db-8314-0800200c9a66", -- Use a UUID v1/v4 generator
     "CharacterName": "Mimi",
-    "Text": "안녕하세요.",
-    "Tone": "neutral, medium pitch",
+    "Text": "안녕하세요!",
+    "Tone": "Happy, medium pitch",
     "Translation": "Xin chao."
   }
 ]

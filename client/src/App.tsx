@@ -14,7 +14,7 @@ import {
 
 type AppView = "chat" | "characters" | "journal";
 const MODEL_STORAGE_KEY = "mimi_chat_model";
-const MODEL_OPTIONS = ["gpt-4o-mini", "gpt-4.1-mini", "gpt-4.1", "gpt-4o"];
+const MODEL_OPTIONS = ["gpt-4o-mini", "gpt-4.1-mini", "gpt-4.1", "gpt-4o", "gpt-5-mini", "gpt-5", "gpt-5.1"];
 
 /**
  * Describes a selectable proficiency level option.
