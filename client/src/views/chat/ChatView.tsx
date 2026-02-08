@@ -226,6 +226,34 @@ const getOrCreateSessionId = (storageKey: string) => {
   return next;
 };
 
+/**
+ * Reads a persisted toggle value from localStorage.
+ *
+ * @param storageKey - Key used for storing the toggle state.
+ * @param defaultValue - Value used when storage is empty.
+ * @returns The persisted toggle value.
+ */
+const readStoredToggle = (storageKey: string, defaultValue: boolean) => {
+  const stored = window.localStorage.getItem(storageKey);
+  if (stored === "true") {
+    return true;
+  }
+  if (stored === "false") {
+    return false;
+  }
+  return defaultValue;
+};
+
+/**
+ * Persists a toggle value to localStorage.
+ *
+ * @param storageKey - Key used for storing the toggle state.
+ * @param value - Value to persist.
+ */
+const persistToggle = (storageKey: string, value: boolean) => {
+  window.localStorage.setItem(storageKey, value ? "true" : "false");
+};
+
 interface ChatViewProps {
   userId: number;
   model?: string;
@@ -239,6 +267,8 @@ interface ChatViewProps {
 const ChatView = ({ userId, model }: ChatViewProps) => {
   const storageKey = `mimi_chat_session_id_${userId}`;
   const storyStorageKey = `mimi_chat_story_id_${userId}`;
+  const characterPanelKey = `mimi_chat_show_characters_${userId}`;
+  const storyPanelKey = `mimi_chat_show_story_${userId}`;
   const [messages, setMessages] = useState<ChatMessage[]>(() => []);
   const [input, setInput] = useState("");
   const [isSending, setIsSending] = useState(false);
@@ -249,8 +279,8 @@ const ChatView = ({ userId, model }: ChatViewProps) => {
   const [activeCharacterIds, setActiveCharacterIds] = useState<number[]>([]);
   const [stories, setStories] = useState<Story[]>([]);
   const [storyError, setStoryError] = useState<string | null>(null);
-  const [showCharacters, setShowCharacters] = useState(true);
-  const [showStory, setShowStory] = useState(true);
+  const [showCharacters, setShowCharacters] = useState(() => readStoredToggle(characterPanelKey, true));
+  const [showStory, setShowStory] = useState(() => readStoredToggle(storyPanelKey, true));
   const [activeStoryId, setActiveStoryId] = useState<number | null>(() => {
     const stored = window.localStorage.getItem(storyStorageKey);
     const parsed = stored ? Number.parseInt(stored, 10) : NaN;
@@ -824,14 +854,26 @@ const ChatView = ({ userId, model }: ChatViewProps) => {
           <button
             type="button"
             className="chat-toggle-button"
-            onClick={() => setShowCharacters((prev) => !prev)}
+            onClick={() =>
+              setShowCharacters((prev) => {
+                const nextValue = !prev;
+                persistToggle(characterPanelKey, nextValue);
+                return nextValue;
+              })
+            }
           >
             {showCharacters ? "Hide characters" : "Show characters"}
           </button>
           <button
             type="button"
             className="chat-toggle-button"
-            onClick={() => setShowStory((prev) => !prev)}
+            onClick={() =>
+              setShowStory((prev) => {
+                const nextValue = !prev;
+                persistToggle(storyPanelKey, nextValue);
+                return nextValue;
+              })
+            }
           >
             {showStory ? "Hide story" : "Show story"}
           </button>

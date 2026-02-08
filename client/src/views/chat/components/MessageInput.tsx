@@ -1,4 +1,4 @@
-import { FormEvent } from "react";
+import { FormEvent, KeyboardEvent } from "react";
 
 interface MessageInputProps {
   value: string;
@@ -19,6 +19,16 @@ const MessageInput = ({ value, onChange, onSend, disabled }: MessageInputProps) 
     onSend(value);
   };
 
+  const handleKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (event.key !== "Enter" || event.shiftKey) {
+      return;
+    }
+
+    // Enter submits, Shift+Enter inserts a newline.
+    event.preventDefault();
+    onSend(value);
+  };
+
   return (
     <form className="chat-input" onSubmit={handleSubmit}>
       <textarea
@@ -27,6 +37,7 @@ const MessageInput = ({ value, onChange, onSend, disabled }: MessageInputProps) 
         placeholder="Type your message..."
         value={value}
         onChange={(event) => onChange(event.target.value)}
+        onKeyDown={handleKeyDown}
         disabled={disabled}
       />
       <button className="chat-input__button" type="submit" disabled={disabled}>
