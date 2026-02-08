@@ -700,6 +700,7 @@ const ChatView = ({ userId, model }: ChatViewProps) => {
       });
 
       setActiveCharacterIds((prev) => [...prev, character.id]);
+      setError(null);
     } catch {
       // Ignore developer message errors.
     }
@@ -739,10 +740,17 @@ const ChatView = ({ userId, model }: ChatViewProps) => {
     return createMessage("assistant", "...");
   }, [isSending]);
 
+  const hasActiveCharacter = activeCharacterIds.length > 0;
+  const isChatLocked = isSending || isEnding || !hasActiveCharacter;
+  const chatLockMessage = hasActiveCharacter ? null : "Add at least one character to start chatting.";
+
   const handleSend = async (text: string) => {
     const trimmed = text.trim();
 
-    if (!trimmed || isSending) {
+    if (!trimmed || isSending || !hasActiveCharacter) {
+      if (!hasActiveCharacter) {
+        setError("Add at least one character before chatting.");
+      }
       return;
     }
 
@@ -965,6 +973,7 @@ const ChatView = ({ userId, model }: ChatViewProps) => {
       <section className="chat-window">
         {error ? <p className="chat-error">{error}</p> : null}
         {notice ? <p className="chat-notice">{notice}</p> : null}
+        {chatLockMessage ? <p className="chat-notice">{chatLockMessage}</p> : null}
         <MessageList
           messages={messages}
           pendingMessage={pendingMessage}
@@ -977,7 +986,7 @@ const ChatView = ({ userId, model }: ChatViewProps) => {
         value={input}
         onChange={setInput}
         onSend={handleSend}
-        disabled={isSending}
+        disabled={isChatLocked}
       />
     </main>
   );
