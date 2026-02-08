@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 type ChatRole = "user" | "assistant";
 
@@ -9,6 +9,8 @@ interface MessageBubbleProps {
   characterName?: string;
   translation?: string;
   showAudioControls?: boolean;
+  isEditable?: boolean;
+  onEdit?: (nextContent: string) => void;
   onPlayAudio?: () => void;
   onReloadAudio?: () => void;
 }
@@ -26,19 +28,38 @@ const MessageBubble = ({
   characterName,
   translation,
   showAudioControls,
+  isEditable,
+  onEdit,
   onPlayAudio,
   onReloadAudio
 }: MessageBubbleProps) => {
   const [showTranslation, setShowTranslation] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [draft, setDraft] = useState(content);
   const timeLabel = new Date(timestamp).toLocaleTimeString([], {
     hour: "2-digit",
     minute: "2-digit"
   });
 
+  useEffect(() => {
+    if (!isEditing) {
+      setDraft(content);
+    }
+  }, [content, isEditing]);
+
   return (
     <article className={`chat-bubble chat-bubble--${role}`}>
       {characterName ? <p className="chat-bubble__name">{characterName}</p> : null}
-      <p className="chat-bubble__text">{content}</p>
+      {isEditing ? (
+        <textarea
+          className="chat-bubble__edit-field"
+          rows={3}
+          value={draft}
+          onChange={(event) => setDraft(event.target.value)}
+        />
+      ) : (
+        <p className="chat-bubble__text">{content}</p>
+      )}
       {translation ? (
         <button
           type="button"
@@ -49,6 +70,42 @@ const MessageBubble = ({
         </button>
       ) : null}
       {translation && showTranslation ? <p className="chat-bubble__translation">{translation}</p> : null}
+      {isEditable && !isEditing ? (
+        <button
+          type="button"
+          className="chat-bubble__edit-button"
+          onClick={() => setIsEditing(true)}
+        >
+          Edit
+        </button>
+      ) : null}
+      {isEditable && isEditing ? (
+        <div className="chat-bubble__edit-actions">
+          <button
+            type="button"
+            className="chat-bubble__edit-button"
+            onClick={() => {
+              const trimmed = draft.trim();
+              if (trimmed && onEdit) {
+                onEdit(trimmed);
+              }
+              setIsEditing(false);
+            }}
+          >
+            Save
+          </button>
+          <button
+            type="button"
+            className="chat-bubble__edit-button"
+            onClick={() => {
+              setDraft(content);
+              setIsEditing(false);
+            }}
+          >
+            Cancel
+          </button>
+        </div>
+      ) : null}
       {showAudioControls ? (
         <div className="chat-bubble__audio-actions">
           <button type="button" className="chat-bubble__audio-button" onClick={onPlayAudio}>

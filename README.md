@@ -197,6 +197,7 @@ Chat:
 - `GET /api/chat/history?sessionId=...`
 - `GET /api/chat/developer-state?sessionId=...` (returns active character names)
 - `POST /api/chat/developer` (append developer messages; e.g. `character_added` / `character_removed`)
+- `POST /api/chat/edit` (edit user/assistant messages; regenerates history when user edits)
 
 Journals:
 - `POST /api/journals/end` (summarize current session and persist messages)

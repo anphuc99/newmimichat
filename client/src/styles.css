@@ -747,6 +747,37 @@ body::after {
   color: var(--ink);
 }
 
+.chat-bubble__edit-field {
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  border-radius: 12px;
+  padding: 10px 12px;
+  font-family: inherit;
+  font-size: 0.95rem;
+  resize: vertical;
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.chat-bubble__edit-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.chat-bubble__edit-button {
+  border: none;
+  background: rgba(15, 23, 42, 0.08);
+  color: var(--ink);
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-weight: 600;
+  cursor: pointer;
+  align-self: flex-start;
+}
+
+.chat-bubble__edit-button:hover {
+  background: rgba(15, 23, 42, 0.16);
+}
+
 .chat-bubble__meta {
   font-size: 0.75rem;
   opacity: 0.7;

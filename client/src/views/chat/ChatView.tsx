@@ -33,6 +33,12 @@ interface ChatHistoryResponse {
   messages: Array<{ role: ChatRole; content: string }>;
 }
 
+interface ChatEditResponse {
+  messages: Array<{ role: ChatRole; content: string }>;
+  reply?: string;
+  model?: string;
+}
+
 interface ChatDeveloperStateResponse {
   activeCharacterNames: string[];
 }
@@ -177,6 +183,17 @@ const toAssistantMessages = (content: string): ChatMessage[] => {
   });
 };
 
+/**
+ * Hydrates stored chat history into renderable chat messages.
+ */
+const hydrateHistoryMessages = (messages: Array<{ role: ChatRole; content: string }>) =>
+  messages.flatMap((message) => {
+    if (message.role === "assistant") {
+      return toAssistantMessages(message.content);
+    }
+    return [createMessage("user", message.content)];
+  });
+
 const DEFAULT_TTS_TONE = "neutral, medium pitch";
 const DEFAULT_SPEAKING_RATE = 1.0;
 const DEFAULT_PITCH = 0;
@@ -274,6 +291,7 @@ const ChatView = ({ userId, model }: ChatViewProps) => {
   const [contextInput, setContextInput] = useState("");
   const [isContextSending, setIsContextSending] = useState(false);
   const [isSending, setIsSending] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
   const [isEnding, setIsEnding] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -535,12 +553,7 @@ const ChatView = ({ userId, model }: ChatViewProps) => {
         }
 
         if (payload.messages?.length) {
-          const hydrated = payload.messages.flatMap((message) => {
-            if (message.role === "assistant") {
-              return toAssistantMessages(message.content);
-            }
-            return [createMessage("user", message.content)];
-          });
+          const hydrated = hydrateHistoryMessages(payload.messages);
           skipAutoPlayOnce.current = true;
           setMessages(hydrated);
         }
@@ -743,13 +756,14 @@ const ChatView = ({ userId, model }: ChatViewProps) => {
   }, [isSending]);
 
   const hasActiveCharacter = activeCharacterIds.length > 0;
-  const isChatLocked = isSending || isEnding || !hasActiveCharacter;
+  const isChatLocked = isSending || isEnding || isEditing || !hasActiveCharacter;
   const chatLockMessage = hasActiveCharacter ? null : "Add at least one character to start chatting.";
+  const canEditMessages = !isSending && !isEnding && !isEditing && !isContextSending;
 
   const handleSend = async (text: string) => {
     const trimmed = text.trim();
 
-    if (!trimmed || isSending || !hasActiveCharacter) {
+    if (!trimmed || isSending || isEditing || !hasActiveCharacter) {
       if (!hasActiveCharacter) {
         setError("Add at least one character before chatting.");
       }
@@ -849,6 +863,106 @@ const ChatView = ({ userId, model }: ChatViewProps) => {
       setError(caught instanceof Error ? caught.message : "Unknown error");
     } finally {
       setIsEnding(false);
+    }
+  };
+
+  /**
+   * Edits a user message and regenerates the assistant response from that point.
+   */
+  const handleEditUserMessage = async (userMessageIndex: number, nextContent: string) => {
+    const trimmed = nextContent.trim();
+
+    if (!trimmed || isEditing || isSending || isEnding || !hasActiveCharacter) {
+      if (!hasActiveCharacter) {
+        setError("Add at least one character before chatting.");
+      }
+      return;
+    }
+
+    setIsEditing(true);
+    setError(null);
+    setNotice(null);
+
+    try {
+      const response = await authFetch(apiUrl("/api/chat/edit"), {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          sessionId,
+          kind: "user",
+          userMessageIndex,
+          content: trimmed,
+          storyId: activeStoryId ?? undefined,
+          model: model?.trim() || undefined
+        })
+      });
+
+      if (!response.ok) {
+        const payload = (await response.json().catch(() => null)) as { message?: string } | null;
+        throw new Error(payload?.message ?? "Failed to edit message");
+      }
+
+      const payload = (await response.json()) as ChatEditResponse;
+      if (payload.messages?.length) {
+        const hydrated = hydrateHistoryMessages(payload.messages);
+        skipAutoPlayOnce.current = true;
+        setMessages(hydrated);
+      }
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Unknown error");
+    } finally {
+      setIsEditing(false);
+    }
+  };
+
+  /**
+   * Sends a developer note when the assistant reply is edited.
+   */
+  const handleEditAssistantMessage = async (assistantMessageId: string, localMessageId: string, nextContent: string) => {
+    const trimmed = nextContent.trim();
+
+    if (!trimmed || isEditing || isSending || isEnding) {
+      return;
+    }
+
+    if (!assistantMessageId) {
+      setError("Assistant messageId is missing for edits.");
+      return;
+    }
+
+    setIsEditing(true);
+    setError(null);
+    setNotice(null);
+
+    try {
+      const response = await authFetch(apiUrl("/api/chat/edit"), {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          sessionId,
+          kind: "assistant",
+          assistantMessageId
+        })
+      });
+
+      if (!response.ok) {
+        const payload = (await response.json().catch(() => null)) as { message?: string } | null;
+        throw new Error(payload?.message ?? "Failed to edit assistant message");
+      }
+
+      setMessages((prev) =>
+        prev.map((message) =>
+          message.id === localMessageId ? { ...message, content: trimmed } : message
+        )
+      );
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Unknown error");
+    } finally {
+      setIsEditing(false);
     }
   };
 
@@ -1047,6 +1161,8 @@ const ChatView = ({ userId, model }: ChatViewProps) => {
           pendingMessage={pendingMessage}
           onPlayAudio={handlePlayAudio}
           onReloadAudio={handleReloadAudio}
+          onEditUserMessage={canEditMessages ? handleEditUserMessage : undefined}
+          onEditAssistantMessage={canEditMessages ? handleEditAssistantMessage : undefined}
         />
       </section>
 

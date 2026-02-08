@@ -10,6 +10,7 @@ interface ChatController {
   sendMessage: (request: Request, response: Response) => Promise<void>;
   getHistory: (request: Request, response: Response) => Promise<void>;
   appendDeveloperMessage: (request: Request, response: Response) => Promise<void>;
+  editMessage: (request: Request, response: Response) => Promise<void>;
   getDeveloperState: (request: Request, response: Response) => Promise<void>;
 }
 
@@ -47,6 +48,20 @@ export const createChatController = (
   const getSessionId = (value: unknown) => (typeof value === "string" ? value.trim() : "");
 
   const getOptionalString = (value: unknown) => (typeof value === "string" ? value.trim() : "");
+
+  /**
+   * Parses a zero-based user message index.
+   *
+   * @param value - Input value from the request body.
+   * @returns The parsed index or null when invalid.
+   */
+  const parseUserMessageIndex = (value: unknown) => {
+    const parsed = typeof value === "number" ? value : Number.parseInt(String(value ?? ""), 10);
+    if (!Number.isInteger(parsed) || parsed < 0) {
+      return null;
+    }
+    return parsed;
+  };
 
   /**
    * Parses a numeric story id from user input.
@@ -139,6 +154,44 @@ export const createChatController = (
     }
 
     return ["Developer context update:", context].join("\n");
+  };
+
+  /**
+   * Formats a developer note for edited assistant messages.
+   *
+   * @param messageId - Message identifier from the assistant output.
+   * @returns A developer message string.
+   */
+  const formatAssistantEditMessage = (messageId: string) => {
+    const trimmed = messageId.trim();
+    if (!trimmed) {
+      return "";
+    }
+    return `Chat co messageID duoc sua thanh ${trimmed}.`;
+  };
+
+  /**
+   * Finds the history index for the Nth user message.
+   *
+   * @param history - Full chat history for the session.
+   * @param userIndex - Zero-based user message index.
+   * @returns Index within the history array or -1 when missing.
+   */
+  const findUserHistoryIndex = (history: { role: string }[], userIndex: number) => {
+    let count = 0;
+    for (let i = 0; i < history.length; i += 1) {
+      if (history[i].role !== "user") {
+        continue;
+      }
+
+      if (count === userIndex) {
+        return i;
+      }
+
+      count += 1;
+    }
+
+    return -1;
   };
 
   const parseDeveloperCharacterAction = (content: string) => {
@@ -304,6 +357,108 @@ export const createChatController = (
     }
   };
 
+  /**
+   * Applies edits to a user or assistant message and refreshes history as needed.
+   */
+  const editMessage: ChatController["editMessage"] = async (request, response) => {
+    if (!request.user) {
+      response.status(401).json({ message: "Unauthorized" });
+      return;
+    }
+
+    const payload = (request.body ?? {}) as Record<string, unknown>;
+    const sessionId = getSessionId(payload.sessionId);
+    const kind = typeof payload.kind === "string" ? payload.kind.trim() : "";
+    const modelOverride = getOptionalString(payload.model);
+
+    if (kind !== "user" && kind !== "assistant") {
+      response.status(400).json({ message: "Invalid edit kind" });
+      return;
+    }
+
+    if (kind === "assistant") {
+      const messageId = typeof payload.assistantMessageId === "string" ? payload.assistantMessageId.trim() : "";
+      const content = formatAssistantEditMessage(messageId);
+
+      if (!content) {
+        response.status(400).json({ message: "Assistant messageId is required" });
+        return;
+      }
+
+      try {
+        await historyStore.append(request.user.id, sessionId, [{ role: "developer", content }]);
+        response.json({ ok: true });
+      } catch (error) {
+        response.status(500).json({
+          message: "Failed to append developer message",
+          error: error instanceof Error ? error.message : "Unknown error"
+        });
+      }
+
+      return;
+    }
+
+    const editedContent = typeof payload.content === "string" ? payload.content.trim() : "";
+    const userIndex = parseUserMessageIndex(payload.userMessageIndex);
+
+    if (!editedContent) {
+      response.status(400).json({ message: "Edited content is required" });
+      return;
+    }
+
+    if (userIndex === null) {
+      response.status(400).json({ message: "User message index is required" });
+      return;
+    }
+
+    if (!openAIService) {
+      response.status(500).json({ message: "OpenAI API key is not configured" });
+      return;
+    }
+
+    try {
+      const history = await historyStore.load(request.user.id, sessionId);
+      const targetIndex = findUserHistoryIndex(history, userIndex);
+
+      if (targetIndex < 0) {
+        response.status(404).json({ message: "User message not found" });
+        return;
+      }
+
+      const prefix = history.slice(0, targetIndex);
+      const systemPrompt = await buildSystemPrompt(request.user.id, request.body);
+      const prefixWithoutSystem = prefix.filter((message) => message.role !== "system");
+      const historyForOpenAI = [{ role: "system", content: systemPrompt }, ...prefixWithoutSystem];
+
+      await historyStore.clear(request.user.id, sessionId);
+      await historyStore.ensureSystemMessage(request.user.id, sessionId, systemPrompt);
+
+      const result = await openAIService.createReply(
+        editedContent,
+        historyForOpenAI,
+        modelOverride || undefined
+      );
+      const nextMessages = [
+        ...prefixWithoutSystem,
+        { role: "user", content: editedContent },
+        { role: "assistant", content: result.reply }
+      ];
+
+      await historyStore.append(request.user.id, sessionId, nextMessages);
+
+      response.json({
+        messages: nextMessages.filter((message) => message.role !== "system" && message.role !== "developer"),
+        reply: result.reply,
+        model: result.model
+      });
+    } catch (error) {
+      response.status(500).json({
+        message: "Failed to edit chat message",
+        error: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  };
+
   const getDeveloperState: ChatController["getDeveloperState"] = async (request, response) => {
     if (!request.user) {
       response.status(401).json({ message: "Unauthorized" });
@@ -344,6 +499,7 @@ export const createChatController = (
     sendMessage,
     getHistory,
     appendDeveloperMessage,
+    editMessage,
     getDeveloperState
   };
 };

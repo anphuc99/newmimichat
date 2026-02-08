@@ -184,6 +184,62 @@ describe("Chat controller", () => {
     expect(response.json).toHaveBeenCalledWith({ messages: [{ role: "user", content: "previous" }] });
   });
 
+  it("edits a user message and regenerates the reply", async () => {
+    const openAIService = {
+      createReply: vi.fn().mockResolvedValue({ reply: "New reply", model: "test-model" })
+    };
+
+    const repository = createRepository();
+    const { controller, historyStore } = createController(repository, openAIService);
+    const response = createMockResponse();
+
+    const history = [
+      { role: "system", content: "Instruction" },
+      { role: "developer", content: "Developer note" },
+      { role: "user", content: "Hello" },
+      { role: "assistant", content: "Hi" },
+      { role: "user", content: "Old message" },
+      { role: "assistant", content: "Old reply" }
+    ];
+
+    historyStore.load.mockResolvedValueOnce(history);
+
+    await controller.editMessage(
+      {
+        body: {
+          sessionId: "s1",
+          kind: "user",
+          userMessageIndex: 1,
+          content: "Updated message",
+          model: "gpt-4.1-mini"
+        },
+        user: { id: 1, username: "mimi" }
+      } as any,
+      response
+    );
+
+    expect(openAIService.createReply).toHaveBeenCalledWith("Updated message", history.slice(0, 4), "gpt-4.1-mini");
+    expect(historyStore.clear).toHaveBeenCalledWith(1, "s1");
+    expect(historyStore.ensureSystemMessage).toHaveBeenCalledWith(1, "s1", "Instruction");
+    expect(historyStore.append).toHaveBeenCalledWith(1, "s1", [
+      { role: "developer", content: "Developer note" },
+      { role: "user", content: "Hello" },
+      { role: "assistant", content: "Hi" },
+      { role: "user", content: "Updated message" },
+      { role: "assistant", content: "New reply" }
+    ]);
+    expect(response.json).toHaveBeenCalledWith({
+      messages: [
+        { role: "user", content: "Hello" },
+        { role: "assistant", content: "Hi" },
+        { role: "user", content: "Updated message" },
+        { role: "assistant", content: "New reply" }
+      ],
+      reply: "New reply",
+      model: "test-model"
+    });
+  });
+
   it("appends a developer message for character added", async () => {
     const repository = createRepository();
     const { controller, historyStore } = createController(repository, {
@@ -263,6 +319,34 @@ describe("Chat controller", () => {
       {
         role: "developer",
         content: expect.stringContaining("Developer context update")
+      }
+    ]);
+    expect(response.json).toHaveBeenCalledWith({ ok: true });
+  });
+
+  it("appends a developer message for assistant edits", async () => {
+    const repository = createRepository();
+    const { controller, historyStore } = createController(repository, {
+      createReply: vi.fn()
+    });
+    const response = createMockResponse();
+
+    await controller.editMessage(
+      {
+        body: {
+          sessionId: "s1",
+          kind: "assistant",
+          assistantMessageId: "msg-123"
+        },
+        user: { id: 1, username: "mimi" }
+      } as any,
+      response
+    );
+
+    expect(historyStore.append).toHaveBeenCalledWith(1, "s1", [
+      {
+        role: "developer",
+        content: expect.stringContaining("msg-123")
       }
     ]);
     expect(response.json).toHaveBeenCalledWith({ ok: true });
