@@ -1046,21 +1046,6 @@ body::after {
   box-shadow: 0 10px 18px rgba(15, 118, 110, 0.18);
 }
 
-.chat-bubble__translate-toggle {
-  border: none;
-  background: transparent;
-  padding: 0;
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: var(--ink-soft);
-  cursor: pointer;
-  align-self: flex-start;
-}
-
-.chat-bubble__translate-toggle:hover {
-  color: var(--ink);
-}
-
 .chat-bubble__edit-field {
   border: 1px solid rgba(15, 23, 42, 0.12);
   border-radius: 12px;
@@ -1071,25 +1056,46 @@ body::after {
   background: rgba(255, 255, 255, 0.9);
 }
 
-.chat-bubble__edit-actions {
+.chat-bubble__actions {
   display: flex;
-  gap: 8px;
   flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
 }
 
-.chat-bubble__edit-button {
+.chat-bubble__icon-button {
   border: none;
+  border-radius: 999px;
+  width: 34px;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
   background: rgba(15, 23, 42, 0.08);
   color: var(--ink);
-  padding: 6px 12px;
-  border-radius: 999px;
-  font-weight: 600;
-  cursor: pointer;
-  align-self: flex-start;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
 }
 
-.chat-bubble__edit-button:hover {
+.chat-bubble__icon-button svg {
+  width: 18px;
+  height: 18px;
+}
+
+.chat-bubble__icon-button:hover {
   background: rgba(15, 23, 42, 0.16);
+  transform: translateY(-1px);
+  box-shadow: 0 8px 16px rgba(15, 23, 42, 0.12);
+}
+
+.chat-bubble--user .chat-bubble__icon-button {
+  background: rgba(255, 255, 255, 0.18);
+  color: #ffffff;
+}
+
+.chat-bubble--user .chat-bubble__icon-button:hover {
+  background: rgba(255, 255, 255, 0.28);
+  box-shadow: 0 8px 16px rgba(15, 23, 42, 0.18);
 }
 
 .chat-bubble__meta {
