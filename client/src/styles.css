@@ -238,6 +238,118 @@ body::after {
   line-height: 1.5;
 }
 
+.tasks-shell {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.tasks-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.tasks-header h1 {
+  margin: 0;
+  font-size: 2rem;
+}
+
+.tasks-date {
+  margin: 6px 0 0;
+  color: var(--ink-soft);
+  font-weight: 600;
+}
+
+.tasks-summary {
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: rgba(37, 99, 235, 0.12);
+  color: var(--accent-strong);
+  font-weight: 700;
+}
+
+.tasks-loading,
+.tasks-empty,
+.tasks-error {
+  margin: 0;
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+
+.tasks-error {
+  color: #b91c1c;
+}
+
+.tasks-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 16px;
+}
+
+.tasks-card {
+  border-radius: 18px;
+  padding: 16px;
+  background: #ffffff;
+  box-shadow: 0 16px 28px rgba(37, 99, 235, 0.12);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.tasks-card.is-complete {
+  box-shadow: 0 18px 32px rgba(16, 185, 129, 0.18);
+}
+
+.tasks-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.tasks-card__label {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 800;
+}
+
+.tasks-card__meta {
+  display: flex;
+  justify-content: space-between;
+  color: var(--ink-soft);
+  font-weight: 600;
+}
+
+.tasks-tag {
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--accent-strong);
+  background: rgba(59, 130, 246, 0.12);
+}
+
+.tasks-tag.is-complete {
+  color: #047857;
+  background: rgba(16, 185, 129, 0.15);
+}
+
+.tasks-bar {
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(59, 130, 246, 0.12);
+  overflow: hidden;
+}
+
+.tasks-bar__fill {
+  height: 100%;
+  background: linear-gradient(120deg, #2563eb, #60a5fa);
+  transition: width 0.3s ease;
+}
+
 .translation-card__explanation h1,
 .translation-card__explanation h2,
 .translation-card__explanation h3 {
