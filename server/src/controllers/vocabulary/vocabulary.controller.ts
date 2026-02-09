@@ -75,6 +75,14 @@ const serialiseMemory = (entity: VocabularyMemoryEntity) => {
 };
 
 /**
+ * Validates if a string looks like a valid UUID or vocabulary ID.
+ */
+const isValidVocabId = (id: string | undefined): boolean => {
+  if (!id) return false;
+  return id.trim().length > 0;
+};
+
+/**
  * Builds the vocabulary controller.
  *
  * @param dataSource - Initialised TypeORM data source.
@@ -105,8 +113,8 @@ export const createVocabularyController = (dataSource: DataSource): VocabularyCo
       const reviews = await reviewRepo.find({ where: { userId } });
       const memories = await memoryRepo.find({ where: { userId } });
 
-      const reviewMap = new Map<number, VocabularyReviewEntity>(reviews.map((r: VocabularyReviewEntity) => [r.vocabularyId, r]));
-      const memoryMap = new Map<number, VocabularyMemoryEntity>(memories.map((m: VocabularyMemoryEntity) => [m.vocabularyId, m]));
+      const reviewMap = new Map<string, VocabularyReviewEntity>(reviews.map((r: VocabularyReviewEntity) => [r.vocabularyId, r]));
+      const memoryMap = new Map<string, VocabularyMemoryEntity>(memories.map((m: VocabularyMemoryEntity) => [m.vocabularyId, m]));
 
       const items = vocabularies.map((vocab: VocabularyEntity) => {
         const review = reviewMap.get(vocab.id);
@@ -131,10 +139,15 @@ export const createVocabularyController = (dataSource: DataSource): VocabularyCo
   // ──────────────────────────────────────────────────────────────────────────
   const getVocabulary: VocabularyController["getVocabulary"] = async (request, response) => {
     const userId = request.user?.id;
-    const vocabId = Number(request.params.id);
+    const vocabId = String(request.params.id);
 
     if (!userId) {
       response.status(401).json({ message: "Unauthorized" });
+      return;
+    }
+
+    if (!isValidVocabId(vocabId)) {
+      response.status(400).json({ message: "Invalid vocabulary ID" });
       return;
     }
 
@@ -262,10 +275,15 @@ export const createVocabularyController = (dataSource: DataSource): VocabularyCo
   // ──────────────────────────────────────────────────────────────────────────
   const updateVocabulary: VocabularyController["updateVocabulary"] = async (request, response) => {
     const userId = request.user?.id;
-    const vocabId = Number(request.params.id);
+    const vocabId = String(request.params.id);
 
     if (!userId) {
       response.status(401).json({ message: "Unauthorized" });
+      return;
+    }
+
+    if (!isValidVocabId(vocabId)) {
+      response.status(400).json({ message: "Invalid vocabulary ID" });
       return;
     }
 
@@ -300,10 +318,15 @@ export const createVocabularyController = (dataSource: DataSource): VocabularyCo
   // ──────────────────────────────────────────────────────────────────────────
   const deleteVocabulary: VocabularyController["deleteVocabulary"] = async (request, response) => {
     const userId = request.user?.id;
-    const vocabId = Number(request.params.id);
+    const vocabId = String(request.params.id);
 
     if (!userId) {
       response.status(401).json({ message: "Unauthorized" });
+      return;
+    }
+
+    if (!isValidVocabId(vocabId)) {
+      response.status(400).json({ message: "Invalid vocabulary ID" });
       return;
     }
 
@@ -328,10 +351,15 @@ export const createVocabularyController = (dataSource: DataSource): VocabularyCo
   // ──────────────────────────────────────────────────────────────────────────
   const reviewVocabulary: VocabularyController["reviewVocabulary"] = async (request, response) => {
     const userId = request.user?.id;
-    const vocabId = Number(request.params.id);
+    const vocabId = String(request.params.id);
 
     if (!userId) {
       response.status(401).json({ message: "Unauthorized" });
+      return;
+    }
+
+    if (!isValidVocabId(vocabId)) {
+      response.status(400).json({ message: "Invalid vocabulary ID" });
       return;
     }
 
@@ -424,8 +452,8 @@ export const createVocabularyController = (dataSource: DataSource): VocabularyCo
             .getMany()
         : [];
 
-      const vocabMap = new Map<number, VocabularyEntity>(vocabularies.map((v: VocabularyEntity) => [v.id, v]));
-      const memoryMap = new Map<number, VocabularyMemoryEntity>(memories.map((m: VocabularyMemoryEntity) => [m.vocabularyId, m]));
+      const vocabMap = new Map<string, VocabularyEntity>(vocabularies.map((v: VocabularyEntity) => [v.id, v]));
+      const memoryMap = new Map<string, VocabularyMemoryEntity>(memories.map((m: VocabularyMemoryEntity) => [m.vocabularyId, m]));
 
       const items = dueReviews
         .map((r: VocabularyReviewEntity) => {
@@ -512,10 +540,15 @@ export const createVocabularyController = (dataSource: DataSource): VocabularyCo
   // ──────────────────────────────────────────────────────────────────────────
   const saveMemory: VocabularyController["saveMemory"] = async (request, response) => {
     const userId = request.user?.id;
-    const vocabId = Number(request.params.id);
+    const vocabId = String(request.params.id);
 
     if (!userId) {
       response.status(401).json({ message: "Unauthorized" });
+      return;
+    }
+
+    if (!isValidVocabId(vocabId)) {
+      response.status(400).json({ message: "Invalid vocabulary ID" });
       return;
     }
 
@@ -564,10 +597,15 @@ export const createVocabularyController = (dataSource: DataSource): VocabularyCo
   // ──────────────────────────────────────────────────────────────────────────
   const toggleStar: VocabularyController["toggleStar"] = async (request, response) => {
     const userId = request.user?.id;
-    const vocabId = Number(request.params.id);
+    const vocabId = String(request.params.id);
 
     if (!userId) {
       response.status(401).json({ message: "Unauthorized" });
+      return;
+    }
+
+    if (!isValidVocabId(vocabId)) {
+      response.status(400).json({ message: "Invalid vocabulary ID" });
       return;
     }
 
@@ -606,10 +644,15 @@ export const createVocabularyController = (dataSource: DataSource): VocabularyCo
   // ──────────────────────────────────────────────────────────────────────────
   const setCardDirection: VocabularyController["setCardDirection"] = async (request, response) => {
     const userId = request.user?.id;
-    const vocabId = Number(request.params.id);
+    const vocabId = String(request.params.id);
 
     if (!userId) {
       response.status(401).json({ message: "Unauthorized" });
+      return;
+    }
+
+    if (!isValidVocabId(vocabId)) {
+      response.status(400).json({ message: "Invalid vocabulary ID" });
       return;
     }
 

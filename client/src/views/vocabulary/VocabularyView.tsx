@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   VocabularyFlashcard,
   VocabularyList,
+  VocabularyMemoryEditor,
   VocabularySearch
 } from "./components";
 import { apiUrl } from "../../lib/api";
@@ -9,7 +10,7 @@ import { authFetch } from "../../lib/auth";
 
 /** A vocabulary item returned from the server. */
 export interface VocabularyItem {
-  id: number;
+  id: string;
   korean: string;
   vietnamese: string;
   isManuallyAdded: boolean;
@@ -23,7 +24,7 @@ export interface VocabularyItem {
 /** FSRS review state returned from the server. */
 export interface VocabularyReview {
   id: number;
-  vocabularyId: number;
+  vocabularyId: string;
   stability: number;
   difficulty: number;
   lapses: number;
@@ -47,7 +48,7 @@ export interface ReviewHistoryEntry {
 /** Memory attached to a vocabulary item. */
 export interface VocabularyMemory {
   id: number;
-  vocabularyId: number;
+  vocabularyId: string;
   userMemory: string;
   linkedMessageIds: string[];
   createdAt: string;
@@ -96,6 +97,9 @@ const VocabularyView = (_props: VocabularyViewProps) => {
 
   // ── Learn mode state ──────────────────────────────────────────────────
   const [learnIndex, setLearnIndex] = useState(0);
+
+  // ── Memory editor state ───────────────────────────────────────────────
+  const [editingVocab, setEditingVocab] = useState<VocabularyItem | null>(null);
 
   // ── Data fetching ─────────────────────────────────────────────────────
 
@@ -192,10 +196,10 @@ const VocabularyView = (_props: VocabularyViewProps) => {
   /**
    * Submits a review rating for a vocabulary item.
    *
-   * @param vocabId - Vocabulary item ID.
+   * @param vocabId - Vocabulary item ID (string).
    * @param rating - FSRS rating 1–4.
    */
-  const handleReview = async (vocabId: number, rating: number) => {
+  const handleReview = async (vocabId: string, rating: number) => {
     try {
       const response = await authFetch(apiUrl(`/api/vocabulary/${vocabId}/review`), {
         method: "POST",
@@ -218,9 +222,9 @@ const VocabularyView = (_props: VocabularyViewProps) => {
   /**
    * Toggles star status for a vocabulary item.
    *
-   * @param vocabId - Vocabulary item ID.
+   * @param vocabId - Vocabulary item ID (string).
    */
-  const handleToggleStar = async (vocabId: number) => {
+  const handleToggleStar = async (vocabId: string) => {
     try {
       const response = await authFetch(apiUrl(`/api/vocabulary/${vocabId}/star`), {
         method: "PUT"
@@ -239,9 +243,9 @@ const VocabularyView = (_props: VocabularyViewProps) => {
   /**
    * Deletes a vocabulary item.
    *
-   * @param vocabId - Vocabulary item ID.
+   * @param vocabId - Vocabulary item ID (string).
    */
-  const handleDelete = async (vocabId: number) => {
+  const handleDelete = async (vocabId: string) => {
     if (!window.confirm("Delete this vocabulary?")) {
       return;
     }
@@ -307,11 +311,11 @@ const VocabularyView = (_props: VocabularyViewProps) => {
   /**
    * Saves or updates memory text for a vocabulary.
    *
-   * @param vocabId - Vocabulary item ID.
+   * @param vocabId - Vocabulary item ID (string).
    * @param memoryText - User memory content.
    * @param linkedIds - Optional linked message IDs.
    */
-  const handleSaveMemory = async (vocabId: number, memoryText: string, linkedIds?: string[]) => {
+  const handleSaveMemory = async (vocabId: string, memoryText: string, linkedIds?: string[]) => {
     try {
       const response = await authFetch(apiUrl(`/api/vocabulary/${vocabId}/memory`), {
         method: "PUT",
@@ -459,9 +463,25 @@ const VocabularyView = (_props: VocabularyViewProps) => {
               onToggleStar={handleToggleStar}
               onDelete={handleDelete}
               onSaveMemory={handleSaveMemory}
+              onEditMemory={setEditingVocab}
             />
           )}
         </>
+      )}
+
+      {/* Memory Editor Overlay */}
+      {editingVocab && (
+        <div className="vocab-memory-overlay">
+          <VocabularyMemoryEditor
+            vocabulary={editingVocab}
+            existingMemory={editingVocab.memory}
+            onSave={async (userMemory, linkedMessageIds) => {
+              await handleSaveMemory(editingVocab.id, userMemory, linkedMessageIds);
+              setEditingVocab(null);
+            }}
+            onCancel={() => setEditingVocab(null)}
+          />
+        </div>
       )}
     </main>
   );

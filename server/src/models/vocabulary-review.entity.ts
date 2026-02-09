@@ -18,8 +18,8 @@ class VocabularyReviewEntity {
   @PrimaryGeneratedColumn("increment")
   id!: number;
 
-  @Column({ name: "vocabulary_id", type: "int", unique: true })
-  vocabularyId!: number;
+  @Column({ name: "vocabulary_id", type: "varchar", length: 36, unique: true })
+  vocabularyId!: string;
 
   @ManyToOne(() => VocabularyEntity, { nullable: false, onDelete: "CASCADE" })
   @JoinColumn({ name: "vocabulary_id" })

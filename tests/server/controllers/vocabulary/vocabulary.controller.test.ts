@@ -24,7 +24,7 @@ const createRepository = () => ({
   findOne: vi.fn(),
   create: vi.fn((payload: any) => payload),
   save: vi.fn(async (payload: any) => ({
-    id: 1,
+    id: payload.id || "test-uuid-1234",
     createdAt: new Date("2024-01-01T00:00:00.000Z"),
     updatedAt: new Date("2024-01-01T00:00:00.000Z"),
     ...payload
@@ -91,12 +91,12 @@ describe("Vocabulary controller", () => {
     const response = createMockResponse();
 
     vocabRepo.find.mockResolvedValue([
-      { id: 1, korean: "안녕", vietnamese: "Xin chào", userId: 1 }
+      { id: "vocab-uuid-1", korean: "안녕", vietnamese: "Xin chào", userId: 1 }
     ]);
     reviewRepo.find.mockResolvedValue([
       {
         id: 1,
-        vocabularyId: 1,
+        vocabularyId: "vocab-uuid-1",
         stability: 1,
         difficulty: 5,
         lapses: 0,
@@ -145,7 +145,7 @@ describe("Vocabulary controller", () => {
 
     vocabRepo.findOne.mockResolvedValue(null); // no duplicate
     vocabRepo.save.mockResolvedValue({
-      id: 10,
+      id: "vocab-uuid-10",
       korean: "사랑",
       vietnamese: "Tình yêu",
       isManuallyAdded: true,
@@ -155,7 +155,7 @@ describe("Vocabulary controller", () => {
     });
     reviewRepo.save.mockResolvedValue({
       id: 1,
-      vocabularyId: 10,
+      vocabularyId: "vocab-uuid-10",
       stability: 0,
       difficulty: 0,
       lapses: 0,
@@ -185,7 +185,7 @@ describe("Vocabulary controller", () => {
     const { controller, vocabRepo } = createController();
     const response = createMockResponse();
 
-    vocabRepo.findOne.mockResolvedValue({ id: 5, korean: "사랑" });
+    vocabRepo.findOne.mockResolvedValue({ id: "vocab-uuid-5", korean: "사랑" });
 
     await controller.collectVocabulary(
       authRequest({
@@ -218,7 +218,7 @@ describe("Vocabulary controller", () => {
     const response = createMockResponse();
 
     vocabRepo.findOne.mockResolvedValue({
-      id: 1,
+      id: "vocab-uuid-1",
       korean: "사랑",
       vietnamese: "Tình yêu",
       userId: 1
@@ -226,7 +226,7 @@ describe("Vocabulary controller", () => {
 
     await controller.updateVocabulary(
       authRequest({
-        params: { id: "1" },
+        params: { id: "vocab-uuid-1" },
         body: { korean: "감사", vietnamese: "Cảm ơn" }
       }),
       response
@@ -257,10 +257,10 @@ describe("Vocabulary controller", () => {
     const { controller, vocabRepo } = createController();
     const response = createMockResponse();
 
-    vocabRepo.findOne.mockResolvedValue({ id: 1, korean: "사랑", userId: 1 });
+    vocabRepo.findOne.mockResolvedValue({ id: "vocab-uuid-1", korean: "사랑", userId: 1 });
 
     await controller.deleteVocabulary(
-      authRequest({ params: { id: "1" } }),
+      authRequest({ params: { id: "vocab-uuid-1" } }),
       response
     );
 
@@ -288,7 +288,7 @@ describe("Vocabulary controller", () => {
 
     reviewRepo.findOne.mockResolvedValue({
       id: 1,
-      vocabularyId: 1,
+      vocabularyId: "vocab-uuid-1",
       userId: 1,
       stability: 1,
       difficulty: 5,
@@ -303,7 +303,7 @@ describe("Vocabulary controller", () => {
 
     reviewRepo.save.mockResolvedValue({
       id: 1,
-      vocabularyId: 1,
+      vocabularyId: "vocab-uuid-1",
       stability: 2,
       difficulty: 5,
       lapses: 0,
@@ -317,7 +317,7 @@ describe("Vocabulary controller", () => {
 
     await controller.reviewVocabulary(
       authRequest({
-        params: { id: "1" },
+        params: { id: "vocab-uuid-1" },
         body: { rating: 3 }
       }),
       response
@@ -333,7 +333,7 @@ describe("Vocabulary controller", () => {
 
     await controller.reviewVocabulary(
       authRequest({
-        params: { id: "1" },
+        params: { id: "vocab-uuid-1" },
         body: { rating: 5 }
       }),
       response
@@ -350,7 +350,7 @@ describe("Vocabulary controller", () => {
 
     await controller.reviewVocabulary(
       authRequest({
-        params: { id: "1" },
+        params: { id: "vocab-uuid-1" },
         body: { rating: 3 }
       }),
       response
@@ -367,7 +367,7 @@ describe("Vocabulary controller", () => {
     reviewRepo.find.mockResolvedValue([
       {
         id: 1,
-        vocabularyId: 1,
+        vocabularyId: "vocab-uuid-1",
         userId: 1,
         stability: 1,
         difficulty: 5,
@@ -409,11 +409,11 @@ describe("Vocabulary controller", () => {
     const { controller, vocabRepo, memoryRepo } = createController();
     const response = createMockResponse();
 
-    vocabRepo.findOne.mockResolvedValue({ id: 1, korean: "사랑", userId: 1 });
+    vocabRepo.findOne.mockResolvedValue({ id: "vocab-uuid-1", korean: "사랑", userId: 1 });
     memoryRepo.findOne.mockResolvedValue(null);
     memoryRepo.save.mockResolvedValue({
       id: 1,
-      vocabularyId: 1,
+      vocabularyId: "vocab-uuid-1",
       userMemory: "Love/heart",
       linkedMessageIdsJson: "[]",
       createdAt: new Date(),
@@ -422,7 +422,7 @@ describe("Vocabulary controller", () => {
 
     await controller.saveMemory(
       authRequest({
-        params: { id: "1" },
+        params: { id: "vocab-uuid-1" },
         body: { userMemory: "Love/heart" }
       }),
       response
@@ -439,7 +439,7 @@ describe("Vocabulary controller", () => {
 
     await controller.saveMemory(
       authRequest({
-        params: { id: "1" },
+        params: { id: "vocab-uuid-1" },
         body: { userMemory: "" }
       }),
       response
@@ -455,7 +455,7 @@ describe("Vocabulary controller", () => {
 
     reviewRepo.findOne.mockResolvedValue({
       id: 1,
-      vocabularyId: 1,
+      vocabularyId: "vocab-uuid-1",
       userId: 1,
       stability: 1,
       difficulty: 5,
@@ -470,7 +470,7 @@ describe("Vocabulary controller", () => {
 
     reviewRepo.save.mockResolvedValue({
       id: 1,
-      vocabularyId: 1,
+      vocabularyId: "vocab-uuid-1",
       stability: 1,
       difficulty: 5,
       lapses: 0,
@@ -483,7 +483,7 @@ describe("Vocabulary controller", () => {
     });
 
     await controller.toggleStar(
-      authRequest({ params: { id: "1" } }),
+      authRequest({ params: { id: "vocab-uuid-1" } }),
       response
     );
 
@@ -498,7 +498,7 @@ describe("Vocabulary controller", () => {
 
     reviewRepo.findOne.mockResolvedValue({
       id: 1,
-      vocabularyId: 1,
+      vocabularyId: "vocab-uuid-1",
       userId: 1,
       cardDirection: "kr-vn",
       reviewHistoryJson: "[]",
@@ -513,7 +513,7 @@ describe("Vocabulary controller", () => {
 
     reviewRepo.save.mockResolvedValue({
       id: 1,
-      vocabularyId: 1,
+      vocabularyId: "vocab-uuid-1",
       userId: 1,
       cardDirection: "vn-kr",
       reviewHistoryJson: "[]",
@@ -528,7 +528,7 @@ describe("Vocabulary controller", () => {
 
     await controller.setCardDirection(
       authRequest({
-        params: { id: "1" },
+        params: { id: "vocab-uuid-1" },
         body: { direction: "vn-kr" }
       }),
       response
@@ -544,7 +544,7 @@ describe("Vocabulary controller", () => {
 
     await controller.setCardDirection(
       authRequest({
-        params: { id: "1" },
+        params: { id: "vocab-uuid-1" },
         body: { direction: "invalid" }
       }),
       response

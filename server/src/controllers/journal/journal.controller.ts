@@ -1,5 +1,6 @@
 import type { Request, Response } from "express";
 import type { DataSource } from "typeorm";
+import { Like } from "typeorm";
 import JournalEntity from "../../models/journal.entity.js";
 import MessageEntity from "../../models/message.entity.js";
 import CharacterEntity from "../../models/character.entity.js";
@@ -11,6 +12,7 @@ import { buildAudioId } from "../../services/tts.service.js";
 interface JournalController {
   listJournals: (request: Request, response: Response) => Promise<void>;
   getJournal: (request: Request, response: Response) => Promise<void>;
+  searchMessages: (request: Request, response: Response) => Promise<void>;
   endConversation: (request: Request, response: Response) => Promise<void>;
 }
 
@@ -417,6 +419,99 @@ export const createJournalController = (
     }
   };
 
+  /**
+   * Searches messages by query text (for vocabulary memory linking).
+   * Supports regex patterns for flexible matching.
+   */
+  const searchMessages: JournalController["searchMessages"] = async (request, response) => {
+    if (!request.user) {
+      response.status(401).json({ message: "Unauthorized" });
+      return;
+    }
+
+    const query = String(request.query?.q ?? "").trim();
+    const limit = Math.min(Number(request.query?.limit ?? 50), 100);
+
+    if (!query) {
+      response.status(400).json({ message: "Query parameter 'q' is required" });
+      return;
+    }
+
+    try {
+      // Get all journals for the user with their messages
+      const journals = await journalRepository.find({
+        where: { userId: request.user.id },
+        order: { createdAt: "DESC" }
+      });
+
+      const results: Array<{
+        messageId: string;
+        journalId: number;
+        journalDate: string;
+        content: string;
+        characterName: string;
+        translation: string | null;
+        tone: string | null;
+        audio: string | null;
+      }> = [];
+
+      // Search through all messages
+      for (const journal of journals) {
+        const messages = await messageRepository.find({
+          where: { journalId: journal.id, userId: request.user.id },
+          order: { createdAt: "ASC" }
+        });
+
+        for (const message of messages) {
+          // Try regex match first, fallback to simple includes
+          let matches = false;
+          try {
+            const regex = new RegExp(query, "i");
+            matches = regex.test(message.content) || (message.translation ? regex.test(message.translation) : false);
+          } catch {
+            // Invalid regex, fallback to includes
+            const lowerQuery = query.toLowerCase();
+            matches = message.content.toLowerCase().includes(lowerQuery) ||
+              (message.translation?.toLowerCase().includes(lowerQuery) ?? false);
+          }
+
+          if (matches) {
+            results.push({
+              messageId: message.id,
+              journalId: journal.id,
+              journalDate: journal.createdAt.toISOString(),
+              content: message.content,
+              characterName: message.characterName,
+              translation: message.translation ?? null,
+              tone: message.tone ?? null,
+              audio: message.audio ?? null
+            });
+
+            if (results.length >= limit) {
+              break;
+            }
+          }
+        }
+
+        if (results.length >= limit) {
+          break;
+        }
+      }
+
+      response.json({
+        results,
+        total: results.length,
+        hasMore: results.length >= limit
+      });
+    } catch (error) {
+      console.error("Error in searchMessages:", error);
+      response.status(500).json({
+        message: "Failed to search messages",
+        error: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  };
+
   const endConversation: JournalController["endConversation"] = async (request, response) => {
     if (!request.user) {
       response.status(401).json({ message: "Unauthorized" });
@@ -524,6 +619,7 @@ export const createJournalController = (
   return {
     listJournals,
     getJournal,
+    searchMessages,
     endConversation
   };
 };

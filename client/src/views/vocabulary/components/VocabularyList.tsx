@@ -3,10 +3,11 @@ import type { VocabularyItem } from "../VocabularyView";
 
 interface VocabularyListProps {
   items: VocabularyItem[];
-  onReview: (vocabId: number, rating: number) => Promise<void>;
-  onToggleStar: (vocabId: number) => Promise<void>;
-  onDelete: (vocabId: number) => Promise<void>;
-  onSaveMemory: (vocabId: number, memoryText: string, linkedIds?: string[]) => Promise<void>;
+  onReview: (vocabId: string, rating: number) => Promise<void>;
+  onToggleStar: (vocabId: string) => Promise<void>;
+  onDelete: (vocabId: string) => Promise<void>;
+  onSaveMemory: (vocabId: string, memoryText: string, linkedIds?: string[]) => Promise<void>;
+  onEditMemory?: (item: VocabularyItem) => void;
 }
 
 /**
@@ -20,9 +21,10 @@ const VocabularyList = ({
   onReview,
   onToggleStar,
   onDelete,
-  onSaveMemory
+  onSaveMemory,
+  onEditMemory
 }: VocabularyListProps) => {
-  const [expandedId, setExpandedId] = useState<number | null>(null);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
   const [memoryDraft, setMemoryDraft] = useState("");
 
   const handleExpandToggle = (item: VocabularyItem) => {
@@ -105,24 +107,49 @@ const VocabularyList = ({
                 ) : null}
 
                 <div className="vocab-item__memory">
-                  <textarea
-                    rows={3}
-                    placeholder="Add a memory note..."
-                    value={memoryDraft}
-                    onChange={(e) => setMemoryDraft(e.target.value)}
-                  />
-                  <button
-                    type="button"
-                    onClick={() =>
-                      void onSaveMemory(
-                        item.id,
-                        memoryDraft,
-                        item.memory?.linkedMessageIds
-                      )
-                    }
-                  >
-                    Save memory
-                  </button>
+                  {item.memory?.userMemory ? (
+                    <div className="vocab-item__memory-preview">
+                      <p>{item.memory.userMemory.substring(0, 200)}{item.memory.userMemory.length > 200 ? "..." : ""}</p>
+                      {item.memory.linkedMessageIds.length > 0 && (
+                        <span className="vocab-item__linked-count">
+                          🔗 {item.memory.linkedMessageIds.length} linked message(s)
+                        </span>
+                      )}
+                    </div>
+                  ) : null}
+                  {onEditMemory ? (
+                    <button
+                      type="button"
+                      className="vocab-item__edit-memory-btn"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onEditMemory(item);
+                      }}
+                    >
+                      📝 {item.memory?.userMemory ? "Edit" : "Add"} memory
+                    </button>
+                  ) : (
+                    <>
+                      <textarea
+                        rows={3}
+                        placeholder="Add a memory note..."
+                        value={memoryDraft}
+                        onChange={(e) => setMemoryDraft(e.target.value)}
+                      />
+                      <button
+                        type="button"
+                        onClick={() =>
+                          void onSaveMemory(
+                            item.id,
+                            memoryDraft,
+                            item.memory?.linkedMessageIds
+                          )
+                        }
+                      >
+                        Save memory
+                      </button>
+                    </>
+                  )}
                 </div>
               </div>
             ) : null}

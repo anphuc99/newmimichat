@@ -14,6 +14,7 @@ export const createJournalRoutes = (dataSource: DataSource) => {
   const controller = createJournalController(dataSource);
 
   router.get("/", requireAuth, controller.listJournals);
+  router.get("/search", requireAuth, controller.searchMessages);
   router.get("/:id", requireAuth, controller.getJournal);
   router.post("/end", requireAuth, controller.endConversation);
 

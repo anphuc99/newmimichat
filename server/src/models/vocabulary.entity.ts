@@ -4,18 +4,28 @@ import {
   Entity,
   JoinColumn,
   ManyToOne,
-  PrimaryGeneratedColumn,
-  UpdateDateColumn
+  PrimaryColumn,
+  UpdateDateColumn,
+  BeforeInsert
 } from "typeorm";
+import { v4 as uuidv4 } from "uuid";
 import UserEntity from "./user.entity.js";
 
 /**
  * Persists collected vocabulary items for spaced repetition review.
+ * Uses string UUID for compatibility with old data migration.
  */
 @Entity({ name: "vocabularies" })
 class VocabularyEntity {
-  @PrimaryGeneratedColumn("increment")
-  id!: number;
+  @PrimaryColumn({ type: "varchar", length: 36 })
+  id!: string;
+
+  @BeforeInsert()
+  generateId(): void {
+    if (!this.id) {
+      this.id = uuidv4();
+    }
+  }
 
   /** Korean word or phrase. */
   @Column({ type: "varchar", length: 255 })

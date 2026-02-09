@@ -1,14 +1,23 @@
-import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from "typeorm";
+import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, PrimaryColumn, BeforeInsert } from "typeorm";
+import { v4 as uuidv4 } from "uuid";
 import JournalEntity from "./journal.entity.js";
 import UserEntity from "./user.entity.js";
 
 /**
  * Persists chat messages associated with a journal entry.
+ * Uses string UUID for compatibility with old data migration.
  */
 @Entity({ name: "messages" })
 class MessageEntity {
-  @PrimaryGeneratedColumn("increment")
-  id!: number;
+  @PrimaryColumn({ type: "varchar", length: 36 })
+  id!: string;
+
+  @BeforeInsert()
+  generateId(): void {
+    if (!this.id) {
+      this.id = uuidv4();
+    }
+  }
 
   @Column({ type: "text" })
   content!: string;
