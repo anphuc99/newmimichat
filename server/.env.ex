@@ -1,12 +1,22 @@
 # Example environment variables for development
 # Copy this file to .env and adjust values as needed.
 
-# Database (MySQL) settings
+# Database
+# Choose which DB driver TypeORM should use.
+# Supported: mysql | sqlite
+DB_TYPE=mysql
+
+# MySQL settings (used when DB_TYPE=mysql)
 DB_HOST=localhost
 DB_PORT=3306
 DB_USER=root
 DB_PASSWORD=
 DB_NAME=mimi_chat
+
+# SQLite settings (used when DB_TYPE=sqlite)
+# Absolute or repo-root relative path.
+# Note: SQLite mode uses TypeORM's `sqljs` driver (WASM) to avoid native builds on Windows.
+DB_SQLITE_PATH=server/data/sqlite/mimi_chat.sqlite
 
 # Server
 PORT=4000
@@ -34,3 +44,7 @@ REGISTRATION_TOKEN=change-me
 
 # Example MySQL connection (for reference):
 # mysql://root:password@localhost:3306/mimi_chat
+
+# Example SQLite connection (for reference):
+# DB_TYPE=sqlite
+# DB_SQLITE_PATH=server/data/sqlite/mimi_chat.sqlite

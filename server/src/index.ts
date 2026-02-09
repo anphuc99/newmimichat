@@ -1,9 +1,8 @@
 import cors from "cors";
-import dotenv from "dotenv";
-import fs from "fs";
 import path from "path";
 import express from "express";
 import { fileURLToPath } from "url";
+import "./env.js";
 import { AppDataSource } from "./data-source.js";
 import { createApiRouter } from "./routes/index.js";
 
@@ -11,18 +10,6 @@ const DEFAULT_PORT = 4000;
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = path.join(__dirname, "..", "public");
 const AUDIO_DIR = path.join(process.cwd(), "data", "audio");
-
-const resolveEnvPath = () => {
-  const cwd = process.cwd();
-  const candidates = [path.join(cwd, ".env"), path.join(cwd, "server", ".env")];
-  return candidates.find((candidate) => fs.existsSync(candidate));
-};
-
-const envPath = resolveEnvPath();
-
-if (envPath) {
-  dotenv.config({ path: envPath });
-}
 
 /**
  * Creates the Express application instance with default middleware and routes.

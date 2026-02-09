@@ -22,6 +22,7 @@
     "mysql2": "^3.11.5",
     "openai": "^4.104.0",
     "reflect-metadata": "^0.2.2",
+    "sql.js": "^1.13.0",
     "typeorm": "^0.3.20"
   },
   "devDependencies": {

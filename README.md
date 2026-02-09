@@ -18,7 +18,9 @@ Core features implemented so far:
 
 - Node.js 18+ (recommended)
 - npm 9+
-- MySQL running locally (or reachable remotely)
+- A database:
+  - MySQL running locally (or reachable remotely), or
+  - SQLite (file-based)
 
 ## Install
 
@@ -41,6 +43,7 @@ Minimum server env (local):
 PORT=4000
 
 # Database
+DB_TYPE=mysql
 DB_HOST=localhost
 DB_PORT=3306
 DB_USER=root
@@ -64,6 +67,16 @@ OPENAI_MODEL=gpt-4.1-mini
 # Optional chat history directory
 # CHAT_HISTORY_DIR=server/data/chat-history
 ```
+
+SQLite example:
+
+```bash
+# Database
+DB_TYPE=sqlite
+DB_SQLITE_PATH=server/data/sqlite/mimi_chat.sqlite
+```
+
+Note: SQLite mode uses TypeORM's `sqljs` driver (WASM) to avoid native build steps on Windows.
 
 Client env (optional):
 
