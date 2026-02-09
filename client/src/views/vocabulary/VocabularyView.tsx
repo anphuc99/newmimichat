@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import VocabularyList from "./components/VocabularyList";
-import VocabularyFlashcard from "./components/VocabularyFlashcard";
-import VocabularySearch from "./components/VocabularySearch";
+import {
+  VocabularyFlashcard,
+  VocabularyList,
+  VocabularySearch
+} from "./components";
 import { apiUrl } from "../../lib/api";
 import { authFetch } from "../../lib/auth";
 
