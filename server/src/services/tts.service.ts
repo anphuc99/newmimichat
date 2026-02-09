@@ -1,7 +1,7 @@
 import crypto from "crypto";
 import fs from "fs/promises";
 import path from "path";
-import OpenAI from "openai";
+import { createOpenAIClient } from "./openai.service.js";
 
 const AUDIO_DIR = path.join(process.cwd(), "data", "audio");
 const DEFAULT_MODEL = "gpt-4o-mini-tts-2025-03-20";
@@ -77,7 +77,7 @@ export const createTtsAudio = async (text: string, tone: string, audioId: string
     throw new Error("OpenAI API key is not configured");
   }
 
-  const client = new OpenAI({ apiKey });
+  const client = createOpenAIClient(apiKey);
   const model = process.env.OPENAI_TTS_MODEL ?? DEFAULT_MODEL;
   const resolvedVoice = voice?.trim() || (process.env.OPENAI_TTS_VOICE ?? DEFAULT_VOICE);
 

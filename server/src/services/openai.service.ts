@@ -29,6 +29,24 @@ export interface OpenAIChatServiceConfig {
   tlsAllowInsecure?: boolean;
 }
 
+export interface OpenAIClientTlsOptions {
+  /**
+   * Optional path to a PEM/CRT file containing additional CA certificates.
+   * Useful in corporate environments where TLS is intercepted by a proxy.
+   */
+  tlsCaCertPath?: string;
+  /**
+   * Optional base64-encoded PEM/CRT content for additional CA certificates.
+   * Takes precedence over {@link tlsCaCertPath} when provided.
+   */
+  tlsCaCertBase64?: string;
+  /**
+   * When true, disables TLS certificate verification for OpenAI requests.
+   * This is insecure and should only be used for local debugging.
+   */
+  tlsAllowInsecure?: boolean;
+}
+
 /**
  * Parses common boolean-like environment values.
  *
@@ -115,6 +133,38 @@ const buildOpenAIHttpAgent = (config: {
   });
 };
 
+/**
+ * Creates an OpenAI SDK client configured for corporate proxy TLS interception.
+ *
+ * Uses env:
+ * - `OPENAI_TLS_INSECURE` (boolean-ish)
+ * - `OPENAI_TLS_CA_CERT_PATH`
+ * - `OPENAI_TLS_CA_CERT_BASE64`
+ *
+ * Default behavior:
+ * - SSL verification is skipped in dev mode (`npm run dev` or `NODE_ENV=development`)
+ * - SSL verification remains enabled otherwise
+ *
+ * @param apiKey - OpenAI API key.
+ * @param options - Optional TLS overrides.
+ * @returns A configured OpenAI client.
+ */
+export const createOpenAIClient = (apiKey: string, options: OpenAIClientTlsOptions = {}) => {
+  const envInsecure = parseEnvBool(process.env.OPENAI_TLS_INSECURE);
+  const tlsAllowInsecure = options.tlsAllowInsecure ?? envInsecure ?? isDevMode();
+
+  const tlsCaCertPath = options.tlsCaCertPath ?? process.env.OPENAI_TLS_CA_CERT_PATH;
+  const tlsCaCertBase64 = options.tlsCaCertBase64 ?? process.env.OPENAI_TLS_CA_CERT_BASE64;
+
+  const httpAgent = buildOpenAIHttpAgent({
+    tlsAllowInsecure,
+    tlsCaCertPath,
+    tlsCaCertBase64
+  });
+
+  return new OpenAI({ apiKey, ...(httpAgent ? { httpAgent } : {}) });
+};
+
 export interface OpenAIChatService {
   createReply: (
     message: string,
@@ -130,23 +180,11 @@ export interface OpenAIChatService {
  * @returns OpenAI chat service helpers.
  */
 export const createOpenAIChatService = (config: OpenAIChatServiceConfig): OpenAIChatService => {
-  const envInsecure = parseEnvBool(process.env.OPENAI_TLS_INSECURE);
-  const tlsAllowInsecure =
-    config.tlsAllowInsecure ??
-    envInsecure ??
-    // Default behavior requested: ignore SSL only in dev mode.
-    isDevMode();
-
-  const tlsCaCertPath = config.tlsCaCertPath ?? process.env.OPENAI_TLS_CA_CERT_PATH;
-  const tlsCaCertBase64 = config.tlsCaCertBase64 ?? process.env.OPENAI_TLS_CA_CERT_BASE64;
-
-  const httpAgent = buildOpenAIHttpAgent({
-    tlsAllowInsecure,
-    tlsCaCertPath,
-    tlsCaCertBase64
+  const client = createOpenAIClient(config.apiKey, {
+    tlsAllowInsecure: config.tlsAllowInsecure,
+    tlsCaCertPath: config.tlsCaCertPath,
+    tlsCaCertBase64: config.tlsCaCertBase64
   });
-
-  const client = new OpenAI({ apiKey: config.apiKey, ...(httpAgent ? { httpAgent } : {}) });
   const model = config.model;
   const systemPromptPath = config.systemPromptPath ?? DEFAULT_SYSTEM_PROMPT_PATH;
   let cachedPrompt: string | null = null;
