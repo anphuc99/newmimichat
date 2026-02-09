@@ -74,7 +74,7 @@ const serialiseCard = (entity: ShadowingCardEntity) => {
 };
 
 const parseAudioDataUrl = (dataUrl: string) => {
-  const match = /^data:(audio\/[a-z0-9.+-]+);base64,(.+)$/i.exec(dataUrl.trim());
+  const match = /^data:(audio\/[a-z0-9.+-]+)(?:;[^,]*)?;base64,(.+)$/i.exec(dataUrl.trim());
 
   if (!match) {
     return null;
