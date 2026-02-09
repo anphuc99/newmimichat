@@ -21,6 +21,13 @@ interface MessageSearchResult {
   audio: string | null;
 }
 
+interface Character {
+  id: number;
+  name: string;
+  pitch?: number | null;
+  speakingRate?: number | null;
+}
+
 /** Linked message attrs for TipTap node. */
 interface LinkedMessageAttrs {
   messageId: string;
@@ -48,7 +55,7 @@ const MessageBlockComponent = ({
 }: {
   node: { attrs: Partial<LinkedMessageAttrs> };
   deleteNode: () => void;
-  extension: { options?: { onPlayAudio?: (audioId: string) => void } };
+  extension: { options?: { onPlayAudio?: (audioId: string, characterName?: string) => void } };
 }) => {
   const { text, characterName, date, audioData } = node.attrs;
   const onPlayAudio = extension.options?.onPlayAudio;
@@ -64,7 +71,7 @@ const MessageBlockComponent = ({
             <button
               type="button"
               className="vocab-memory-editor__audio-btn"
-              onClick={() => onPlayAudio(audioData)}
+              onClick={() => onPlayAudio(audioData, characterName)}
               title="Nghe âm thanh"
             >
               🔊
@@ -88,7 +95,7 @@ const MessageBlockComponent = ({
 /**
  * Creates custom TipTap node for message blocks.
  */
-const createMessageBlockExtension = (onPlayAudio?: (audioId: string) => void) => {
+const createMessageBlockExtension = (onPlayAudio?: (audioId: string, characterName?: string) => void) => {
   return Node.create({
     name: "messageBlock",
     group: "block",
@@ -257,6 +264,7 @@ const VocabularyMemoryEditor = ({
   const [linkedMessagesMap, setLinkedMessagesMap] = useState<Map<string, LinkedMessageAttrs>>(new Map());
   const [isSaving, setIsSaving] = useState(false);
   const [isLoadingLinked, setIsLoadingLinked] = useState(false);
+  const [characters, setCharacters] = useState<Character[]>([]);
 
   // Search state
   const [searchQuery, setSearchQuery] = useState("");
@@ -275,7 +283,22 @@ const VocabularyMemoryEditor = ({
   const audioContextRef = useRef<AudioContext | null>(null);
   const audioCacheRef = useRef<Map<string, AudioBuffer>>(new Map());
 
-  const playAudio = useCallback(async (audioId: string) => {
+  const getCharacterAudioSettings = useCallback(
+    (characterName?: string) => {
+      if (!characterName) {
+        return { speakingRate: 1.0, pitch: 0 };
+      }
+
+      const character = characters.find((item) => item.name === characterName);
+      return {
+        speakingRate: character?.speakingRate ?? 1.0,
+        pitch: character?.pitch ?? 0
+      };
+    },
+    [characters]
+  );
+
+  const playAudio = useCallback(async (audioId: string, characterName?: string) => {
     if (!audioId) return;
 
     try {
@@ -284,6 +307,9 @@ const VocabularyMemoryEditor = ({
       }
 
       const context = audioContextRef.current;
+      if (context.state === "suspended") {
+        await context.resume();
+      }
       let audioBuffer = audioCacheRef.current.get(audioId);
 
       if (!audioBuffer) {
@@ -298,12 +324,18 @@ const VocabularyMemoryEditor = ({
 
       const source = context.createBufferSource();
       source.buffer = audioBuffer;
+      const settings = getCharacterAudioSettings(characterName);
+      source.playbackRate.value = settings.speakingRate || 1.0;
+      if (source.detune) {
+        source.detune.value = (settings.pitch || 0) * 50;
+      }
+
       source.connect(context.destination);
       source.start(0);
     } catch (error) {
       console.error("Failed to play audio.", error);
     }
-  }, []);
+  }, [getCharacterAudioSettings]);
 
   const MessageBlockExtension = useMemo(
     () => createMessageBlockExtension(playAudio),
@@ -315,6 +347,32 @@ const VocabularyMemoryEditor = ({
     const handleResize = () => setMobile(isMobile());
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  useEffect(() => {
+    let isActive = true;
+
+    const loadCharacters = async () => {
+      try {
+        const response = await authFetch(apiUrl("/api/characters"));
+        if (!response.ok) {
+          return;
+        }
+
+        const payload = (await response.json()) as Character[];
+        if (isActive) {
+          setCharacters(payload ?? []);
+        }
+      } catch (error) {
+        console.warn("Failed to load characters for memory audio.", error);
+      }
+    };
+
+    void loadCharacters();
+
+    return () => {
+      isActive = false;
+    };
   }, []);
 
   // Fetch linked messages when existing memory has linked IDs
@@ -667,7 +725,7 @@ const VocabularyMemoryEditor = ({
                       className="vocab-memory-editor__audio-btn vocab-memory-editor__audio-btn--compact"
                       onClick={(e) => {
                         e.stopPropagation();
-                        void playAudio(result.audio ?? "");
+                        void playAudio(result.audio ?? "", result.characterName);
                       }}
                       title="Nghe âm thanh"
                     >

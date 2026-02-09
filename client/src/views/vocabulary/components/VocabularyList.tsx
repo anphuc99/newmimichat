@@ -11,6 +11,13 @@ interface LinkedMessageResult {
   audio: string | null;
 }
 
+interface Character {
+  id: number;
+  name: string;
+  pitch?: number | null;
+  speakingRate?: number | null;
+}
+
 const stripMemoryMarkers = (content: string) => content.replace(/\[MSG:[^\]]+\]/g, "").trim();
 
 interface VocabularyListProps {
@@ -40,10 +47,23 @@ const VocabularyList = ({
   const [memoryDraft, setMemoryDraft] = useState("");
   const [linkedDetailsByVocab, setLinkedDetailsByVocab] = useState<Record<string, LinkedMessageResult[]>>({});
   const [linkedLoadingId, setLinkedLoadingId] = useState<string | null>(null);
+  const [characters, setCharacters] = useState<Character[]>([]);
   const audioContextRef = useRef<AudioContext | null>(null);
   const audioCacheRef = useRef<Map<string, AudioBuffer>>(new Map());
 
-  const playAudio = async (audioId: string) => {
+  const getCharacterAudioSettings = (characterName?: string) => {
+    if (!characterName) {
+      return { speakingRate: 1.0, pitch: 0 };
+    }
+
+    const character = characters.find((item) => item.name === characterName);
+    return {
+      speakingRate: character?.speakingRate ?? 1.0,
+      pitch: character?.pitch ?? 0
+    };
+  };
+
+  const playAudio = async (audioId: string, characterName?: string) => {
     if (!audioId) return;
 
     try {
@@ -52,6 +72,9 @@ const VocabularyList = ({
       }
 
       const context = audioContextRef.current;
+      if (context.state === "suspended") {
+        await context.resume();
+      }
       let audioBuffer = audioCacheRef.current.get(audioId);
 
       if (!audioBuffer) {
@@ -66,12 +89,43 @@ const VocabularyList = ({
 
       const source = context.createBufferSource();
       source.buffer = audioBuffer;
+      const settings = getCharacterAudioSettings(characterName);
+      source.playbackRate.value = settings.speakingRate || 1.0;
+      if (source.detune) {
+        source.detune.value = (settings.pitch || 0) * 50;
+      }
       source.connect(context.destination);
       source.start(0);
     } catch (error) {
       console.error("Failed to play audio.", error);
     }
   };
+
+  useEffect(() => {
+    let isActive = true;
+
+    const loadCharacters = async () => {
+      try {
+        const response = await authFetch(apiUrl("/api/characters"));
+        if (!response.ok) {
+          return;
+        }
+
+        const payload = (await response.json()) as Character[];
+        if (isActive) {
+          setCharacters(payload ?? []);
+        }
+      } catch (error) {
+        console.warn("Failed to load characters for memory audio.", error);
+      }
+    };
+
+    void loadCharacters();
+
+    return () => {
+      isActive = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (!expandedId) return;
@@ -225,7 +279,7 @@ const VocabularyList = ({
                                 className="vocab-item__linked-audio-btn"
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  void playAudio(msg.audio ?? "");
+                                  void playAudio(msg.audio ?? "", msg.characterName);
                                 }}
                                 title="Nghe âm thanh"
                               >
