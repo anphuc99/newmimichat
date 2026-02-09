@@ -13,35 +13,67 @@ interface LoginViewProps {
  * @returns The login view component.
  */
 const LoginView = ({ onAuth }: LoginViewProps) => {
-  const [mode, setMode] = useState<"login" | "register">("login");
+  const [mode, setMode] = useState<"login" | "register" | "reset">("login");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
   const [registerToken, setRegisterToken] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+
+  const handleModeChange = (nextMode: "login" | "register" | "reset") => {
+    setMode(nextMode);
+    setError(null);
+    setSuccess(null);
+  };
 
   const handleSubmit = async () => {
-    if (!username.trim() || !password.trim()) {
-      setError("Username and password are required");
+    if (!username.trim()) {
+      setError("Username is required");
       return;
     }
 
-    if (mode === "register" && !registerToken.trim()) {
-      setError("Registration token is required");
-      return;
+    if (mode === "reset") {
+      if (!newPassword.trim()) {
+        setError("New password is required");
+        return;
+      }
+      if (!registerToken.trim()) {
+        setError("Registration token is required");
+        return;
+      }
+    } else {
+      if (!password.trim()) {
+        setError("Password is required");
+        return;
+      }
+      if (mode === "register" && !registerToken.trim()) {
+        setError("Registration token is required");
+        return;
+      }
     }
 
     setIsSubmitting(true);
     setError(null);
+    setSuccess(null);
 
     try {
-      const requestPayload = {
-        username: username.trim(),
-        password: password.trim(),
-        ...(mode === "register" ? { registerToken: registerToken.trim() } : {})
-      };
+      const endpoint = mode === "reset" ? "reset-password" : mode;
+      const requestPayload =
+        mode === "reset"
+          ? {
+              username: username.trim(),
+              newPassword: newPassword.trim(),
+              registerToken: registerToken.trim()
+            }
+          : {
+              username: username.trim(),
+              password: password.trim(),
+              ...(mode === "register" ? { registerToken: registerToken.trim() } : {})
+            };
 
-      const response = await fetch(apiUrl(`/api/users/${mode}`), {
+      const response = await fetch(apiUrl(`/api/users/${endpoint}`), {
         method: "POST",
         headers: {
           "Content-Type": "application/json"
@@ -52,6 +84,15 @@ const LoginView = ({ onAuth }: LoginViewProps) => {
       if (!response.ok) {
         const errorPayload = (await response.json().catch(() => null)) as { message?: string } | null;
         throw new Error(errorPayload?.message ?? "Failed to authenticate");
+      }
+
+      if (mode === "reset") {
+        await response.json().catch(() => null);
+        setSuccess("Mật khẩu đã được cập nhật. Hãy đăng nhập lại.");
+        handleModeChange("login");
+        setPassword("");
+        setNewPassword("");
+        return;
       }
 
       const session = (await response.json()) as AuthSession;
@@ -68,14 +109,23 @@ const LoginView = ({ onAuth }: LoginViewProps) => {
     <main className="auth-shell">
       <section className="auth-card">
         <p className="auth-kicker">MimiChat</p>
-        <h1>{mode === "login" ? "Welcome back" : "Create your account"}</h1>
+        <h1>
+          {mode === "login"
+            ? "Welcome back"
+            : mode === "register"
+              ? "Create your account"
+              : "Quên mật khẩu"}
+        </h1>
         <p className="auth-subtitle">
           {mode === "login"
             ? "Sign in to manage your chats and characters."
-            : "Set a username and password to begin."}
+            : mode === "register"
+              ? "Set a username and password to begin."
+              : "Nhập token và mật khẩu mới để đổi mật khẩu."}
         </p>
 
         {error ? <p className="auth-error">{error}</p> : null}
+        {success ? <p className="auth-success">{success}</p> : null}
 
         <label className="auth-field">
           Username
@@ -87,17 +137,29 @@ const LoginView = ({ onAuth }: LoginViewProps) => {
           />
         </label>
 
-        <label className="auth-field">
-          Password
-          <input
-            type="password"
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-            placeholder="At least 6 characters"
-          />
-        </label>
+        {mode !== "reset" ? (
+          <label className="auth-field">
+            Password
+            <input
+              type="password"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              placeholder="At least 6 characters"
+            />
+          </label>
+        ) : (
+          <label className="auth-field">
+            New password
+            <input
+              type="password"
+              value={newPassword}
+              onChange={(event) => setNewPassword(event.target.value)}
+              placeholder="At least 6 characters"
+            />
+          </label>
+        )}
 
-        {mode === "register" ? (
+        {mode === "register" || mode === "reset" ? (
           <label className="auth-field">
             Registration token
             <input
@@ -110,16 +172,36 @@ const LoginView = ({ onAuth }: LoginViewProps) => {
         ) : null}
 
         <button type="button" className="auth-submit" onClick={handleSubmit} disabled={isSubmitting}>
-          {isSubmitting ? "Working..." : mode === "login" ? "Login" : "Register"}
+          {isSubmitting
+            ? "Working..."
+            : mode === "login"
+              ? "Login"
+              : mode === "register"
+                ? "Register"
+                : "Reset password"}
         </button>
 
-        <button
-          type="button"
-          className="auth-toggle"
-          onClick={() => setMode(mode === "login" ? "register" : "login")}
-        >
-          {mode === "login" ? "Need an account? Register" : "Already have an account? Login"}
-        </button>
+        <div className="auth-actions">
+          {mode !== "reset" ? (
+            <button
+              type="button"
+              className="auth-toggle"
+              onClick={() => handleModeChange(mode === "login" ? "register" : "login")}
+            >
+              {mode === "login" ? "Need an account? Register" : "Already have an account? Login"}
+            </button>
+          ) : null}
+
+          {mode === "login" ? (
+            <button type="button" className="auth-toggle" onClick={() => handleModeChange("reset")}>
+              Quên mật khẩu
+            </button>
+          ) : mode === "reset" ? (
+            <button type="button" className="auth-toggle" onClick={() => handleModeChange("login")}>
+              Quay lại đăng nhập
+            </button>
+          ) : null}
+        </div>
       </section>
     </main>
   );

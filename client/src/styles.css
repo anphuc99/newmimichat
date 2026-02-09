@@ -693,6 +693,12 @@ body::after {
   margin: 0;
 }
 
+.auth-success {
+  color: #15803d;
+  font-weight: 600;
+  margin: 0;
+}
+
 .auth-field {
   display: flex;
   flex-direction: column;
@@ -732,6 +738,12 @@ body::after {
   color: var(--accent-strong);
   cursor: pointer;
   font-weight: 600;
+}
+
+.auth-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .chat-shell {
