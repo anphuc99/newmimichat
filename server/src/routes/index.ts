@@ -9,6 +9,7 @@ import { createJournalRoutes } from "./journal.routes.js";
 import { createLevelsRoutes } from "./levels.routes.js";
 import { createListeningRoutes } from "./listening.routes.js";
 import { createShadowingRoutes } from "./shadowing.routes.js";
+import { createStreakRoutes } from "./streak.routes.js";
 import { createStoryRoutes } from "./story.routes.js";
 import { createTasksRoutes } from "./tasks.routes.js";
 import { createTranslationRoutes } from "./translation.routes.js";
@@ -32,6 +33,7 @@ export const createApiRouter = (dataSource: DataSource) => {
   router.use("/levels", createLevelsRoutes(dataSource));
   router.use("/listening", createListeningRoutes(dataSource));
   router.use("/shadowing", createShadowingRoutes(dataSource));
+  router.use("/streak", createStreakRoutes(dataSource));
   router.use("/stories", createStoryRoutes(dataSource));
   router.use("/tasks", createTasksRoutes(dataSource));
   router.use("/translation", createTranslationRoutes(dataSource));

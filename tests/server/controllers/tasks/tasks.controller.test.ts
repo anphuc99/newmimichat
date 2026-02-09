@@ -25,6 +25,18 @@ const createRepository = (items: any[] = []) => ({
 });
 
 /**
+ * Creates a mock streak repository.
+ *
+ * @param streak - Streak record to return from findOne.
+ * @returns A mock streak repository.
+ */
+const createStreakRepository = (streak: any = null) => ({
+  findOne: vi.fn().mockResolvedValue(streak),
+  create: vi.fn((payload: any) => payload),
+  save: vi.fn(async (payload: any) => payload)
+});
+
+/**
  * Constructs the tasks controller using mock repositories.
  *
  * @param repositories - Mock repositories to return in order.
@@ -82,7 +94,8 @@ describe("Tasks controller", () => {
       createRepository(),
       createRepository(),
       createRepository(),
-      createRepository()
+      createRepository(),
+      createStreakRepository()
     ]);
     const response = createMockResponse();
 
@@ -97,6 +110,7 @@ describe("Tasks controller", () => {
     const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
     const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
 
+    const streakRepo = createStreakRepository();
     const controller = createController([
       createRepository([
         { id: "v1", createdAt: now },
@@ -134,7 +148,8 @@ describe("Tasks controller", () => {
         { id: 5, createdAt: now },
         { id: 6, createdAt: now }
       ]),
-      createRepository([])
+      createRepository([]),
+      streakRepo
     ]);
 
     const response = createMockResponse();
@@ -169,5 +184,39 @@ describe("Tasks controller", () => {
 
     const shadowingDue = findTask(payload.tasks, "shadowing_due");
     expect(shadowingDue?.remaining).toBe(0);
+    expect(streakRepo.save).not.toHaveBeenCalled();
+  });
+
+  it("increments streak when all tasks are complete", async () => {
+    const now = new Date();
+    const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    const streakRepo = createStreakRepository({
+      id: 1,
+      userId: 1,
+      currentStreak: 2,
+      longestStreak: 2,
+      lastCompletedDate: yesterday
+    });
+
+    const controller = createController([
+      createRepository(Array.from({ length: 20 }, (_, index) => ({ id: `v${index}`, createdAt: now }))),
+      createRepository([]),
+      createRepository(Array.from({ length: 5 }, (_, index) => ({ id: index, createdAt: now }))),
+      createRepository([]),
+      createRepository(Array.from({ length: 5 }, (_, index) => ({ id: index, createdAt: now }))),
+      createRepository([]),
+      createRepository(Array.from({ length: 5 }, (_, index) => ({ id: index, createdAt: now }))),
+      createRepository([]),
+      streakRepo
+    ]);
+
+    const response = createMockResponse();
+
+    await controller.getTodayTasks(authRequest(), response);
+
+    expect(streakRepo.save).toHaveBeenCalledTimes(1);
+    const saved = streakRepo.save.mock.calls[0][0];
+    expect(saved.currentStreak).toBe(3);
+    expect(saved.longestStreak).toBe(3);
   });
 });

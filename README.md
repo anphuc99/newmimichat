@@ -17,6 +17,7 @@ Core features implemented so far:
 - Listening drill with FSRS scheduling (Due/Learn/Difficult/Starred)
 - Shadowing drill with FSRS scheduling + OpenAI `gpt-4o-transcribe` scoring
 - Daily task checklist for vocab, translation, listening, and shadowing goals
+- Streak tracking that increments when all daily tasks are completed
 - Stories (user-created) with description + current progress, linked to journals
 - File-backed chat history (JSONL stored in `.txt`) scoped by `sessionId`
 - System instruction stored in history (for stable prompting / caching)
@@ -316,6 +317,9 @@ Vocabulary (FSRS):
 
 Tasks:
 - `GET /api/tasks/today` (daily checklist progress for vocab/translation/listening/shadowing)
+
+Streak:
+- `GET /api/streak` (current streak status; resets if a day is missed)
 - `POST /api/vocabulary/:id/review` (submit FSRS rating 1–4)
 - `GET /api/vocabulary/stats` (counts: total, dueToday, starred, difficult)
 - `PUT /api/vocabulary/:id/memory` (save memory content + linkedMessageIds)

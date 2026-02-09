@@ -4,6 +4,7 @@ import ListeningCardEntity from "../../models/listening-card.entity.js";
 import ListeningReviewEntity from "../../models/listening-review.entity.js";
 import ShadowingCardEntity from "../../models/shadowing-card.entity.js";
 import ShadowingReviewEntity from "../../models/shadowing-review.entity.js";
+import StreakEntity from "../../models/streak.entity.js";
 import TranslationCardEntity from "../../models/translation-card.entity.js";
 import TranslationReviewEntity from "../../models/translation-review.entity.js";
 import VocabularyEntity from "../../models/vocabulary.entity.js";
@@ -45,6 +46,7 @@ export const createTasksController = (dataSource: DataSource): TasksController =
   const listeningReviewRepo: Repository<ListeningReviewEntity> = dataSource.getRepository(ListeningReviewEntity);
   const shadowingRepo: Repository<ShadowingCardEntity> = dataSource.getRepository(ShadowingCardEntity);
   const shadowingReviewRepo: Repository<ShadowingReviewEntity> = dataSource.getRepository(ShadowingReviewEntity);
+  const streakRepo: Repository<StreakEntity> = dataSource.getRepository(StreakEntity);
 
   const toDateKey = (value: Date | string) =>
     new Date(value).toLocaleDateString("en-CA", { timeZone: "Asia/Ho_Chi_Minh" });
@@ -60,6 +62,50 @@ export const createTasksController = (dataSource: DataSource): TasksController =
    */
   const countDueOnOrBefore = (items: Array<{ nextReviewDate: Date }>, dateKey: string) =>
     items.filter((item) => toDateKey(item.nextReviewDate) <= dateKey).length;
+
+  /**
+   * Updates the user's streak when all tasks are completed for the day.
+   *
+   * @param userId - Current user ID.
+   * @param completedAll - Whether all daily tasks are complete.
+   */
+  const updateStreakOnCompletion = async (userId: number, completedAll: boolean) => {
+    if (!completedAll) {
+      return;
+    }
+
+    const today = new Date();
+    const todayKey = toDateKey(today);
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yesterdayKey = toDateKey(yesterday);
+
+    let streak = await streakRepo.findOne({ where: { userId } });
+
+    if (!streak) {
+      streak = streakRepo.create({
+        userId,
+        currentStreak: 0,
+        longestStreak: 0,
+        lastCompletedDate: null
+      });
+    }
+
+    if (streak.lastCompletedDate) {
+      const lastKey = toDateKey(streak.lastCompletedDate);
+      if (lastKey === todayKey) {
+        return;
+      }
+
+      streak.currentStreak = lastKey === yesterdayKey ? streak.currentStreak + 1 : 1;
+    } else {
+      streak.currentStreak = 1;
+    }
+
+    streak.longestStreak = Math.max(streak.longestStreak, streak.currentStreak);
+    streak.lastCompletedDate = today;
+    await streakRepo.save(streak);
+  };
 
   /**
    * Returns daily task progress for the authenticated user.
@@ -180,6 +226,7 @@ export const createTasksController = (dataSource: DataSource): TasksController =
       ];
 
       const completedCount = tasks.filter((task) => task.completed).length;
+      await updateStreakOnCompletion(userId, completedCount === tasks.length);
       const payload: TasksResponse = {
         date: todayKey,
         tasks,
