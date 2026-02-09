@@ -1,8 +1,9 @@
 import type { Request, Response } from "express";
 import type { DataSource, Repository } from "typeorm";
+import { toFile, type Uploadable } from "openai/uploads";
 import MessageEntity from "../../models/message.entity.js";
-import TranslationCardEntity from "../../models/translation-card.entity.js";
-import TranslationReviewEntity from "../../models/translation-review.entity.js";
+import ShadowingCardEntity from "../../models/shadowing-card.entity.js";
+import ShadowingReviewEntity from "../../models/shadowing-review.entity.js";
 import { createOpenAIClient } from "../../services/openai.service.js";
 import {
   createInitialReviewState,
@@ -11,29 +12,26 @@ import {
   type ReviewHistoryEntry
 } from "../../services/fsrs.service.js";
 
-interface TranslationController {
+interface ShadowingController {
   listCards: (request: Request, response: Response) => Promise<void>;
   getDueCards: (request: Request, response: Response) => Promise<void>;
   getStats: (request: Request, response: Response) => Promise<void>;
   getLearnCandidate: (request: Request, response: Response) => Promise<void>;
-  reviewTranslation: (request: Request, response: Response) => Promise<void>;
+  reviewShadowing: (request: Request, response: Response) => Promise<void>;
   toggleStar: (request: Request, response: Response) => Promise<void>;
-  explainTranslation: (request: Request, response: Response) => Promise<void>;
+  transcribeAudio: (request: Request, response: Response) => Promise<void>;
 }
 
-interface TranslationControllerDeps {
-  explainWithOpenAI?: (payload: {
-    content: string;
-    translation?: string | null;
-    userTranslation?: string | null;
-    characterName?: string;
-  }) => Promise<string>;
+interface ShadowingControllerDeps {
+  transcribeWithOpenAI?: (file: Uploadable) => Promise<string>;
 }
+
+const MAX_AUDIO_BYTES = 12 * 1024 * 1024;
 
 /**
- * Serialises a translation review entity to a client-facing JSON shape.
+ * Serialises a shadowing review entity to a client-facing JSON shape.
  */
-const serialiseReview = (entity: TranslationReviewEntity) => {
+const serialiseReview = (entity: ShadowingReviewEntity) => {
   let reviewHistory: ReviewHistoryEntry[] = [];
 
   try {
@@ -44,7 +42,7 @@ const serialiseReview = (entity: TranslationReviewEntity) => {
 
   return {
     id: entity.id,
-    translationCardId: entity.translationCardId,
+    shadowingCardId: entity.shadowingCardId,
     stability: entity.stability,
     difficulty: entity.difficulty,
     lapses: entity.lapses,
@@ -57,9 +55,9 @@ const serialiseReview = (entity: TranslationReviewEntity) => {
 };
 
 /**
- * Serialises a translation card entity to a client-facing JSON shape.
+ * Serialises a shadowing card entity to a client-facing JSON shape.
  */
-const serialiseCard = (entity: TranslationCardEntity) => {
+const serialiseCard = (entity: ShadowingCardEntity) => {
   return {
     id: entity.id,
     messageId: entity.messageId,
@@ -68,7 +66,6 @@ const serialiseCard = (entity: TranslationCardEntity) => {
     userTranslation: entity.userTranslation,
     characterName: entity.characterName,
     audio: entity.audio,
-    explanationMd: entity.explanationMd,
     journalId: entity.journalId,
     userId: entity.userId,
     createdAt: entity.createdAt,
@@ -76,73 +73,70 @@ const serialiseCard = (entity: TranslationCardEntity) => {
   };
 };
 
-/**
- * Builds the prompt for grammar/vocabulary explanations.
- */
-const buildExplanationPrompt = (payload: {
-  content: string;
-  translation?: string | null;
-  userTranslation?: string | null;
-  characterName?: string;
-}) => {
-  const translation = payload.translation?.trim() || "(Không có bản dich mẫu)";
-  const userTranslation = payload.userTranslation?.trim();
+const parseAudioDataUrl = (dataUrl: string) => {
+  const match = /^data:(audio\/[a-z0-9.+-]+);base64,(.+)$/i.exec(dataUrl.trim());
 
-return `Bạn là giáo sư tiếng Hàn. Hãy giải thích ngữ pháp và từ vựng trong câu sau, trả lời bằng Markdown (không dùng JSON).
+  if (!match) {
+    return null;
+  }
 
-Thông tin:
-- Câu gốc (Korean): ${payload.content}
-- Bản dịch mẫu (Việt): ${translation}
-${userTranslation !== null? "- Bản dịch người học (Việt): ${userTranslation}": ""}
+  const mime = match[1];
+  const buffer = Buffer.from(match[2], "base64");
 
-Yêu cầu trả lời:
-1. Giải thích ngữ pháp chính (danh sách gạch đầu dòng).
-2. Giải thích từ vựng quan trọng (danh sách gạch đầu dòng).
-3. Nếu có lỗi thường gặp, nhắc nhanh 1-2 ý.
-4. Ngắn gọn, dễ hiểu, không quá dài.`;
+  return { mime, buffer };
 };
+
+const resolveAudioExtension = (mime: string) => {
+  if (mime.includes("webm")) return "webm";
+  if (mime.includes("wav")) return "wav";
+  if (mime.includes("mpeg") || mime.includes("mp3")) return "mp3";
+  if (mime.includes("ogg")) return "ogg";
+  return "webm";
+};
+
 /**
- * Builds the translation controller.
+ * Builds the shadowing controller.
  *
  * @param dataSource - Initialised TypeORM data source.
- * @returns Translation controller handlers.
+ * @param deps - Optional overrides for external services.
+ * @returns Shadowing controller handlers.
  */
-export const createTranslationController = (
+export const createShadowingController = (
   dataSource: DataSource,
-  deps: TranslationControllerDeps = {}
-): TranslationController => {
-  const cardRepo: Repository<TranslationCardEntity> = dataSource.getRepository(TranslationCardEntity);
-  const reviewRepo: Repository<TranslationReviewEntity> = dataSource.getRepository(TranslationReviewEntity);
+  deps: ShadowingControllerDeps = {}
+): ShadowingController => {
+  const cardRepo: Repository<ShadowingCardEntity> = dataSource.getRepository(ShadowingCardEntity);
+  const reviewRepo: Repository<ShadowingReviewEntity> = dataSource.getRepository(ShadowingReviewEntity);
   const messageRepo: Repository<MessageEntity> = dataSource.getRepository(MessageEntity);
   const toDateKey = (value: Date | string) =>
     new Date(value).toLocaleDateString("en-CA", { timeZone: "Asia/Ho_Chi_Minh" });
   const apiKey = process.env.OPENAI_API_KEY ?? "";
   const openAIClient = apiKey ? createOpenAIClient(apiKey) : null;
-  const explainWithOpenAI =
-    deps.explainWithOpenAI ??
-    (async (payload) => {
+  const transcribeWithOpenAI =
+    deps.transcribeWithOpenAI ??
+    (async (file) => {
       if (!openAIClient) {
         throw new Error("OpenAI API key is not configured");
       }
 
-      const completion = await openAIClient.responses.create({
-        model: "gpt-4o-mini",
-        input: buildExplanationPrompt(payload)
+      const response = await openAIClient.audio.transcriptions.create({
+        file,
+        model: "gpt-4o-transcribe"
       });
 
-      const reply = completion.output_text?.trim() ?? "";
+      const transcript = response.text?.trim() ?? "";
 
-      if (!reply) {
-        throw new Error("OpenAI returned an empty explanation");
+      if (!transcript) {
+        throw new Error("OpenAI returned an empty transcript");
       }
 
-      return reply;
+      return transcript;
     });
 
   /**
-   * Lists all translation cards for the current user.
+   * Lists all shadowing cards for the current user.
    */
-  const listCards: TranslationController["listCards"] = async (request, response) => {
+  const listCards: ShadowingController["listCards"] = async (request, response) => {
     const userId = request.user?.id;
 
     if (!userId) {
@@ -156,11 +150,11 @@ export const createTranslationController = (
         order: { createdAt: "DESC" }
       });
       const reviews = await reviewRepo.find({ where: { userId } });
-      const reviewMap = new Map<number, TranslationReviewEntity>(
-        reviews.map((review: TranslationReviewEntity) => [review.translationCardId, review])
+      const reviewMap = new Map<number, ShadowingReviewEntity>(
+        reviews.map((review: ShadowingReviewEntity) => [review.shadowingCardId, review])
       );
 
-      const items = cards.map((card: TranslationCardEntity) => {
+      const items = cards.map((card: ShadowingCardEntity) => {
         const review = reviewMap.get(card.id);
         return {
           ...serialiseCard(card),
@@ -170,15 +164,15 @@ export const createTranslationController = (
 
       response.json({ cards: items });
     } catch (error) {
-      console.error("Failed to list translation cards.", error);
-      response.status(500).json({ message: "Failed to list translation cards" });
+      console.error("Failed to list shadowing cards.", error);
+      response.status(500).json({ message: "Failed to list shadowing cards" });
     }
   };
 
   /**
-   * Returns translation cards that are due for review.
+   * Returns shadowing cards that are due for review.
    */
-  const getDueCards: TranslationController["getDueCards"] = async (request, response) => {
+  const getDueCards: ShadowingController["getDueCards"] = async (request, response) => {
     const userId = request.user?.id;
 
     if (!userId) {
@@ -189,8 +183,8 @@ export const createTranslationController = (
     try {
       const reviews = await reviewRepo.find({ where: { userId } });
       const todayKey = toDateKey(new Date());
-      const dueReviews = reviews.filter((review: TranslationReviewEntity) => toDateKey(review.nextReviewDate) <= todayKey);
-      const cardIds = dueReviews.map((review: TranslationReviewEntity) => review.translationCardId);
+      const dueReviews = reviews.filter((review: ShadowingReviewEntity) => toDateKey(review.nextReviewDate) <= todayKey);
+      const cardIds = dueReviews.map((review: ShadowingReviewEntity) => review.shadowingCardId);
 
       const cards = cardIds.length
         ? await cardRepo
@@ -200,10 +194,10 @@ export const createTranslationController = (
             .getMany()
         : [];
 
-      const cardMap = new Map<number, TranslationCardEntity>(cards.map((card: TranslationCardEntity) => [card.id, card]));
+      const cardMap = new Map<number, ShadowingCardEntity>(cards.map((card: ShadowingCardEntity) => [card.id, card]));
       const items = dueReviews
-        .map((review: TranslationReviewEntity) => {
-          const card = cardMap.get(review.translationCardId);
+        .map((review: ShadowingReviewEntity) => {
+          const card = cardMap.get(review.shadowingCardId);
           if (!card) {
             return null;
           }
@@ -217,15 +211,15 @@ export const createTranslationController = (
 
       response.json({ cards: items, total: items.length });
     } catch (error) {
-      console.error("Failed to get due translation cards.", error);
-      response.status(500).json({ message: "Failed to get due translation cards" });
+      console.error("Failed to get due shadowing cards.", error);
+      response.status(500).json({ message: "Failed to get due shadowing cards" });
     }
   };
 
   /**
-   * Returns aggregated translation drill stats.
+   * Returns aggregated shadowing drill stats.
    */
-  const getStats: TranslationController["getStats"] = async (request, response) => {
+  const getStats: ShadowingController["getStats"] = async (request, response) => {
     const userId = request.user?.id;
 
     if (!userId) {
@@ -240,7 +234,7 @@ export const createTranslationController = (
       const allReviews = await reviewRepo.find({ where: { userId } });
       const now = new Date();
       const todayKey = toDateKey(now);
-      const dueToday = allReviews.filter((review: TranslationReviewEntity) => toDateKey(review.nextReviewDate) <= todayKey).length;
+      const dueToday = allReviews.filter((review: ShadowingReviewEntity) => toDateKey(review.nextReviewDate) <= todayKey).length;
       const withoutReview = totalCards - totalReviews;
 
       const todayStr = now.toLocaleDateString("en-CA", { timeZone: "Asia/Ho_Chi_Minh" });
@@ -274,15 +268,15 @@ export const createTranslationController = (
         difficultCount
       });
     } catch (error) {
-      console.error("Failed to get translation stats.", error);
-      response.status(500).json({ message: "Failed to get translation stats" });
+      console.error("Failed to get shadowing stats.", error);
+      response.status(500).json({ message: "Failed to get shadowing stats" });
     }
   };
 
   /**
-   * Returns a random message that has not been turned into a translation card.
+   * Returns a random message that has not been turned into a shadowing card.
    */
-  const getLearnCandidate: TranslationController["getLearnCandidate"] = async (request, response) => {
+  const getLearnCandidate: ShadowingController["getLearnCandidate"] = async (request, response) => {
     const userId = request.user?.id;
 
     if (!userId) {
@@ -292,14 +286,16 @@ export const createTranslationController = (
 
     try {
       const existingCards = await cardRepo.find({ where: { userId } });
-      const existingMessageIds = existingCards.map((card: TranslationCardEntity) => card.messageId);
+      const existingMessageIds = existingCards.map((card: ShadowingCardEntity) => card.messageId);
       const orderBy = dataSource.options.type === "mysql" ? "RAND()" : "RANDOM()";
 
       const query = messageRepo
         .createQueryBuilder("m")
         .where("m.user_id = :userId", { userId })
         .andWhere("m.translation IS NOT NULL")
-        .andWhere("m.translation != ''");
+        .andWhere("m.translation != ''")
+        .andWhere("m.audio IS NOT NULL")
+        .andWhere("m.audio != ''");
 
       if (existingMessageIds.length > 0) {
         query.andWhere("m.id NOT IN (:...ids)", { ids: existingMessageIds });
@@ -322,15 +318,15 @@ export const createTranslationController = (
         createdAt: message.createdAt
       });
     } catch (error) {
-      console.error("Failed to fetch a translation candidate.", error);
-      response.status(500).json({ message: "Failed to fetch translation candidate" });
+      console.error("Failed to fetch a shadowing candidate.", error);
+      response.status(500).json({ message: "Failed to fetch shadowing candidate" });
     }
   };
 
   /**
-   * Generates or returns cached AI explanation for a translation card.
+   * Submits a shadowing review rating and schedules the next review.
    */
-  const explainTranslation: TranslationController["explainTranslation"] = async (request, response) => {
+  const reviewShadowing: ShadowingController["reviewShadowing"] = async (request, response) => {
     const userId = request.user?.id;
 
     if (!userId) {
@@ -338,95 +334,11 @@ export const createTranslationController = (
       return;
     }
 
-    const { cardId, messageId, userTranslation } = request.body as {
-      cardId?: number;
-      messageId?: string;
-      userTranslation?: string;
-    };
-
-    if (!cardId && !messageId) {
-      response.status(400).json({ message: "cardId or messageId is required" });
-      return;
-    }
-
-    try {
-      let card: TranslationCardEntity | null = null;
-
-      if (cardId) {
-        card = await cardRepo.findOne({ where: { id: cardId, userId } });
-      } else if (messageId) {
-        card = await cardRepo.findOne({ where: { messageId, userId } });
-      }
-
-      if (!card && messageId) {
-        const message = await messageRepo.findOne({ where: { id: messageId, userId } });
-
-        if (!message) {
-          response.status(404).json({ message: "Message not found" });
-          return;
-        }
-
-        card = cardRepo.create({
-          messageId: message.id,
-          content: message.content,
-          translation: message.translation ?? null,
-          userTranslation: userTranslation?.trim() || null,
-          characterName: message.characterName,
-          audio: message.audio ?? null,
-          journalId: message.journalId,
-          userId
-        });
-
-        card = await cardRepo.save(card);
-      }
-
-      if (!card) {
-        response.status(404).json({ message: "Translation card not found" });
-        return;
-      }
-
-      if (card.explanationMd && card.explanationMd.trim()) {
-        response.json({ explanation: card.explanationMd, card: serialiseCard(card) });
-        return;
-      }
-
-      if (userTranslation && userTranslation.trim()) {
-        card.userTranslation = userTranslation.trim();
-      }
-
-      const explanation = await explainWithOpenAI({
-        content: card.content,
-        translation: card.translation,
-        userTranslation: card.userTranslation,
-        characterName: card.characterName
-      });
-
-      card.explanationMd = explanation;
-      card = await cardRepo.save(card);
-
-      response.json({ explanation: explanation, card: serialiseCard(card) });
-    } catch (error) {
-      console.error("Failed to explain translation card.", error);
-      response.status(500).json({ message: "Failed to explain translation card" });
-    }
-  };
-
-  /**
-   * Submits a translation review rating and schedules the next review.
-   */
-  const reviewTranslation: TranslationController["reviewTranslation"] = async (request, response) => {
-    const userId = request.user?.id;
-
-    if (!userId) {
-      response.status(401).json({ message: "Unauthorized" });
-      return;
-    }
-
-    const { rating, messageId, cardId, userTranslation } = request.body as {
+    const { rating, messageId, cardId, userTranscript } = request.body as {
       rating?: number;
       messageId?: string;
       cardId?: number;
-      userTranslation?: string;
+      userTranscript?: string;
     };
 
     if (!rating || rating < 1 || rating > 4) {
@@ -435,7 +347,7 @@ export const createTranslationController = (
     }
 
     try {
-      let card: TranslationCardEntity | null = null;
+      let card: ShadowingCardEntity | null = null;
 
       if (cardId) {
         card = await cardRepo.findOne({ where: { id: cardId, userId } });
@@ -460,7 +372,7 @@ export const createTranslationController = (
           messageId: message.id,
           content: message.content,
           translation: message.translation ?? null,
-          userTranslation: userTranslation?.trim() || null,
+          userTranslation: userTranscript?.trim() || null,
           characterName: message.characterName,
           audio: message.audio ?? null,
           journalId: message.journalId,
@@ -468,13 +380,13 @@ export const createTranslationController = (
         });
 
         card = await cardRepo.save(card);
-      } else if (userTranslation && userTranslation.trim()) {
-        card.userTranslation = userTranslation.trim();
+      } else if (userTranscript && userTranscript.trim()) {
+        card.userTranslation = userTranscript.trim();
         card = await cardRepo.save(card);
       }
 
       const reviewEntity = await reviewRepo.findOne({
-        where: { translationCardId: card.id, userId }
+        where: { shadowingCardId: card.id, userId }
       });
 
       const currentState = reviewEntity
@@ -503,7 +415,7 @@ export const createTranslationController = (
 
       const updated = updateReviewAfterRating(currentState, rating as FSRSRating);
       const nextReview = {
-        translationCardId: card.id,
+        shadowingCardId: card.id,
         userId,
         stability: updated.stability,
         difficulty: updated.difficulty,
@@ -522,15 +434,15 @@ export const createTranslationController = (
         review: serialiseReview(saved)
       });
     } catch (error) {
-      console.error("Failed to review translation card.", error);
-      response.status(500).json({ message: "Failed to review translation card" });
+      console.error("Failed to review shadowing card.", error);
+      response.status(500).json({ message: "Failed to review shadowing card" });
     }
   };
 
   /**
-   * Toggles the starred state for a translation card.
+   * Toggles the starred state for a shadowing card.
    */
-  const toggleStar: TranslationController["toggleStar"] = async (request, response) => {
+  const toggleStar: ShadowingController["toggleStar"] = async (request, response) => {
     const userId = request.user?.id;
     const cardId = Number(request.params.id);
 
@@ -540,19 +452,19 @@ export const createTranslationController = (
     }
 
     if (!Number.isInteger(cardId)) {
-      response.status(400).json({ message: "Invalid translation card ID" });
+      response.status(400).json({ message: "Invalid shadowing card ID" });
       return;
     }
 
     try {
       let reviewEntity = await reviewRepo.findOne({
-        where: { translationCardId: cardId, userId }
+        where: { shadowingCardId: cardId, userId }
       });
 
       if (!reviewEntity) {
         const state = createInitialReviewState();
         reviewEntity = reviewRepo.create({
-          translationCardId: cardId,
+          shadowingCardId: cardId,
           userId,
           stability: state.stability,
           difficulty: state.difficulty,
@@ -570,8 +482,49 @@ export const createTranslationController = (
       const saved = await reviewRepo.save(reviewEntity);
       response.json(serialiseReview(saved));
     } catch (error) {
-      console.error("Failed to toggle translation star.", error);
-      response.status(500).json({ message: "Failed to toggle translation star" });
+      console.error("Failed to toggle shadowing star.", error);
+      response.status(500).json({ message: "Failed to toggle shadowing star" });
+    }
+  };
+
+  /**
+   * Transcribes user audio using OpenAI.
+   */
+  const transcribeAudio: ShadowingController["transcribeAudio"] = async (request, response) => {
+    const userId = request.user?.id;
+
+    if (!userId) {
+      response.status(401).json({ message: "Unauthorized" });
+      return;
+    }
+
+    const { audio } = request.body as { audio?: string };
+
+    if (!audio || typeof audio !== "string") {
+      response.status(400).json({ message: "audio is required" });
+      return;
+    }
+
+    const parsed = parseAudioDataUrl(audio);
+
+    if (!parsed) {
+      response.status(400).json({ message: "Invalid audio data URL" });
+      return;
+    }
+
+    if (parsed.buffer.byteLength > MAX_AUDIO_BYTES) {
+      response.status(413).json({ message: "Audio payload is too large" });
+      return;
+    }
+
+    try {
+      const extension = resolveAudioExtension(parsed.mime);
+      const file = await toFile(parsed.buffer, `shadowing.${extension}`, { type: parsed.mime });
+      const transcript = await transcribeWithOpenAI(file);
+      response.json({ transcript });
+    } catch (error) {
+      console.error("Failed to transcribe audio.", error);
+      response.status(500).json({ message: "Failed to transcribe audio" });
     }
   };
 
@@ -580,8 +533,8 @@ export const createTranslationController = (
     getDueCards,
     getStats,
     getLearnCandidate,
-    reviewTranslation,
+    reviewShadowing,
     toggleStar,
-    explainTranslation
+    transcribeAudio
   };
 };

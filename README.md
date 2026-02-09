@@ -15,6 +15,7 @@ Core features implemented so far:
 - Translation drill AI explanations (cached Markdown) + saved learner translations
 - Translation drill audio playback (reuses chat TTS audio, applies character pitch/speakingRate)
 - Listening drill with FSRS scheduling (Due/Learn/Difficult/Starred)
+- Shadowing drill with FSRS scheduling + OpenAI `gpt-4o-transcribe` scoring
 - Stories (user-created) with description + current progress, linked to journals
 - File-backed chat history (JSONL stored in `.txt`) scoped by `sessionId`
 - System instruction stored in history (for stable prompting / caching)
@@ -333,6 +334,15 @@ Listening Drill:
 - `POST /api/listening/review` (submit FSRS rating 1–4, creates card if needed; accepts `messageId` or `cardId`)
 - `PUT /api/listening/:id/star` (toggle starred)
 - `GET /api/listening/stats` (counts: total, dueToday, starred, difficult)
+
+Shadowing Drill:
+- `GET /api/shadowing` (list shadowing cards with reviews)
+- `GET /api/shadowing/due` (cards due for review today)
+- `GET /api/shadowing/learn` (random new message with audio not in shadowing cards)
+- `POST /api/shadowing/review` (submit FSRS rating 1–4, creates card if needed; accepts `messageId` or `cardId`, optional `userTranscript`)
+- `PUT /api/shadowing/:id/star` (toggle starred)
+- `POST /api/shadowing/transcribe` (audio data URL -> transcript)
+- `GET /api/shadowing/stats` (counts: total, dueToday, starred, difficult)
 
 Notes:
 - Due/difficult calculations use the `Asia/Ho_Chi_Minh` day boundary.

@@ -274,6 +274,68 @@ body::after {
   gap: 8px;
 }
 
+.shadowing-card {
+  gap: 16px;
+}
+
+.shadowing-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.shadowing-status {
+  font-weight: 700;
+  color: var(--ink-soft);
+}
+
+.shadowing-recording {
+  background: linear-gradient(120deg, #dc2626, #f97316);
+  color: #ffffff;
+}
+
+.shadowing-result {
+  border-radius: 14px;
+  background: rgba(59, 130, 246, 0.08);
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.shadowing-result__label {
+  font-weight: 700;
+  color: var(--ink-soft);
+}
+
+.shadowing-result__text {
+  font-weight: 600;
+}
+
+.shadowing-compare {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.shadowing-token {
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+
+.shadowing-token--match {
+  background: rgba(34, 197, 94, 0.2);
+  color: #166534;
+}
+
+.shadowing-token--mismatch {
+  background: rgba(239, 68, 68, 0.18);
+  color: #b91c1c;
+}
+
 .translation-card__rating {
   border: none;
   border-radius: 999px;
