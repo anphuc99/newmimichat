@@ -4,7 +4,7 @@ import { createOpenAIChatService, type OpenAIChatService } from "../../services/
 import { buildChatSystemPrompt } from "../../services/chat-prompt.service.js";
 import StoryEntity from "../../models/story.entity.js";
 import UserEntity from "../../models/user.entity.js";
-import { createChatHistoryStore, type ChatHistoryStore } from "../../services/chat-history.service.js";
+import { createChatHistoryStore, type ChatHistoryMessage, type ChatHistoryStore } from "../../services/chat-history.service.js";
 
 interface ChatController {
   sendMessage: (request: Request, response: Response) => Promise<void>;
@@ -594,7 +594,10 @@ export const createChatController = (
       const prefix = history.slice(0, targetIndex);
       const systemPrompt = await buildSystemPrompt(request.user.id, request.body);
       const prefixWithoutSystem = prefix.filter((message) => message.role !== "system");
-      const historyForOpenAI = [{ role: "system", content: systemPrompt }, ...prefixWithoutSystem];
+      const historyForOpenAI: ChatHistoryMessage[] = [
+        { role: "system", content: systemPrompt },
+        ...prefixWithoutSystem
+      ];
 
       await historyStore.clear(request.user.id, sessionId);
       await historyStore.ensureSystemMessage(request.user.id, sessionId, systemPrompt);
@@ -604,7 +607,7 @@ export const createChatController = (
         historyForOpenAI,
         modelOverride || undefined
       );
-      const nextMessages = [
+      const nextMessages: ChatHistoryMessage[] = [
         ...prefixWithoutSystem,
         { role: "user", content: editedContent },
         { role: "assistant", content: result.reply }

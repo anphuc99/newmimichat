@@ -209,7 +209,6 @@ export const createOpenAIChatService = (config: OpenAIChatServiceConfig): OpenAI
 
     const hasSystemMessage = normalizedHistory.find((entry) => entry.role === "system");
     const systemPrompt = hasSystemMessage ? hasSystemMessage.content : await loadSystemPrompt();
-      console.log("System Prompt:", systemPrompt);
     const messages = normalizedHistory.map((entry) => {
       return { role: entry.role as "developer" | "user" | "assistant", content: entry.content };
     });
@@ -224,6 +223,8 @@ export const createOpenAIChatService = (config: OpenAIChatServiceConfig): OpenAI
         { role: "user", content: message }
       ]
     });
+
+    console.log(message);
 
     const reply = response.output_text?.trim() ?? "";
 
