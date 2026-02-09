@@ -209,9 +209,7 @@ export const createOpenAIChatService = (config: OpenAIChatServiceConfig): OpenAI
 
     const hasSystemMessage = normalizedHistory.find((entry) => entry.role === "system");
     const systemPrompt = hasSystemMessage ? hasSystemMessage.content : await loadSystemPrompt();
-    const messages = normalizedHistory.map((entry) => {
-      return { role: entry.role as "developer" | "user" | "assistant", content: entry.content };
-    });
+    const messages = normalizedHistory.filter((entry) => entry.role !== "system");
 
     const resolvedModel = modelOverride?.trim() || model;
 
@@ -224,7 +222,10 @@ export const createOpenAIChatService = (config: OpenAIChatServiceConfig): OpenAI
       ]
     });
 
-    console.log(message);
+    if(process.env.NODE_ENV !== 'production')
+    {
+      console.log(messages);
+    }
 
     const reply = response.output_text?.trim() ?? "";
 
