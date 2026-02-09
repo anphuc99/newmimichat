@@ -5,7 +5,6 @@ import { fileURLToPath } from "url";
 import "./env.js";
 import { AppDataSource } from "./data-source.js";
 import { createApiRouter } from "./routes/index.js";
-import { seedDefaultLevels } from "./services/seed.service.js";
 
 const DEFAULT_PORT = 4000;
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -39,10 +38,6 @@ const createApp = () => {
 const startServer = async () => {
   try {
     await AppDataSource.initialize();
-    const seedResult = await seedDefaultLevels(AppDataSource);
-    if (seedResult.inserted || seedResult.updated) {
-      console.log(`Seeded levels: inserted=${seedResult.inserted}, updated=${seedResult.updated}`);
-    }
     const app = createApp();
     const port = Number(process.env.PORT ?? DEFAULT_PORT);
 
