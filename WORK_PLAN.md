@@ -12,10 +12,11 @@
 1. **Chat** (public + private nếu đang dùng)
 2. **Xem nhật ký (Journal)**
 3. **Ký ức (Memory)** (gắn với vocabulary / message)
-4. **Luyện dịch (Translation Drill)**
-5. **Streak**
-6. **Nhiệm vụ (Daily tasks / Tasks)**
-7. **Quản lý nhân vật (Character Manager)**
+4. **Vocabulary (FSRS spaced repetition)**
+5. **Luyện dịch (Translation Drill)**
+6. **Streak**
+7. **Nhiệm vụ (Daily tasks / Tasks)**
+8. **Quản lý nhân vật (Character Manager)**
 
 ### 2.2 Loại bỏ / để sau
 - Tất cả tính năng UI/scene/modal khác không nằm trong danh sách trên sẽ **bỏ qua hoặc thêm sau**.
@@ -34,6 +35,7 @@ Theo [Tool/MVC_RULES.md](Tool/MVC_RULES.md):
 Khuyến nghị nhóm MVC tương ứng với các feature cần giữ:
 - `chat`
 - `journal`
+- `vocabulary`
 - `memory`
 - `translation`
 - `streak`

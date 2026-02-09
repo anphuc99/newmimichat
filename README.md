@@ -9,6 +9,8 @@ Core features implemented so far:
 - Chat endpoint backed by OpenAI
 - OpenAI TTS playback with cached audio (hash includes text + tone + voice)
 - Journal summaries + message persistence on conversation end
+- Vocabulary collection + FSRS spaced repetition (Due/Learn/Difficult/Starred)
+- Vocabulary memories: rich-text notes with linked messages via `[MSG:<messageId>]` markers (and optional `[IMG:<url>]`)
 - Stories (user-created) with description + current progress, linked to journals
 - File-backed chat history (JSONL stored in `.txt`) scoped by `sessionId`
 - System instruction stored in history (for stable prompting / caching)
@@ -290,6 +292,23 @@ Journals:
 - `POST /api/journals/end` (summarize current session and persist messages)
 - `GET /api/journals` (list summaries)
 - `GET /api/journals/:id` (journal + messages)
+- `GET /api/journals/search?q=...` (search messages; used by the vocabulary memory editor)
+
+Vocabulary (FSRS):
+- `GET /api/vocabulary` (list vocabularies with review + memory)
+- `GET /api/vocabulary/:id` (get a single vocabulary)
+- `POST /api/vocabulary` (collect a vocabulary; supports optional `difficultyRating`, `memory`, `linkedMessageIds`)
+- `PUT /api/vocabulary/:id` (update vocab text)
+- `DELETE /api/vocabulary/:id` (delete vocab)
+- `GET /api/vocabulary/due` (vocab due for review today)
+- `POST /api/vocabulary/:id/review` (submit FSRS rating 1–4)
+- `GET /api/vocabulary/stats` (counts: total, dueToday, starred, difficult)
+- `PUT /api/vocabulary/:id/memory` (save memory content + linkedMessageIds)
+- `PUT /api/vocabulary/:id/star` (toggle starred)
+- `PUT /api/vocabulary/:id/direction` (set `kr-vn` or `vn-kr`)
+
+Notes:
+- Due/difficult calculations use the `Asia/Ho_Chi_Minh` day boundary.
 
 TTS:
 - `GET /api/text-to-speech?text=...&tone=...&voice=...` (cached by MD5 of text+tone+voice)
