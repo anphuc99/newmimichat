@@ -14,6 +14,7 @@ Core features implemented so far:
 - Translation drill with FSRS scheduling (Due/Learn/Difficult/Starred)
 - Translation drill AI explanations (cached Markdown) + saved learner translations
 - Translation drill audio playback (reuses chat TTS audio, applies character pitch/speakingRate)
+- Listening drill with FSRS scheduling (Due/Learn/Difficult/Starred)
 - Stories (user-created) with description + current progress, linked to journals
 - File-backed chat history (JSONL stored in `.txt`) scoped by `sessionId`
 - System instruction stored in history (for stable prompting / caching)
@@ -324,6 +325,14 @@ Translation Drill:
 - `POST /api/translation/review` (submit FSRS rating 1–4, creates card if needed; accepts `messageId` or `cardId` plus optional `userTranslation`)
 - `PUT /api/translation/:id/star` (toggle starred)
 - `GET /api/translation/stats` (counts: total, dueToday, starred, difficult)
+
+Listening Drill:
+- `GET /api/listening` (list listening cards with reviews)
+- `GET /api/listening/due` (cards due for review today)
+- `GET /api/listening/learn` (random new message with audio not in listening cards)
+- `POST /api/listening/review` (submit FSRS rating 1–4, creates card if needed; accepts `messageId` or `cardId`)
+- `PUT /api/listening/:id/star` (toggle starred)
+- `GET /api/listening/stats` (counts: total, dueToday, starred, difficult)
 
 Notes:
 - Due/difficult calculations use the `Asia/Ho_Chi_Minh` day boundary.
