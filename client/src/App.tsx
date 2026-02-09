@@ -187,61 +187,38 @@ const App = () => {
 
   return (
     <div className="app-shell">
-      <nav className="app-nav">
-        <button
-          type="button"
-          className={`app-nav__button ${view === "chat" ? "active" : ""}`}
-          onClick={() => setView("chat")}
-        >
-          Chat
-        </button>
-        <button
-          type="button"
-          className={`app-nav__button ${view === "characters" ? "active" : ""}`}
-          onClick={() => setView("characters")}
-        >
-          Characters
-        </button>
-        <button
-          type="button"
-          className={`app-nav__button ${view === "journal" ? "active" : ""}`}
-          onClick={() => setView("journal")}
-        >
-          Journal
-        </button>
-        <button
-          type="button"
-          className={`app-nav__button ${view === "story" ? "active" : ""}`}
-          onClick={() => setView("story")}
-        >
-          Story
-        </button>
-        <button
-          type="button"
-          className={`app-nav__button ${view === "vocabulary" ? "active" : ""}`}
-          onClick={() => setView("vocabulary")}
-        >
-          Vocabulary
-        </button>
-        <div className="app-nav__level">
-          <label>
-            Level
-            <select
-              value={auth.user.levelId ?? ""}
-              onChange={handleLevelChange}
-              disabled={isLevelLoading || isLevelSaving || levels.length === 0}
-            >
-              <option value="">Select level</option>
-              {levels.map((level) => (
-                <option key={level.id} value={level.id}>
-                  {level.level}
-                </option>
-              ))}
-            </select>
-          </label>
-          {levelError ? <span className="app-nav__level-error">{levelError}</span> : null}
+      <header className="app-header">
+        <div className="app-header__profile">
+          <div className="app-header__avatar" aria-hidden="true" />
+          <div className="app-header__text">
+            <div className="app-header__title">Waifu Chat</div>
+            <div className="app-header__subtitle">{auth.user.username} - Online</div>
+          </div>
         </div>
-        <div className="app-nav__model">
+        <button type="button" className="app-header__logout" onClick={handleLogout}>
+          Logout
+        </button>
+      </header>
+
+      <section className="app-controls">
+        <div className="app-control">
+          <label htmlFor="level-selector">Level</label>
+          <select
+            id="level-selector"
+            value={auth.user.levelId ?? ""}
+            onChange={handleLevelChange}
+            disabled={isLevelLoading || isLevelSaving || levels.length === 0}
+          >
+            <option value="">Select level</option>
+            {levels.map((level) => (
+              <option key={level.id} value={level.id}>
+                {level.level}
+              </option>
+            ))}
+          </select>
+          {levelError ? <span className="app-control__error">{levelError}</span> : null}
+        </div>
+        <div className="app-control">
           <label htmlFor="model-selector">Model</label>
           <select id="model-selector" value={chatModel} onChange={handleModelChange}>
             {MODEL_OPTIONS.map((option) => (
@@ -251,23 +228,59 @@ const App = () => {
             ))}
           </select>
         </div>
-        <div className="app-nav__spacer" />
-        <span className="app-nav__user">{auth.user.username}</span>
-        <button type="button" className="app-nav__button" onClick={handleLogout}>
-          Logout
+      </section>
+
+      <main className="app-main">
+        {view === "chat" ? (
+          <ChatView userId={auth.user.id} model={chatModel} />
+        ) : view === "characters" ? (
+          <CharactersView />
+        ) : view === "journal" ? (
+          <JournalView userId={auth.user.id} />
+        ) : view === "vocabulary" ? (
+          <VocabularyView userId={auth.user.id} />
+        ) : (
+          <StoryView />
+        )}
+      </main>
+
+      <nav className="app-tabs" aria-label="Primary">
+        <button
+          type="button"
+          className={`app-tab ${view === "chat" ? "active" : ""}`}
+          onClick={() => setView("chat")}
+        >
+          Chat
+        </button>
+        <button
+          type="button"
+          className={`app-tab ${view === "characters" ? "active" : ""}`}
+          onClick={() => setView("characters")}
+        >
+          Characters
+        </button>
+        <button
+          type="button"
+          className={`app-tab ${view === "journal" ? "active" : ""}`}
+          onClick={() => setView("journal")}
+        >
+          Journal
+        </button>
+        <button
+          type="button"
+          className={`app-tab ${view === "story" ? "active" : ""}`}
+          onClick={() => setView("story")}
+        >
+          Story
+        </button>
+        <button
+          type="button"
+          className={`app-tab ${view === "vocabulary" ? "active" : ""}`}
+          onClick={() => setView("vocabulary")}
+        >
+          Vocab
         </button>
       </nav>
-      {view === "chat" ? (
-        <ChatView userId={auth.user.id} model={chatModel} />
-      ) : view === "characters" ? (
-        <CharactersView />
-      ) : view === "journal" ? (
-        <JournalView userId={auth.user.id} />
-      ) : view === "vocabulary" ? (
-        <VocabularyView userId={auth.user.id} />
-      ) : (
-        <StoryView />
-      )}
     </div>
   );
 };

@@ -1,17 +1,17 @@
-@import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800&display=swap");
 
 :root {
-  --ink: #0f172a;
-  --ink-soft: #334155;
-  --surface: #ffffff;
-  --surface-alt: #f1f5f9;
-  --accent: #0ea5a4;
-  --accent-strong: #0f766e;
-  --accent-warm: #f97316;
-  --shadow: rgba(15, 23, 42, 0.12);
-  font-family: "Space Grotesk", "Segoe UI", sans-serif;
+  --ink: #0b1529;
+  --ink-soft: #3a5174;
+  --surface: #f8fbff;
+  --surface-alt: #e7f0fb;
+  --accent: #3b82f6;
+  --accent-strong: #2563eb;
+  --accent-soft: #8ec5ff;
+  --shadow: rgba(12, 34, 69, 0.16);
+  font-family: "Nunito", "Segoe UI", sans-serif;
   color: var(--ink);
-  background: linear-gradient(160deg, #f8fafc 10%, #fef3c7 45%, #e0f2fe 100%);
+  background: linear-gradient(160deg, #d7ebff 0%, #eaf4ff 45%, #cfe4ff 100%);
 }
 
 * {
@@ -21,6 +21,7 @@
 body {
   margin: 0;
   min-height: 100vh;
+  background: radial-gradient(circle at top, rgba(255, 255, 255, 0.75), transparent 55%);
 }
 
 body::before,
@@ -39,13 +40,13 @@ body::after {
 body::before {
   top: -160px;
   right: -120px;
-  background: radial-gradient(circle, rgba(14, 165, 164, 0.5), transparent 70%);
+  background: radial-gradient(circle, rgba(59, 130, 246, 0.5), transparent 70%);
 }
 
 body::after {
   bottom: -200px;
   left: -140px;
-  background: radial-gradient(circle, rgba(249, 115, 22, 0.5), transparent 70%);
+  background: radial-gradient(circle, rgba(142, 197, 255, 0.55), transparent 70%);
 }
 
 .app {
@@ -77,107 +78,172 @@ body::after {
 
 .app-shell {
   min-height: 100vh;
-}
-
-.app-nav {
-  position: sticky;
-  top: 0;
-  z-index: 10;
   display: flex;
-  gap: 12px;
-  padding: 16px 20px;
-  backdrop-filter: blur(10px);
-  background: rgba(248, 250, 252, 0.8);
-  border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+  flex-direction: column;
+  gap: 18px;
+  padding: 24px;
+  width: min(1120px, 100%);
+  margin: 0 auto;
+  animation: appFadeIn 0.6s ease both;
 }
 
-.app-nav__button {
+@keyframes appFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.app-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  border-radius: 24px;
+  background: rgba(248, 252, 255, 0.85);
+  box-shadow: 0 16px 32px rgba(37, 99, 235, 0.12);
+  backdrop-filter: blur(12px);
+}
+
+.app-header__profile {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.app-header__avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 30% 30%, #ffffff 0%, #b6d7ff 45%, #6ea9ff 100%);
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.8);
+}
+
+.app-header__text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.app-header__title {
+  font-size: 1.2rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+.app-header__subtitle {
+  font-size: 0.85rem;
+  color: var(--ink-soft);
+}
+
+.app-header__logout {
   border: none;
   border-radius: 999px;
-  padding: 10px 18px;
-  font-size: 0.95rem;
-  font-weight: 600;
-  color: var(--ink-soft);
-  background: rgba(15, 23, 42, 0.06);
+  padding: 8px 16px;
+  font-weight: 700;
+  background: rgba(37, 99, 235, 0.12);
+  color: var(--accent-strong);
   cursor: pointer;
 }
 
-.app-nav__button.active {
-  color: #ffffff;
-  background: var(--accent-strong);
-  box-shadow: 0 10px 20px rgba(15, 118, 110, 0.3);
+.app-controls {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+  padding: 12px 16px;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.8);
+  box-shadow: 0 12px 24px rgba(37, 99, 235, 0.1);
+  backdrop-filter: blur(10px);
 }
 
-.app-nav__spacer {
-  flex: 1;
-}
-
-.app-nav__level {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  font-size: 0.75rem;
-  color: var(--ink-soft);
-  min-width: 140px;
-}
-
-.app-nav__model {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  font-size: 0.75rem;
-  color: var(--ink-soft);
-  min-width: 160px;
-}
-
-.app-nav__level label {
+.app-control {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  font-weight: 600;
-}
-
-.app-nav__model label {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  font-weight: 600;
-}
-
-.app-nav__level select {
-  border: 1px solid rgba(15, 23, 42, 0.12);
-  border-radius: 999px;
-  padding: 6px 12px;
-  font-size: 0.9rem;
-  font-family: inherit;
-  background: #ffffff;
+  font-size: 0.8rem;
   color: var(--ink-soft);
 }
 
-.app-nav__model select {
-  border: 1px solid rgba(15, 23, 42, 0.12);
-  border-radius: 999px;
-  padding: 6px 12px;
-  font-size: 0.9rem;
-  font-family: inherit;
-  background: #ffffff;
-  color: var(--ink-soft);
+.app-control label {
+  font-weight: 700;
 }
 
-.app-nav__level select:disabled {
+.app-control select {
+  border: 1px solid rgba(37, 99, 235, 0.2);
+  border-radius: 14px;
+  padding: 8px 12px;
+  font-size: 0.95rem;
+  font-family: inherit;
+  background: #ffffff;
+  color: var(--ink);
+}
+
+.app-control select:disabled {
   opacity: 0.6;
   cursor: not-allowed;
 }
 
-.app-nav__level-error {
-  color: #b91c1c;
+.app-control__error {
   font-weight: 600;
+  color: #b91c1c;
 }
 
-.app-nav__user {
-  align-self: center;
-  font-weight: 600;
+.app-main {
+  flex: 1;
+  border-radius: 26px;
+  padding: 20px;
+  background: rgba(248, 251, 255, 0.92);
+  box-shadow: 0 24px 48px rgba(37, 99, 235, 0.12);
+  backdrop-filter: blur(12px);
+}
+
+.app-tabs {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.85);
+  box-shadow: 0 18px 36px rgba(37, 99, 235, 0.12);
+  backdrop-filter: blur(10px);
+}
+
+.app-tab {
+  border: none;
+  border-radius: 16px;
+  padding: 10px 14px;
+  font-size: 0.95rem;
+  font-weight: 700;
   color: var(--ink-soft);
+  background: rgba(37, 99, 235, 0.08);
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.app-tab:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 16px rgba(37, 99, 235, 0.16);
+}
+
+.app-tab.active {
+  color: #ffffff;
+  background: linear-gradient(120deg, #2563eb, #60a5fa);
+  box-shadow: 0 14px 24px rgba(37, 99, 235, 0.28);
+}
+
+@media (max-width: 900px) {
+  .app-shell {
+    padding: 16px;
+  }
+
+  .app-main {
+    padding: 16px;
+  }
 }
 
 .auth-shell {
