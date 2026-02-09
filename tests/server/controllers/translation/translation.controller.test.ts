@@ -99,6 +99,7 @@ describe("Translation controller", () => {
         translation: "Hello",
         userTranslation: null,
         characterName: "Mimi",
+        audio: "audio-1",
         journalId: 1,
         userId: 1,
         createdAt: new Date(),
@@ -152,6 +153,7 @@ describe("Translation controller", () => {
       content: "Chao em",
       translation: "Hello",
       characterName: "Mimi",
+      audio: "audio-1",
       journalId: 1,
       userId: 1
     });

@@ -56,6 +56,7 @@ const serialiseCard = (entity: TranslationCardEntity) => {
     translation: entity.translation,
     userTranslation: entity.userTranslation,
     characterName: entity.characterName,
+    audio: entity.audio,
     journalId: entity.journalId,
     userId: entity.userId,
     createdAt: entity.createdAt,
@@ -254,6 +255,7 @@ export const createTranslationController = (dataSource: DataSource): Translation
         content: message.content,
         translation: message.translation,
         characterName: message.characterName,
+        audio: message.audio ?? null,
         journalId: message.journalId,
         createdAt: message.createdAt
       });
@@ -314,6 +316,7 @@ export const createTranslationController = (dataSource: DataSource): Translation
           translation: message.translation ?? null,
           userTranslation: userTranslation?.trim() || null,
           characterName: message.characterName,
+          audio: message.audio ?? null,
           journalId: message.journalId,
           userId
         });

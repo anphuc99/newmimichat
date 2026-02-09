@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { apiUrl } from "../../lib/api";
 import { authFetch } from "../../lib/auth";
 
@@ -35,6 +35,7 @@ interface TranslationCard {
   translation: string | null;
   userTranslation: string | null;
   characterName: string;
+  audio?: string | null;
   journalId: number;
   userId: number;
   createdAt: string;
@@ -48,8 +49,16 @@ interface LearnCandidate {
   content: string;
   translation: string | null;
   characterName: string;
+  audio?: string | null;
   journalId: number;
   createdAt: string;
+}
+
+interface Character {
+  id: number;
+  name: string;
+  pitch?: number | null;
+  speakingRate?: number | null;
 }
 
 /** Translation stats payload. */
@@ -69,8 +78,10 @@ interface TranslationFlashcardProps {
   content: string;
   translation: string | null;
   characterName: string;
+  audioId?: string | null;
   isStarred?: boolean;
   showStar?: boolean;
+  onPlayAudio?: (audioId: string, characterName?: string) => void;
   onRate: (rating: number, userTranslation: string) => void;
   onToggleStar?: () => void;
 }
@@ -86,8 +97,10 @@ const TranslationFlashcard = ({
   content,
   translation,
   characterName,
+  audioId,
   isStarred,
   showStar,
+  onPlayAudio,
   onRate,
   onToggleStar
 }: TranslationFlashcardProps) => {
@@ -106,11 +119,23 @@ const TranslationFlashcard = ({
           <p className="translation-card__title">{title}</p>
           <p className="translation-card__subtitle">{characterName}</p>
         </div>
-        {showStar ? (
-          <button type="button" className="translation-card__star" onClick={onToggleStar}>
-            {isStarred ? "Starred" : "Star"}
-          </button>
-        ) : null}
+        <div className="translation-card__header-actions">
+          {audioId && onPlayAudio ? (
+            <button
+              type="button"
+              className="translation-card__audio"
+              onClick={() => onPlayAudio(audioId, characterName)}
+              title="Play audio"
+            >
+              Audio
+            </button>
+          ) : null}
+          {showStar ? (
+            <button type="button" className="translation-card__star" onClick={onToggleStar}>
+              {isStarred ? "Starred" : "Star"}
+            </button>
+          ) : null}
+        </div>
       </div>
       <div className="translation-card__prompt">{content}</div>
       <label className="translation-card__label" htmlFor="translation-input">
@@ -169,6 +194,9 @@ const TranslationView = () => {
   const [isLearnLoading, setIsLearnLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [reviewIndex, setReviewIndex] = useState(0);
+  const [characters, setCharacters] = useState<Character[]>([]);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const audioCacheRef = useRef<Map<string, AudioBuffer>>(new Map());
 
   const fetchAll = useCallback(async () => {
     setIsLoading(true);
@@ -230,6 +258,32 @@ const TranslationView = () => {
   }, [fetchAll]);
 
   useEffect(() => {
+    let isActive = true;
+
+    const loadCharacters = async () => {
+      try {
+        const response = await authFetch(apiUrl("/api/characters"));
+        if (!response.ok) {
+          return;
+        }
+
+        const payload = (await response.json()) as Character[];
+        if (isActive) {
+          setCharacters(payload ?? []);
+        }
+      } catch (caught) {
+        console.warn("Failed to load characters for translation audio.", caught);
+      }
+    };
+
+    void loadCharacters();
+
+    return () => {
+      isActive = false;
+    };
+  }, []);
+
+  useEffect(() => {
     if (tab === "learn") {
       void fetchLearnCandidate();
     }
@@ -268,6 +322,56 @@ const TranslationView = () => {
     if (tab === "starred") return starredItems;
     return [] as TranslationCard[];
   }, [tab, dueCards, difficultItems, starredItems]);
+
+  const getCharacterAudioSettings = (name?: string) => {
+    if (!name) {
+      return { speakingRate: 1.0, pitch: 0 };
+    }
+
+    const character = characters.find((item) => item.name === name);
+    return {
+      speakingRate: character?.speakingRate ?? 1.0,
+      pitch: character?.pitch ?? 0
+    };
+  };
+
+  const playAudio = async (audioId: string, characterName?: string) => {
+    if (!audioId) return;
+
+    try {
+      if (!audioContextRef.current) {
+        audioContextRef.current = new AudioContext();
+      }
+
+      const context = audioContextRef.current;
+      if (context.state === "suspended") {
+        await context.resume();
+      }
+
+      let audioBuffer = audioCacheRef.current.get(audioId);
+      if (!audioBuffer) {
+        const response = await fetch(apiUrl(`/audio/${audioId}.mp3`));
+        if (!response.ok) {
+          throw new Error("Failed to load audio");
+        }
+        const arrayBuffer = await response.arrayBuffer();
+        audioBuffer = await context.decodeAudioData(arrayBuffer);
+        audioCacheRef.current.set(audioId, audioBuffer);
+      }
+
+      const source = context.createBufferSource();
+      source.buffer = audioBuffer;
+      const settings = getCharacterAudioSettings(characterName);
+      source.playbackRate.value = settings.speakingRate || 1.0;
+      if (source.detune) {
+        source.detune.value = (settings.pitch || 0) * 50;
+      }
+      source.connect(context.destination);
+      source.start(0);
+    } catch (caught) {
+      console.error("Failed to play translation audio.", caught);
+    }
+  };
 
   /**
    * Sends a translation review rating for an existing card.
@@ -388,6 +492,8 @@ const TranslationView = () => {
             content={learnCandidate.content}
             translation={learnCandidate.translation}
             characterName={learnCandidate.characterName}
+            audioId={learnCandidate.audio ?? null}
+            onPlayAudio={playAudio}
             onRate={(rating, draft) => handleLearnReview(learnCandidate.messageId, rating, draft)}
           />
         ) : (
@@ -401,8 +507,10 @@ const TranslationView = () => {
           content={activeList[reviewIndex]?.content ?? ""}
           translation={activeList[reviewIndex]?.translation ?? null}
           characterName={activeList[reviewIndex]?.characterName ?? ""}
+          audioId={activeList[reviewIndex]?.audio ?? null}
           isStarred={!!activeList[reviewIndex]?.review?.isStarred}
           showStar
+          onPlayAudio={playAudio}
           onToggleStar={() => {
             const active = activeList[reviewIndex];
             if (active) {

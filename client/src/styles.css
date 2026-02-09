@@ -139,6 +139,22 @@ body::after {
   align-items: center;
 }
 
+.translation-card__header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.translation-card__audio {
+  border: none;
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-weight: 700;
+  color: #ffffff;
+  background: linear-gradient(120deg, #0ea5e9, #38bdf8);
+  cursor: pointer;
+}
+
 .translation-card__title {
   margin: 0;
   font-weight: 800;

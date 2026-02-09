@@ -34,6 +34,9 @@ class TranslationCardEntity {
   @Column({ name: "character_name", type: "varchar", length: 120 })
   characterName!: string;
 
+  @Column({ name: "audio", type: "varchar", length: 255, nullable: true })
+  audio?: string | null;
+
   @Column({ name: "journal_id", type: "int" })
   journalId!: number;
 
