@@ -89,6 +89,7 @@ interface TranslationFlashcardProps {
   onExplain?: (draft: string) => void;
   onRate: (rating: number, userTranslation: string) => void;
   onToggleStar?: () => void;
+  ratingOptions?: Array<{ value: number; label: string }>;
 }
 
 /**
@@ -110,10 +111,19 @@ const TranslationFlashcard = ({
   isExplainLoading,
   onExplain,
   onRate,
-  onToggleStar
+  onToggleStar,
+  ratingOptions
 }: TranslationFlashcardProps) => {
   const [draft, setDraft] = useState("");
   const [revealed, setRevealed] = useState(false);
+  const resolvedRatings =
+    ratingOptions ??
+    [
+      { value: 1, label: "Again" },
+      { value: 2, label: "Hard" },
+      { value: 3, label: "Good" },
+      { value: 4, label: "Easy" }
+    ];
 
   useEffect(() => {
     setDraft("");
@@ -175,14 +185,14 @@ const TranslationFlashcard = ({
           </button>
         ) : (
           <div className="translation-card__ratings">
-            {[1, 2, 3, 4].map((rating) => (
+            {resolvedRatings.map((rating) => (
               <button
-                key={rating}
+                key={rating.value}
                 type="button"
                 className="translation-card__rating"
-                onClick={() => onRate(rating, draft)}
+                onClick={() => onRate(rating.value, draft)}
               >
-                {rating === 1 ? "Again" : rating === 2 ? "Hard" : rating === 3 ? "Good" : "Easy"}
+                {rating.label}
               </button>
             ))}
           </div>
@@ -222,6 +232,10 @@ const TranslationView = () => {
   const [characters, setCharacters] = useState<Character[]>([]);
   const audioContextRef = useRef<AudioContext | null>(null);
   const audioCacheRef = useRef<Map<string, AudioBuffer>>(new Map());
+  const [practiceQueues, setPracticeQueues] = useState<{ difficult: number[]; starred: number[] }>({
+    difficult: [],
+    starred: []
+  });
 
   const fetchAll = useCallback(async () => {
     setIsLoading(true);
@@ -349,12 +363,41 @@ const TranslationView = () => {
     });
   }, [allCards]);
 
+  const cardById = useMemo(() => new Map(allCards.map((card) => [card.id, card])), [allCards]);
+  const difficultIds = useMemo(() => difficultItems.map((card) => card.id), [difficultItems]);
+  const starredIds = useMemo(() => starredItems.map((card) => card.id), [starredItems]);
+
+  const syncQueue = (current: number[], next: number[]) => {
+    const nextSet = new Set(next);
+    const kept = current.filter((id) => nextSet.has(id));
+    const keptSet = new Set(kept);
+    const appended = next.filter((id) => !keptSet.has(id));
+    return [...kept, ...appended];
+  };
+
+  useEffect(() => {
+    setPracticeQueues((prev) => ({
+      difficult: syncQueue(prev.difficult, difficultIds),
+      starred: syncQueue(prev.starred, starredIds)
+    }));
+  }, [difficultIds, starredIds]);
+
+  const difficultQueue = useMemo(
+    () => practiceQueues.difficult.map((id) => cardById.get(id)).filter(Boolean) as TranslationCard[],
+    [practiceQueues.difficult, cardById]
+  );
+
+  const starredQueue = useMemo(
+    () => practiceQueues.starred.map((id) => cardById.get(id)).filter(Boolean) as TranslationCard[],
+    [practiceQueues.starred, cardById]
+  );
+
   const activeList = useMemo(() => {
     if (tab === "due") return dueCards;
-    if (tab === "difficult") return difficultItems;
-    if (tab === "starred") return starredItems;
+    if (tab === "difficult") return difficultQueue;
+    if (tab === "starred") return starredQueue;
     return [] as TranslationCard[];
-  }, [tab, dueCards, difficultItems, starredItems]);
+  }, [tab, dueCards, difficultQueue, starredQueue]);
 
   useEffect(() => {
     if (tab === "learn") {
@@ -532,10 +575,45 @@ const TranslationView = () => {
     }
   };
 
+  const handleLocalQueueReview = (queue: "difficult" | "starred", cardId: number, action: "hard" | "easy") => {
+    const listLength = activeList.length;
+
+    setPracticeQueues((prev) => {
+      const current = prev[queue];
+      const next = current.filter((id) => id !== cardId);
+
+      if (action === "hard") {
+        next.push(cardId);
+      }
+
+      return {
+        ...prev,
+        [queue]: next
+      };
+    });
+
+    setReviewIndex((prev) => {
+      if (listLength <= 1) {
+        return 0;
+      }
+
+      if (action === "hard") {
+        return prev < listLength - 1 ? prev : 0;
+      }
+
+      const nextLength = listLength - 1;
+      if (nextLength <= 0) {
+        return 0;
+      }
+
+      return prev >= nextLength ? 0 : prev;
+    });
+  };
+
   const tabs: { id: TabId; label: string; count?: number }[] = [
     { id: "due", label: "Due", count: dueCards.length },
-    { id: "difficult", label: "Difficult", count: difficultItems.length },
-    { id: "starred", label: "Starred", count: starredItems.length },
+    { id: "difficult", label: "Difficult", count: difficultQueue.length },
+    { id: "starred", label: "Starred", count: starredQueue.length },
     { id: "learn", label: "Learn", count: learnCandidate ? 1 : 0 }
   ];
 
@@ -615,9 +693,23 @@ const TranslationView = () => {
               void handleToggleStar(active.id);
             }
           }}
+          ratingOptions={
+            tab === "difficult" || tab === "starred"
+              ? [
+                  { value: 1, label: "Kho" },
+                  { value: 4, label: "De" }
+                ]
+              : undefined
+          }
           onRate={(rating, draft) => {
             const active = activeList[reviewIndex];
             if (!active) {
+              return;
+            }
+
+            if (tab === "difficult" || tab === "starred") {
+              const action = rating === 1 ? "hard" : "easy";
+              handleLocalQueueReview(tab, active.id, action);
               return;
             }
 

@@ -328,6 +328,7 @@ Translation Drill:
 Notes:
 - Due/difficult calculations use the `Asia/Ho_Chi_Minh` day boundary.
 - Translation cards store `userTranslation`, `audio`, and `explanationMd` fields for drill playback and explain caching.
+- Difficult/Starred drill queues are handled locally (Hard moves to end, Easy removes) and do not update FSRS or persist to DB.
 
 TTS:
 - `GET /api/text-to-speech?text=...&tone=...&voice=...` (cached by MD5 of text+tone+voice)
