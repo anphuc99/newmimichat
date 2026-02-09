@@ -12,6 +12,8 @@ Core features implemented so far:
 - Vocabulary collection + FSRS spaced repetition (Due/Learn/Difficult/Starred)
 - Vocabulary memories: rich-text notes with linked messages via `[MSG:<messageId>]` markers (and optional `[IMG:<url>]`)
 - Translation drill with FSRS scheduling (Due/Learn/Difficult/Starred)
+- Translation drill AI explanations (cached Markdown) + saved learner translations
+- Translation drill audio playback (reuses chat TTS audio, applies character pitch/speakingRate)
 - Stories (user-created) with description + current progress, linked to journals
 - File-backed chat history (JSONL stored in `.txt`) scoped by `sessionId`
 - System instruction stored in history (for stable prompting / caching)
@@ -312,13 +314,14 @@ Translation Drill:
 - `GET /api/translation` (list translation cards with reviews)
 - `GET /api/translation/due` (cards due for review today)
 - `GET /api/translation/learn` (random new message not in translation cards)
-- `POST /api/translation/explain` (AI grammar/vocab explanation; cached per card)
-- `POST /api/translation/review` (submit FSRS rating 1–4, creates card if needed)
+- `POST /api/translation/explain` (AI grammar/vocab explanation in Markdown; cached per card)
+- `POST /api/translation/review` (submit FSRS rating 1–4, creates card if needed; accepts `messageId` or `cardId` plus optional `userTranslation`)
 - `PUT /api/translation/:id/star` (toggle starred)
 - `GET /api/translation/stats` (counts: total, dueToday, starred, difficult)
 
 Notes:
 - Due/difficult calculations use the `Asia/Ho_Chi_Minh` day boundary.
+- Translation cards store `userTranslation`, `audio`, and `explanationMd` fields for drill playback and explain caching.
 
 TTS:
 - `GET /api/text-to-speech?text=...&tone=...&voice=...` (cached by MD5 of text+tone+voice)
