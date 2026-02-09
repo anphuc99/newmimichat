@@ -919,6 +919,26 @@ const ChatView = ({ userId, model }: ChatViewProps) => {
     setError(null);
     setNotice(null);
 
+    const prefixMessages = (() => {
+      let currentUserIndex = -1;
+      const cutoffIndex = messages.findIndex((message) => {
+        if (message.role === "user") {
+          currentUserIndex += 1;
+        }
+        return currentUserIndex === userMessageIndex;
+      });
+
+      if (cutoffIndex < 0) {
+        return messages;
+      }
+
+      return messages.slice(0, cutoffIndex + 1);
+    })();
+
+    skipAutoPlayOnce.current = true;
+    lastAutoPlayIndex.current = prefixMessages.length;
+    setMessages(prefixMessages);
+
     try {
       const response = await authFetch(apiUrl("/api/chat/edit"), {
         method: "POST",
