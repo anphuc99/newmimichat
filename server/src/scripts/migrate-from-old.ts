@@ -819,13 +819,37 @@ async function runMigration(sourcePath: string): Promise<void> {
 // ============================================================================
 
 const args = process.argv.slice(2);
-const sourceIndex = args.indexOf("--source");
 
-if (sourceIndex === -1 || !args[sourceIndex + 1]) {
-  console.log("Usage: npm run migrate:old -- --source <path-to-old-server-data>");
-  console.log("Example: npm run migrate:old -- --source D:/Unity/mimichat/server/data");
+/**
+ * Parse source path from CLI arguments.
+ * Supports:
+ *   --source <path>
+ *   <path> (positional argument)
+ */
+function parseSourcePath(): string | null {
+  const sourceIndex = args.indexOf("--source");
+  if (sourceIndex !== -1 && args[sourceIndex + 1]) {
+    return args[sourceIndex + 1];
+  }
+  // Try positional argument (first non-flag arg)
+  for (const arg of args) {
+    if (!arg.startsWith("-")) {
+      return arg;
+    }
+  }
+  return null;
+}
+
+const sourcePath = parseSourcePath();
+
+if (!sourcePath) {
+  console.log("Usage:");
+  console.log("  npm run migrate:old -- --source <path-to-old-server-data>");
+  console.log("  npm run migrate:old -- <path-to-old-server-data>");
+  console.log("");
+  console.log("Example:");
+  console.log("  npm run migrate:old -- D:/Unity/mimichat/server/data");
   process.exit(1);
 }
 
-const sourcePath = args[sourceIndex + 1];
 runMigration(sourcePath);
