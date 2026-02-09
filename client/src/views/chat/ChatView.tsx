@@ -941,8 +941,23 @@ const ChatView = ({ userId, model }: ChatViewProps) => {
       }
 
       const payload = (await response.json()) as ChatEditResponse;
-      if (payload.messages?.length) {
-        const hydrated = hydrateHistoryMessages(payload.messages);
+      const historyMessages = payload.messages ?? [];
+
+      if (payload.reply) {
+        const lastAssistantIndex = historyMessages
+          .map((message, index) => (message.role === "assistant" ? index : -1))
+          .filter((index) => index >= 0)
+          .pop();
+        const prefixMessages = Number.isInteger(lastAssistantIndex)
+          ? historyMessages.slice(0, lastAssistantIndex as number)
+          : historyMessages;
+        const hydratedPrefix = hydrateHistoryMessages(prefixMessages);
+
+        skipAutoPlayOnce.current = true;
+        setMessages(hydratedPrefix);
+        await appendAssistantMessagesSequentially(payload.reply);
+      } else if (historyMessages.length) {
+        const hydrated = hydrateHistoryMessages(historyMessages);
         skipAutoPlayOnce.current = true;
         setMessages(hydrated);
       }
