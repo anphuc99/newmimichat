@@ -19,6 +19,7 @@ export const createTranslationRoutes = (dataSource: DataSource) => {
   router.get("/due", controller.getDueCards);
   router.get("/learn", controller.getLearnCandidate);
   router.get("/", controller.listCards);
+  router.post("/explain", controller.explainTranslation);
   router.post("/review", controller.reviewTranslation);
   router.put("/:id/star", controller.toggleStar);
 

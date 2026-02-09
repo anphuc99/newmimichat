@@ -3,6 +3,7 @@ import type { DataSource, Repository } from "typeorm";
 import MessageEntity from "../../models/message.entity.js";
 import TranslationCardEntity from "../../models/translation-card.entity.js";
 import TranslationReviewEntity from "../../models/translation-review.entity.js";
+import { createOpenAIClient } from "../../services/openai.service.js";
 import {
   createInitialReviewState,
   updateReviewAfterRating,
@@ -17,6 +18,16 @@ interface TranslationController {
   getLearnCandidate: (request: Request, response: Response) => Promise<void>;
   reviewTranslation: (request: Request, response: Response) => Promise<void>;
   toggleStar: (request: Request, response: Response) => Promise<void>;
+  explainTranslation: (request: Request, response: Response) => Promise<void>;
+}
+
+interface TranslationControllerDeps {
+  explainWithOpenAI?: (payload: {
+    content: string;
+    translation?: string | null;
+    userTranslation?: string | null;
+    characterName?: string;
+  }) => Promise<string>;
 }
 
 /**
@@ -57,6 +68,7 @@ const serialiseCard = (entity: TranslationCardEntity) => {
     userTranslation: entity.userTranslation,
     characterName: entity.characterName,
     audio: entity.audio,
+    explanationMd: entity.explanationMd,
     journalId: entity.journalId,
     userId: entity.userId,
     createdAt: entity.createdAt,
@@ -65,17 +77,78 @@ const serialiseCard = (entity: TranslationCardEntity) => {
 };
 
 /**
+ * Builds the prompt for grammar/vocabulary explanations.
+
+const buildExplanationPrompt = (payload: {
+  content: string;
+  translation?: string | null;
+  userTranslation?: string | null;
+  characterName?: string;
+}) => {
+  const translation = payload.translation?.trim() || "(Khong co ban dich mau)";
+  const userTranslation = payload.userTranslation?.trim() || "(Nguoi hoc chua nhap ban dich)";
+  const characterName = payload.characterName?.trim() || "Nhan vat";
+
+  return `Ban la gia su tieng Han. Hay giai thich ngu phap va tu vung trong cau sau, tra loi bang Markdown (khong dung JSON).
+
+Thong tin:
+- Nhan vat: ${characterName}
+- Cau goc (Korean): ${payload.content}
+- Ban dich mau (Viet): ${translation}
+- Ban dich nguoi hoc (Viet): ${userTranslation}
+
+Yeu cau tra loi:
+1. Giai thich ngu phap chinh (bullet list).
+2. Giai thich tu vung quan trong (bullet list).
+3. Neu co loi thuong gap, nhac nhanh 1-2 y.
+4. Giu gon, de hieu, khong qua dai.`;
+};
+/**
  * Builds the translation controller.
  *
  * @param dataSource - Initialised TypeORM data source.
  * @returns Translation controller handlers.
  */
-export const createTranslationController = (dataSource: DataSource): TranslationController => {
+export const createTranslationController = (
+  dataSource: DataSource,
+  deps: TranslationControllerDeps = {}
+): TranslationController => {
   const cardRepo: Repository<TranslationCardEntity> = dataSource.getRepository(TranslationCardEntity);
   const reviewRepo: Repository<TranslationReviewEntity> = dataSource.getRepository(TranslationReviewEntity);
   const messageRepo: Repository<MessageEntity> = dataSource.getRepository(MessageEntity);
   const toDateKey = (value: Date | string) =>
     new Date(value).toLocaleDateString("en-CA", { timeZone: "Asia/Ho_Chi_Minh" });
+  const apiKey = process.env.OPENAI_API_KEY ?? "";
+  const openAIClient = apiKey ? createOpenAIClient(apiKey) : null;
+  const explainWithOpenAI =
+    deps.explainWithOpenAI ??
+    (async (payload) => {
+      if (!openAIClient) {
+        throw new Error("OpenAI API key is not configured");
+      }
+
+      const completion = await openAIClient.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: [
+          {
+            role: "system",
+            content: "Ban la gia su tieng Han. Tra loi bang Markdown, giai thich ngu phap va tu vung bang tieng Viet."
+          },
+          {
+            role: "user",
+            content: buildExplanationPrompt(payload)
+          }
+        ]
+      });
+
+      const reply = completion.choices[0]?.message?.content?.trim() ?? "";
+
+      if (!reply) {
+        throw new Error("OpenAI returned an empty explanation");
+      }
+
+      return reply;
+    });
 
   /**
    * Lists all translation cards for the current user.
@@ -266,6 +339,90 @@ export const createTranslationController = (dataSource: DataSource): Translation
   };
 
   /**
+   * Generates or returns cached AI explanation for a translation card.
+   */
+  const explainTranslation: TranslationController["explainTranslation"] = async (request, response) => {
+    const userId = request.user?.id;
+
+    if (!userId) {
+      response.status(401).json({ message: "Unauthorized" });
+      return;
+    }
+
+    const { cardId, messageId, userTranslation } = request.body as {
+      cardId?: number;
+      messageId?: string;
+      userTranslation?: string;
+    };
+
+    if (!cardId && !messageId) {
+      response.status(400).json({ message: "cardId or messageId is required" });
+      return;
+    }
+
+    try {
+      let card: TranslationCardEntity | null = null;
+
+      if (cardId) {
+        card = await cardRepo.findOne({ where: { id: cardId, userId } });
+      } else if (messageId) {
+        card = await cardRepo.findOne({ where: { messageId, userId } });
+      }
+
+      if (!card && messageId) {
+        const message = await messageRepo.findOne({ where: { id: messageId, userId } });
+
+        if (!message) {
+          response.status(404).json({ message: "Message not found" });
+          return;
+        }
+
+        card = cardRepo.create({
+          messageId: message.id,
+          content: message.content,
+          translation: message.translation ?? null,
+          userTranslation: userTranslation?.trim() || null,
+          characterName: message.characterName,
+          audio: message.audio ?? null,
+          journalId: message.journalId,
+          userId
+        });
+
+        card = await cardRepo.save(card);
+      }
+
+      if (!card) {
+        response.status(404).json({ message: "Translation card not found" });
+        return;
+      }
+
+      if (card.explanationMd && card.explanationMd.trim()) {
+        response.json({ explanation: card.explanationMd, card: serialiseCard(card) });
+        return;
+      }
+
+      if (userTranslation && userTranslation.trim()) {
+        card.userTranslation = userTranslation.trim();
+      }
+
+      const explanation = await explainWithOpenAI({
+        content: card.content,
+        translation: card.translation,
+        userTranslation: card.userTranslation,
+        characterName: card.characterName
+      });
+
+      card.explanationMd = explanation;
+      card = await cardRepo.save(card);
+
+      response.json({ explanation: explanation, card: serialiseCard(card) });
+    } catch (error) {
+      console.error("Failed to explain translation card.", error);
+      response.status(500).json({ message: "Failed to explain translation card" });
+    }
+  };
+
+  /**
    * Submits a translation review rating and schedules the next review.
    */
   const reviewTranslation: TranslationController["reviewTranslation"] = async (request, response) => {
@@ -435,6 +592,7 @@ export const createTranslationController = (dataSource: DataSource): Translation
     getStats,
     getLearnCandidate,
     reviewTranslation,
-    toggleStar
+    toggleStar,
+    explainTranslation
   };
 };

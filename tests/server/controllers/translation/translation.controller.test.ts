@@ -45,7 +45,7 @@ const createRepository = () => ({
  *
  * @returns The controller and the mock repos.
  */
-const createController = () => {
+const createController = (deps: { explainWithOpenAI?: (payload: any) => Promise<string> } = {}) => {
   const cardRepo = createRepository();
   const reviewRepo = createRepository();
   const messageRepo = createRepository();
@@ -59,7 +59,7 @@ const createController = () => {
     })
   } as any;
 
-  const controller = createTranslationController(dataSource);
+  const controller = createTranslationController(dataSource, deps);
   return { controller, cardRepo, reviewRepo, messageRepo };
 };
 
@@ -190,5 +190,64 @@ describe("Translation controller", () => {
 
     expect(reviewRepo.save).toHaveBeenCalledTimes(1);
     expect(response.json).toHaveBeenCalledTimes(1);
+  });
+
+  it("returns cached explanation when available", async () => {
+    const explainWithOpenAI = vi.fn().mockResolvedValue("**cached**");
+    const { controller, cardRepo } = createController({ explainWithOpenAI });
+    const response = createMockResponse();
+
+    cardRepo.findOne.mockResolvedValue({
+      id: 1,
+      messageId: "msg-1",
+      content: "Xin chao",
+      translation: "Hello",
+      userTranslation: null,
+      characterName: "Mimi",
+      audio: null,
+      explanationMd: "**cached**",
+      journalId: 1,
+      userId: 1,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    });
+
+    await controller.explainTranslation(authRequest({ body: { cardId: 1 } }), response);
+
+    expect(explainWithOpenAI).not.toHaveBeenCalled();
+    expect(response.json).toHaveBeenCalledWith({
+      explanation: "**cached**",
+      card: expect.objectContaining({ explanationMd: "**cached**" })
+    });
+  });
+
+  it("generates explanation when missing", async () => {
+    const explainWithOpenAI = vi.fn().mockResolvedValue("**fresh**");
+    const { controller, cardRepo } = createController({ explainWithOpenAI });
+    const response = createMockResponse();
+
+    cardRepo.findOne.mockResolvedValue({
+      id: 1,
+      messageId: "msg-1",
+      content: "Xin chao",
+      translation: "Hello",
+      userTranslation: null,
+      characterName: "Mimi",
+      audio: null,
+      explanationMd: null,
+      journalId: 1,
+      userId: 1,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    });
+
+    await controller.explainTranslation(authRequest({ body: { cardId: 1 } }), response);
+
+    expect(explainWithOpenAI).toHaveBeenCalledTimes(1);
+    expect(cardRepo.save).toHaveBeenCalledTimes(1);
+    expect(response.json).toHaveBeenCalledWith({
+      explanation: "**fresh**",
+      card: expect.objectContaining({ explanationMd: "**fresh**" })
+    });
   });
 });

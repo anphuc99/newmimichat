@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import ReactMarkdown from "react-markdown";
 import { apiUrl } from "../../lib/api";
 import { authFetch } from "../../lib/auth";
 
@@ -36,6 +37,7 @@ interface TranslationCard {
   userTranslation: string | null;
   characterName: string;
   audio?: string | null;
+  explanationMd?: string | null;
   journalId: number;
   userId: number;
   createdAt: string;
@@ -82,6 +84,9 @@ interface TranslationFlashcardProps {
   isStarred?: boolean;
   showStar?: boolean;
   onPlayAudio?: (audioId: string, characterName?: string) => void;
+  explanationMd?: string | null;
+  isExplainLoading?: boolean;
+  onExplain?: (draft: string) => void;
   onRate: (rating: number, userTranslation: string) => void;
   onToggleStar?: () => void;
 }
@@ -101,6 +106,9 @@ const TranslationFlashcard = ({
   isStarred,
   showStar,
   onPlayAudio,
+  explanationMd,
+  isExplainLoading,
+  onExplain,
   onRate,
   onToggleStar
 }: TranslationFlashcardProps) => {
@@ -155,6 +163,11 @@ const TranslationFlashcard = ({
           <strong>{translation || "(Chua co ban dich mau)"}</strong>
         </div>
       ) : null}
+      {explanationMd ? (
+        <div className="translation-card__explanation">
+          <ReactMarkdown>{explanationMd}</ReactMarkdown>
+        </div>
+      ) : null}
       <div className="translation-card__actions">
         {!revealed ? (
           <button type="button" className="translation-card__primary" onClick={() => setRevealed(true)}>
@@ -174,6 +187,16 @@ const TranslationFlashcard = ({
             ))}
           </div>
         )}
+        {onExplain ? (
+          <button
+            type="button"
+            className="translation-card__explain"
+            onClick={() => onExplain(draft)}
+            disabled={isExplainLoading}
+          >
+            {isExplainLoading ? "Dang giai thich..." : "AI giai thich"}
+          </button>
+        ) : null}
       </div>
     </div>
   );
@@ -194,6 +217,8 @@ const TranslationView = () => {
   const [isLearnLoading, setIsLearnLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [reviewIndex, setReviewIndex] = useState(0);
+  const [explanationMd, setExplanationMd] = useState<string | null>(null);
+  const [isExplainLoading, setIsExplainLoading] = useState(false);
   const [characters, setCharacters] = useState<Character[]>([]);
   const audioContextRef = useRef<AudioContext | null>(null);
   const audioCacheRef = useRef<Map<string, AudioBuffer>>(new Map());
@@ -293,6 +318,23 @@ const TranslationView = () => {
     setReviewIndex(0);
   }, [tab, dueCards, allCards]);
 
+  useEffect(() => {
+    if (tab !== "learn") {
+      return;
+    }
+
+    setExplanationMd(null);
+  }, [tab, learnCandidate?.messageId]);
+
+  useEffect(() => {
+    if (tab === "learn") {
+      return;
+    }
+
+    const active = activeList[reviewIndex];
+    setExplanationMd(active?.explanationMd ?? null);
+  }, [tab, activeList, reviewIndex]);
+
   const starredItems = useMemo(
     () => allCards.filter((card) => card.review?.isStarred),
     [allCards]
@@ -370,6 +412,49 @@ const TranslationView = () => {
       source.start(0);
     } catch (caught) {
       console.error("Failed to play translation audio.", caught);
+    }
+  };
+
+  const handleExplain = async (payload: {
+    cardId?: number;
+    messageId?: string;
+    userTranslation?: string;
+  }) => {
+    setIsExplainLoading(true);
+    setError(null);
+
+    try {
+      const response = await authFetch(apiUrl("/api/translation/explain"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+
+      if (!response.ok) {
+        const payload = (await response.json().catch(() => null)) as { message?: string } | null;
+        throw new Error(payload?.message ?? "Explain failed");
+      }
+
+      const data = (await response.json()) as { explanation: string; card: TranslationCard };
+      setExplanationMd(data.explanation);
+
+      setAllCards((prev) => {
+        const exists = prev.some((card) => card.id === data.card.id);
+        if (!exists) {
+          return [data.card, ...prev];
+        }
+        return prev.map((card) =>
+          card.id === data.card.id ? { ...card, explanationMd: data.explanation } : card
+        );
+      });
+      setDueCards((prev) =>
+        prev.map((card) => (card.id === data.card.id ? { ...card, explanationMd: data.explanation } : card))
+      );
+    } catch (caught) {
+      console.error("Failed to explain translation card.", caught);
+      setError(caught instanceof Error ? caught.message : "Unknown error");
+    } finally {
+      setIsExplainLoading(false);
     }
   };
 
@@ -494,6 +579,11 @@ const TranslationView = () => {
             characterName={learnCandidate.characterName}
             audioId={learnCandidate.audio ?? null}
             onPlayAudio={playAudio}
+            explanationMd={explanationMd}
+            isExplainLoading={isExplainLoading}
+            onExplain={(draft) =>
+              handleExplain({ messageId: learnCandidate.messageId, userTranslation: draft })
+            }
             onRate={(rating, draft) => handleLearnReview(learnCandidate.messageId, rating, draft)}
           />
         ) : (
@@ -511,6 +601,14 @@ const TranslationView = () => {
           isStarred={!!activeList[reviewIndex]?.review?.isStarred}
           showStar
           onPlayAudio={playAudio}
+          explanationMd={explanationMd}
+          isExplainLoading={isExplainLoading}
+          onExplain={(draft) => {
+            const active = activeList[reviewIndex];
+            if (active) {
+              void handleExplain({ cardId: active.id, userTranslation: draft });
+            }
+          }}
           onToggleStar={() => {
             const active = activeList[reviewIndex];
             if (active) {

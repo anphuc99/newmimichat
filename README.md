@@ -312,6 +312,7 @@ Translation Drill:
 - `GET /api/translation` (list translation cards with reviews)
 - `GET /api/translation/due` (cards due for review today)
 - `GET /api/translation/learn` (random new message not in translation cards)
+- `POST /api/translation/explain` (AI grammar/vocab explanation; cached per card)
 - `POST /api/translation/review` (submit FSRS rating 1–4, creates card if needed)
 - `PUT /api/translation/:id/star` (toggle starred)
 - `GET /api/translation/stats` (counts: total, dueToday, starred, difficult)
