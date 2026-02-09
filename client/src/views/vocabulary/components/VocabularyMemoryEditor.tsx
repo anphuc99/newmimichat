@@ -57,7 +57,7 @@ const MessageBlockComponent = ({
   deleteNode: () => void;
   extension: { options?: { onPlayAudio?: (audioId: string, characterName?: string) => void } };
 }) => {
-  const { text, characterName, date, audioData } = node.attrs;
+  const { text, characterName, date, audioData, messageId } = node.attrs;
   const onPlayAudio = extension.options?.onPlayAudio;
 
   return (
@@ -67,6 +67,9 @@ const MessageBlockComponent = ({
           <div className="vocab-memory-editor__drag-handle" data-drag-handle>⋮⋮</div>
           <span className="vocab-memory-editor__char-badge">👤 {characterName}</span>
           <span className="vocab-memory-editor__date-badge">📅 {date}</span>
+          {messageId ? (
+            <span className="vocab-memory-editor__msg-id">[MSG:{messageId}]</span>
+          ) : null}
           {audioData && onPlayAudio ? (
             <button
               type="button"
