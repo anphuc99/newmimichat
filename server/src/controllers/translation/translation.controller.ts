@@ -85,23 +85,21 @@ const buildExplanationPrompt = (payload: {
   userTranslation?: string | null;
   characterName?: string;
 }) => {
-  const translation = payload.translation?.trim() || "(Khong co ban dich mau)";
-  const userTranslation = payload.userTranslation?.trim() || "(Nguoi hoc chua nhap ban dich)";
-  const characterName = payload.characterName?.trim() || "Nhan vat";
+  const translation = payload.translation?.trim() || "(Không có bản dich mẫu)";
+  const userTranslation = payload.userTranslation?.trim();
 
-  return `Ban la gia su tieng Han. Hay giai thich ngu phap va tu vung trong cau sau, tra loi bang Markdown (khong dung JSON).
+return `Bạn là giáo sư tiếng Hàn. Hãy giải thích ngữ pháp và từ vựng trong câu sau, trả lời bằng Markdown (không dùng JSON).
 
-Thong tin:
-- Nhan vat: ${characterName}
-- Cau goc (Korean): ${payload.content}
-- Ban dich mau (Viet): ${translation}
-- Ban dich nguoi hoc (Viet): ${userTranslation}
+Thông tin:
+- Câu gốc (Korean): ${payload.content}
+- Bản dịch mẫu (Việt): ${translation}
+${userTranslation !== null? "- Bản dịch người học (Việt): ${userTranslation}": ""}
 
-Yeu cau tra loi:
-1. Giai thich ngu phap chinh (bullet list).
-2. Giai thich tu vung quan trong (bullet list).
-3. Neu co loi thuong gap, nhac nhanh 1-2 y.
-4. Giu gon, de hieu, khong qua dai.`;
+Yêu cầu trả lời:
+1. Giải thích ngữ pháp chính (danh sách gạch đầu dòng).
+2. Giải thích từ vựng quan trọng (danh sách gạch đầu dòng).
+3. Nếu có lỗi thường gặp, nhắc nhanh 1-2 ý.
+4. Ngắn gọn, dễ hiểu, không quá dài.`;
 };
 /**
  * Builds the translation controller.
@@ -132,10 +130,6 @@ export const createTranslationController = (
         messages: [
           {
             role: "system",
-            content: "Ban la gia su tieng Han. Tra loi bang Markdown, giai thich ngu phap va tu vung bang tieng Viet."
-          },
-          {
-            role: "user",
             content: buildExplanationPrompt(payload)
           }
         ]

@@ -209,11 +209,11 @@ export const createOpenAIChatService = (config: OpenAIChatServiceConfig): OpenAI
 
     const hasSystemMessage = normalizedHistory.some((entry) => entry.role === "system");
     const systemPrompt = hasSystemMessage ? null : await loadSystemPrompt();
-    const systemMessages = systemPrompt ? [{ role: "system" as const, content: systemPrompt }] : [];
+    const systemMessages = systemPrompt ? [{ role: "developer" as const, content: systemPrompt }] : [];
 
     const messages = normalizedHistory.map((entry) => {
-      if (entry.role === "developer") {
-        return { role: "system" as const, content: entry.content };
+      if (entry.role === "developer" || entry.role === "system") {
+        return { role: "developer" as const, content: entry.content };
       }
 
       return { role: entry.role as "system" | "user" | "assistant", content: entry.content };
@@ -221,16 +221,16 @@ export const createOpenAIChatService = (config: OpenAIChatServiceConfig): OpenAI
 
     const resolvedModel = modelOverride?.trim() || model;
 
-    const completion = await client.chat.completions.create({
+    const response = await client.responses.create({
       model: resolvedModel,
-      messages: [
+      input: [
         ...systemMessages,
         ...messages,
         { role: "user", content: message }
       ]
     });
 
-    const reply = completion.choices[0]?.message?.content?.trim() ?? "";
+    const reply = response.output_text?.trim() ?? "";
 
     if (!reply) {
       throw new Error("OpenAI returned an empty response");
@@ -238,7 +238,7 @@ export const createOpenAIChatService = (config: OpenAIChatServiceConfig): OpenAI
 
     return {
       reply,
-      model: completion.model ?? resolvedModel
+      model: response.model ?? resolvedModel
     };
   };
 
