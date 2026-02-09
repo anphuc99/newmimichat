@@ -39,7 +39,7 @@ class MessageEntity {
   @JoinColumn({ name: "journal_id" })
   journal!: JournalEntity;
 
-  @CreateDateColumn({ name: "created_at", type: "timestamp" })
+  @CreateDateColumn({ name: "created_at", type: "datetime" })
   createdAt!: Date;
 }
 

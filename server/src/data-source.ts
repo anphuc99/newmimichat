@@ -1,4 +1,5 @@
 import "reflect-metadata";
+import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import { DataSource } from "typeorm";
@@ -39,6 +40,8 @@ const buildDatabaseOptions = (): DataSource["options"] => {
 
   if (dbType === "sqlite") {
     const dbFile = resolveRepoPath(process.env.DB_SQLITE_PATH ?? "server/data/sqlite/mimi_chat.sqlite");
+
+    fs.mkdirSync(path.dirname(dbFile), { recursive: true });
 
     return {
       type: "sqljs",

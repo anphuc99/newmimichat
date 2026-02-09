@@ -27,7 +27,7 @@ class JournalEntity {
   @JoinColumn({ name: "story_id" })
   story?: StoryEntity | null;
 
-  @CreateDateColumn({ name: "created_at", type: "timestamp" })
+  @CreateDateColumn({ name: "created_at", type: "datetime" })
   createdAt!: Date;
 }
 
