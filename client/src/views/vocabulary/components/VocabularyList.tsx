@@ -1,5 +1,17 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { VocabularyItem } from "../VocabularyView";
+import { apiUrl } from "../../../lib/api";
+import { authFetch } from "../../../lib/auth";
+
+interface LinkedMessageResult {
+  messageId: string;
+  content: string;
+  characterName: string;
+  journalDate: string;
+  audio: string | null;
+}
+
+const stripMemoryMarkers = (content: string) => content.replace(/\[MSG:[^\]]+\]/g, "").trim();
 
 interface VocabularyListProps {
   items: VocabularyItem[];
@@ -26,6 +38,79 @@ const VocabularyList = ({
 }: VocabularyListProps) => {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [memoryDraft, setMemoryDraft] = useState("");
+  const [linkedDetailsByVocab, setLinkedDetailsByVocab] = useState<Record<string, LinkedMessageResult[]>>({});
+  const [linkedLoadingId, setLinkedLoadingId] = useState<string | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const audioCacheRef = useRef<Map<string, AudioBuffer>>(new Map());
+
+  const playAudio = async (audioId: string) => {
+    if (!audioId) return;
+
+    try {
+      if (!audioContextRef.current) {
+        audioContextRef.current = new AudioContext();
+      }
+
+      const context = audioContextRef.current;
+      let audioBuffer = audioCacheRef.current.get(audioId);
+
+      if (!audioBuffer) {
+        const response = await fetch(apiUrl(`/audio/${audioId}.mp3`));
+        if (!response.ok) {
+          throw new Error("Failed to load audio");
+        }
+        const arrayBuffer = await response.arrayBuffer();
+        audioBuffer = await context.decodeAudioData(arrayBuffer);
+        audioCacheRef.current.set(audioId, audioBuffer);
+      }
+
+      const source = context.createBufferSource();
+      source.buffer = audioBuffer;
+      source.connect(context.destination);
+      source.start(0);
+    } catch (error) {
+      console.error("Failed to play audio.", error);
+    }
+  };
+
+  useEffect(() => {
+    if (!expandedId) return;
+    if (linkedDetailsByVocab[expandedId]) return;
+
+    const item = items.find((v) => v.id === expandedId);
+    if (!item?.memory?.linkedMessageIds?.length) return;
+
+    const loadLinkedMessages = async () => {
+      setLinkedLoadingId(expandedId);
+      const messages: LinkedMessageResult[] = [];
+
+      for (const id of item.memory?.linkedMessageIds ?? []) {
+        try {
+          const response = await authFetch(
+            apiUrl(`/api/journals/search?q=${encodeURIComponent(id)}&limit=10`)
+          );
+
+          if (!response.ok) {
+            continue;
+          }
+
+          const data = (await response.json()) as { results: LinkedMessageResult[] };
+          const result = data.results.find((r) => r.messageId === id);
+
+          if (result) {
+            messages.push(result);
+          }
+        } catch {
+          // Skip failed fetches
+        }
+      }
+
+      setLinkedDetailsByVocab((prev) => ({ ...prev, [expandedId]: messages }));
+      setLinkedLoadingId(null);
+    };
+
+    void loadLinkedMessages();
+  }, [expandedId, items, linkedDetailsByVocab]);
 
   const handleExpandToggle = (item: VocabularyItem) => {
     if (expandedId === item.id) {
@@ -44,6 +129,8 @@ const VocabularyList = ({
         const isDue =
           item.review?.nextReviewDate &&
           new Date(item.review.nextReviewDate) <= new Date();
+        const memoryPreview = item.memory?.userMemory ? stripMemoryMarkers(item.memory.userMemory) : "";
+        const previewText = memoryPreview || (item.memory?.linkedMessageIds?.length ? "Tin nhắn đã liên kết" : "");
 
         return (
           <li key={item.id} className={`vocab-item ${isDue ? "vocab-item--due" : ""}`}>
@@ -109,12 +196,46 @@ const VocabularyList = ({
                 <div className="vocab-item__memory">
                   {item.memory?.userMemory ? (
                     <div className="vocab-item__memory-preview">
-                      <p>{item.memory.userMemory.substring(0, 200)}{item.memory.userMemory.length > 200 ? "..." : ""}</p>
+                      <p>
+                        {previewText.substring(0, 200)}
+                        {previewText.length > 200 ? "..." : ""}
+                      </p>
                       {item.memory.linkedMessageIds.length > 0 && (
                         <span className="vocab-item__linked-count">
                           🔗 {item.memory.linkedMessageIds.length} linked message(s)
                         </span>
                       )}
+                    </div>
+                  ) : null}
+                  {item.memory?.linkedMessageIds?.length ? (
+                    <div className="vocab-item__linked-messages">
+                      {linkedLoadingId === item.id ? (
+                        <p className="vocab-item__linked-loading">Đang tải tin nhắn...</p>
+                      ) : null}
+                      {linkedDetailsByVocab[item.id]?.map((msg) => (
+                        <div key={msg.messageId} className="vocab-item__linked-message">
+                          <div className="vocab-item__linked-meta">
+                            <span className="vocab-item__linked-char">👤 {msg.characterName}</span>
+                            <span className="vocab-item__linked-date">
+                              📅 {new Date(msg.journalDate).toLocaleDateString("vi-VN")}
+                            </span>
+                            {msg.audio ? (
+                              <button
+                                type="button"
+                                className="vocab-item__linked-audio-btn"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  void playAudio(msg.audio ?? "");
+                                }}
+                                title="Nghe âm thanh"
+                              >
+                                🔊
+                              </button>
+                            ) : null}
+                          </div>
+                          <p className="vocab-item__linked-text">{msg.content}</p>
+                        </div>
+                      ))}
                     </div>
                   ) : null}
                   {onEditMemory ? (

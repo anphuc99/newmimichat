@@ -41,8 +41,17 @@ interface VocabularyMemoryEditorProps {
  * Custom TipTap Message Block component.
  * Displays a draggable message block with character info.
  */
-const MessageBlockComponent = ({ node, deleteNode }: { node: { attrs: Partial<LinkedMessageAttrs> }; deleteNode: () => void }) => {
-  const { text, characterName, date } = node.attrs;
+const MessageBlockComponent = ({
+  node,
+  deleteNode,
+  extension
+}: {
+  node: { attrs: Partial<LinkedMessageAttrs> };
+  deleteNode: () => void;
+  extension: { options?: { onPlayAudio?: (audioId: string) => void } };
+}) => {
+  const { text, characterName, date, audioData } = node.attrs;
+  const onPlayAudio = extension.options?.onPlayAudio;
 
   return (
     <NodeViewWrapper className="message-node-wrapper" data-type="message-block" draggable="true" data-drag-handle>
@@ -51,6 +60,16 @@ const MessageBlockComponent = ({ node, deleteNode }: { node: { attrs: Partial<Li
           <div className="vocab-memory-editor__drag-handle" data-drag-handle>⋮⋮</div>
           <span className="vocab-memory-editor__char-badge">👤 {characterName}</span>
           <span className="vocab-memory-editor__date-badge">📅 {date}</span>
+          {audioData && onPlayAudio ? (
+            <button
+              type="button"
+              className="vocab-memory-editor__audio-btn"
+              onClick={() => onPlayAudio(audioData)}
+              title="Nghe âm thanh"
+            >
+              🔊
+            </button>
+          ) : null}
           <button
             type="button"
             className="vocab-memory-editor__remove-msg-btn"
@@ -69,12 +88,18 @@ const MessageBlockComponent = ({ node, deleteNode }: { node: { attrs: Partial<Li
 /**
  * Creates custom TipTap node for message blocks.
  */
-const createMessageBlockExtension = () => {
+const createMessageBlockExtension = (onPlayAudio?: (audioId: string) => void) => {
   return Node.create({
     name: "messageBlock",
     group: "block",
     atom: true,
     draggable: true,
+
+    addOptions() {
+      return {
+        onPlayAudio
+      };
+    },
 
     addAttributes() {
       return {
@@ -247,7 +272,43 @@ const VocabularyMemoryEditor = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Create message block extension (memoized)
-  const MessageBlockExtension = useMemo(() => createMessageBlockExtension(), []);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const audioCacheRef = useRef<Map<string, AudioBuffer>>(new Map());
+
+  const playAudio = useCallback(async (audioId: string) => {
+    if (!audioId) return;
+
+    try {
+      if (!audioContextRef.current) {
+        audioContextRef.current = new AudioContext();
+      }
+
+      const context = audioContextRef.current;
+      let audioBuffer = audioCacheRef.current.get(audioId);
+
+      if (!audioBuffer) {
+        const response = await fetch(apiUrl(`/audio/${audioId}.mp3`));
+        if (!response.ok) {
+          throw new Error("Failed to load audio");
+        }
+        const arrayBuffer = await response.arrayBuffer();
+        audioBuffer = await context.decodeAudioData(arrayBuffer);
+        audioCacheRef.current.set(audioId, audioBuffer);
+      }
+
+      const source = context.createBufferSource();
+      source.buffer = audioBuffer;
+      source.connect(context.destination);
+      source.start(0);
+    } catch (error) {
+      console.error("Failed to play audio.", error);
+    }
+  }, []);
+
+  const MessageBlockExtension = useMemo(
+    () => createMessageBlockExtension(playAudio),
+    [playAudio]
+  );
 
   // Detect mobile/desktop on resize
   useEffect(() => {
@@ -600,6 +661,19 @@ const VocabularyMemoryEditor = ({
                   <span className="vocab-memory-editor__result-date">
                     📅 {new Date(result.journalDate).toLocaleDateString("vi-VN")}
                   </span>
+                  {result.audio ? (
+                    <button
+                      type="button"
+                      className="vocab-memory-editor__audio-btn vocab-memory-editor__audio-btn--compact"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        void playAudio(result.audio ?? "");
+                      }}
+                      title="Nghe âm thanh"
+                    >
+                      🔊
+                    </button>
+                  ) : null}
                 </div>
                 <p className="vocab-memory-editor__result-content">{result.content}</p>
                 {result.translation && (
