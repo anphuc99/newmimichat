@@ -85,7 +85,8 @@ const buildOpenAIHttpAgent = (config: {
     if (caFromBase64) {
       try {
         return Buffer.from(caFromBase64, "base64").toString("utf8");
-      } catch {
+      } catch (error) {
+        console.error("Failed to decode OPENAI_TLS_CA_CERT_BASE64.", error);
         throw new Error("OPENAI_TLS_CA_CERT_BASE64 is not valid base64");
       }
     }

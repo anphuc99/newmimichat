@@ -34,6 +34,7 @@ const HomeView = () => {
           setApiMessage(data);
         }
       } catch (caught) {
+        console.error("Failed to load home message.", caught);
         if (isMounted) {
           setError(caught instanceof Error ? caught.message : "Unknown error");
         }

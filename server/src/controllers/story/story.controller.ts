@@ -77,6 +77,7 @@ export const createStoryController = (dataSource: DataSource): StoryController =
 
       response.json({ stories: stories.map(toResponse) });
     } catch (error) {
+      console.error("Failed to load stories.", error);
       response.status(500).json({
         message: "Failed to load stories",
         error: error instanceof Error ? error.message : "Unknown error"
@@ -115,6 +116,7 @@ export const createStoryController = (dataSource: DataSource): StoryController =
 
       response.json({ story: toResponse(story) });
     } catch (error) {
+      console.error("Failed to load story.", error);
       response.status(500).json({
         message: "Failed to load story",
         error: error instanceof Error ? error.message : "Unknown error"
@@ -154,6 +156,7 @@ export const createStoryController = (dataSource: DataSource): StoryController =
       const saved = await repository.save(story);
       response.status(201).json({ story: toResponse(saved) });
     } catch (error) {
+      console.error("Failed to create story.", error);
       response.status(500).json({
         message: "Failed to create story",
         error: error instanceof Error ? error.message : "Unknown error"
@@ -225,6 +228,7 @@ export const createStoryController = (dataSource: DataSource): StoryController =
       const saved = await repository.save(story);
       response.json({ story: toResponse(saved) });
     } catch (error) {
+      console.error("Failed to update story.", error);
       response.status(500).json({
         message: "Failed to update story",
         error: error instanceof Error ? error.message : "Unknown error"
@@ -264,6 +268,7 @@ export const createStoryController = (dataSource: DataSource): StoryController =
       await repository.remove(story);
       response.json({ ok: true });
     } catch (error) {
+      console.error("Failed to delete story.", error);
       response.status(500).json({
         message: "Failed to delete story",
         error: error instanceof Error ? error.message : "Unknown error"

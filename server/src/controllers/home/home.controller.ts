@@ -44,6 +44,7 @@ export const createHomeController = (dataSource: DataSource): HomeController => 
         timestamp: latestMessage.createdAt.toISOString()
       });
     } catch (error) {
+      console.error("Failed to load message.", error);
       response.status(500).json({
         message: "Failed to load message",
         error: error instanceof Error ? error.message : "Unknown error"

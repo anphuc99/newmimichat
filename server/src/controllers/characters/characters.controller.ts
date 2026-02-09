@@ -166,6 +166,7 @@ export const createCharactersController = (dataSource: DataSource): CharactersCo
 
       response.json(characters.map(toResponse));
     } catch (error) {
+      console.error("Failed to load characters.", error);
       response.status(500).json({
         message: "Failed to load characters",
         error: error instanceof Error ? error.message : "Unknown error"
@@ -211,7 +212,7 @@ export const createCharactersController = (dataSource: DataSource): CharactersCo
 
       response.status(201).json(toResponse(saved));
     } catch (error) {
-      console.log(error);
+      console.error("Failed to create character.", error);
       response.status(500).json({
         message: "Failed to create character",
         error: error instanceof Error ? error.message : "Unknown error"
@@ -277,6 +278,7 @@ export const createCharactersController = (dataSource: DataSource): CharactersCo
 
       response.json(toResponse(saved));
     } catch (error) {
+      console.error("Failed to update character.", error);
       response.status(500).json({
         message: "Failed to update character",
         error: error instanceof Error ? error.message : "Unknown error"
@@ -317,6 +319,7 @@ export const createCharactersController = (dataSource: DataSource): CharactersCo
       await repository.remove(character);
       response.status(204).send();
     } catch (error) {
+      console.error("Failed to delete character.", error);
       response.status(500).json({
         message: "Failed to delete character",
         error: error instanceof Error ? error.message : "Unknown error"
@@ -371,6 +374,7 @@ export const createCharactersController = (dataSource: DataSource): CharactersCo
         url: buildAbsoluteUrl(request, publicPath)
       });
     } catch (error) {
+      console.error("Failed to upload avatar.", error);
       response.status(500).json({
         message: "Failed to upload avatar",
         error: error instanceof Error ? error.message : "Unknown error"

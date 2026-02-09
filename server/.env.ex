@@ -1,6 +1,8 @@
 # Example environment variables for development
 # Copy this file to .env and adjust values as needed.
 
+NODE_ENV=development
+
 # Database
 # Choose which DB driver TypeORM should use.
 # Supported: mysql | sqlite

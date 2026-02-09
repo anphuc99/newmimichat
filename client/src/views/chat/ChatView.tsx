@@ -81,6 +81,20 @@ interface AssistantTurn {
   Translation?: string;
 }
 
+const loggedWarnings = new Set<string>();
+
+/**
+ * Logs a warning only once per key to avoid spamming the console.
+ */
+const warnOnce = (key: string, message: string, error: unknown) => {
+  if (loggedWarnings.has(key)) {
+    return;
+  }
+
+  loggedWarnings.add(key);
+  console.warn(message, error);
+};
+
 const createMessage = (
   role: ChatRole,
   content: string,
@@ -124,7 +138,8 @@ const parseAssistantReply = (content: string): AssistantTurn[] => {
       if (parsed && typeof parsed === "object") {
         return [parsed as AssistantTurn];
       }
-    } catch {
+    } catch (caught) {
+      warnOnce("chat.parseAssistantReply", "Failed to parse assistant reply as JSON; attempting fallback extraction.", caught);
       return null;
     }
 
@@ -344,6 +359,7 @@ const ChatView = ({ userId, model }: ChatViewProps) => {
         window.localStorage.removeItem(storyStorageKey);
       }
     } catch (caught) {
+      console.error("Failed to load stories.", caught);
       setStoryError(caught instanceof Error ? caught.message : "Unknown error");
     }
   };
@@ -432,8 +448,8 @@ const ChatView = ({ userId, model }: ChatViewProps) => {
         source.onended = () => resolve();
         source.start();
       });
-    } catch {
-      // Ignore playback errors.
+    } catch (caught) {
+      warnOnce("chat.playAudio", "Audio playback failed; ignoring.", caught);
     }
   };
 
@@ -557,8 +573,8 @@ const ChatView = ({ userId, model }: ChatViewProps) => {
           skipAutoPlayOnce.current = true;
           setMessages(hydrated);
         }
-      } catch {
-        // Ignore history load errors.
+      } catch (caught) {
+        warnOnce("chat.loadHistory", "Failed to load chat history; ignoring.", caught);
       }
     };
 
@@ -611,8 +627,8 @@ const ChatView = ({ userId, model }: ChatViewProps) => {
         if (isActive) {
           setCharacters(payload ?? []);
         }
-      } catch {
-        // Ignore character load errors.
+      } catch (caught) {
+        warnOnce("chat.loadCharacters", "Failed to load characters; ignoring.", caught);
       }
     };
 
@@ -657,8 +673,8 @@ const ChatView = ({ userId, model }: ChatViewProps) => {
           .map((character) => character.id);
 
         setActiveCharacterIds(nextActiveIds);
-      } catch {
-        // Ignore developer state load errors.
+      } catch (caught) {
+        warnOnce("chat.loadDeveloperState", "Failed to load developer state; ignoring.", caught);
       }
     };
 
@@ -716,8 +732,8 @@ const ChatView = ({ userId, model }: ChatViewProps) => {
 
       setActiveCharacterIds((prev) => [...prev, character.id]);
       setError(null);
-    } catch {
-      // Ignore developer message errors.
+    } catch (caught) {
+      warnOnce("chat.addCharacterToChat", "Failed to append developer message; ignoring.", caught);
     }
   };
 
@@ -742,8 +758,8 @@ const ChatView = ({ userId, model }: ChatViewProps) => {
       });
 
       setActiveCharacterIds((prev) => prev.filter((id) => id !== character.id));
-    } catch {
-      // Ignore developer message errors.
+    } catch (caught) {
+      warnOnce("chat.removeCharacterFromChat", "Failed to append developer message; ignoring.", caught);
     }
   };
 
@@ -800,6 +816,7 @@ const ChatView = ({ userId, model }: ChatViewProps) => {
 
       await appendAssistantMessagesSequentially(payload.reply);
     } catch (caught) {
+      console.error("Failed to send message.", caught);
       setError(caught instanceof Error ? caught.message : "Unknown error");
     } finally {
       setIsSending(false);
@@ -860,6 +877,7 @@ const ChatView = ({ userId, model }: ChatViewProps) => {
       }
       setNotice(`Journal saved (#${payload.journalId}).`);
     } catch (caught) {
+      console.error("Failed to end conversation.", caught);
       setError(caught instanceof Error ? caught.message : "Unknown error");
     } finally {
       setIsEnding(false);
@@ -911,6 +929,7 @@ const ChatView = ({ userId, model }: ChatViewProps) => {
         setMessages(hydrated);
       }
     } catch (caught) {
+      console.error("Failed to edit user message.", caught);
       setError(caught instanceof Error ? caught.message : "Unknown error");
     } finally {
       setIsEditing(false);
@@ -961,6 +980,7 @@ const ChatView = ({ userId, model }: ChatViewProps) => {
         )
       );
     } catch (caught) {
+      console.error("Failed to edit assistant message.", caught);
       setError(caught instanceof Error ? caught.message : "Unknown error");
     } finally {
       setIsEditing(false);
@@ -1002,6 +1022,7 @@ const ChatView = ({ userId, model }: ChatViewProps) => {
       setContextInput("");
       setNotice("Context saved.");
     } catch (caught) {
+      console.error("Failed to save developer context.", caught);
       setError(caught instanceof Error ? caught.message : "Unknown error");
     } finally {
       setIsContextSending(false);

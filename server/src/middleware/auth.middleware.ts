@@ -21,6 +21,7 @@ export const requireAuth = (request: Request, response: Response, next: NextFunc
     request.user = verifyAuthToken(token);
     next();
   } catch (error) {
+    console.error("Auth token verification failed.", error);
     response.status(401).json({
       message: "Invalid token",
       error: error instanceof Error ? error.message : "Unknown error"

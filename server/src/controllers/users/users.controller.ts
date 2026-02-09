@@ -109,6 +109,7 @@ export const createUsersController = (dataSource: DataSource): UsersController =
 
       response.status(201).json(toAuthResponse(hydrated ?? saved));
     } catch (error) {
+      console.error("Failed to register user.", error);
       response.status(500).json({
         message: "Failed to register user",
         error: error instanceof Error ? error.message : "Unknown error"
@@ -143,6 +144,7 @@ export const createUsersController = (dataSource: DataSource): UsersController =
 
       response.json(toAuthResponse(user));
     } catch (error) {
+      console.error("Failed to login.", error);
       response.status(500).json({
         message: "Failed to login",
         error: error instanceof Error ? error.message : "Unknown error"
@@ -166,6 +168,7 @@ export const createUsersController = (dataSource: DataSource): UsersController =
 
       response.json({ user: toUserProfile(user) });
     } catch (error) {
+      console.error("Failed to load user profile.", error);
       response.status(500).json({
         message: "Failed to load user profile",
         error: error instanceof Error ? error.message : "Unknown error"
@@ -214,6 +217,7 @@ export const createUsersController = (dataSource: DataSource): UsersController =
 
       response.json(toAuthResponse(hydrated ?? saved));
     } catch (error) {
+      console.error("Failed to update user level.", error);
       response.status(500).json({
         message: "Failed to update user level",
         error: error instanceof Error ? error.message : "Unknown error"

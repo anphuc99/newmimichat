@@ -56,6 +56,7 @@ const StoryView = () => {
       const payload = (await response.json()) as StoryListResponse;
       setStories(payload.stories ?? []);
     } catch (caught) {
+      console.error("Failed to load stories.", caught);
       setError(caught instanceof Error ? caught.message : "Unknown error");
     } finally {
       setIsLoading(false);
@@ -105,6 +106,7 @@ const StoryView = () => {
       resetCreateForm();
       setNotice("Story created.");
     } catch (caught) {
+      console.error("Failed to create story.", caught);
       setError(caught instanceof Error ? caught.message : "Unknown error");
     } finally {
       setIsSaving(false);
@@ -164,6 +166,7 @@ const StoryView = () => {
       cancelEdit();
       setNotice("Story updated.");
     } catch (caught) {
+      console.error("Failed to update story.", caught);
       setError(caught instanceof Error ? caught.message : "Unknown error");
     } finally {
       setIsSaving(false);
@@ -196,6 +199,7 @@ const StoryView = () => {
       }
       setNotice("Story deleted.");
     } catch (caught) {
+      console.error("Failed to delete story.", caught);
       setError(caught instanceof Error ? caught.message : "Unknown error");
     } finally {
       setIsSaving(false);

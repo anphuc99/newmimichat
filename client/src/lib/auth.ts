@@ -13,6 +13,8 @@ export interface AuthSession {
 
 const STORAGE_KEY = "mimi_auth";
 
+let hasLoggedStoredAuthParseFailure = false;
+
 /**
  * Loads the stored auth session from local storage.
  *
@@ -31,7 +33,11 @@ export const getStoredAuth = (): AuthSession | null => {
 
   try {
     return JSON.parse(raw) as AuthSession;
-  } catch {
+  } catch (caught) {
+    if (!hasLoggedStoredAuthParseFailure) {
+      console.warn("Failed to parse stored auth session; clearing stored auth.", caught);
+      hasLoggedStoredAuthParseFailure = true;
+    }
     return null;
   }
 };

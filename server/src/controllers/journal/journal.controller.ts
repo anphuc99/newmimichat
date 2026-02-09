@@ -49,6 +49,9 @@ export const createJournalController = (
     deps.openAIService ?? (apiKey ? createOpenAIChatService({ apiKey, model, systemPromptPath }) : null);
   const historyStore = deps.historyStore ?? createChatHistoryStore();
 
+  let hasLoggedAssistantReplyParseFailure = false;
+  let hasLoggedStoryProgressUpdateFailure = false;
+
   const getSessionId = (value: unknown) => (typeof value === "string" ? value.trim() : "");
   const normalizeName = (value: string) => value.trim().toLowerCase();
 
@@ -82,7 +85,11 @@ export const createJournalController = (
         if (parsed && typeof parsed === "object") {
           return [parsed as AssistantTurn];
         }
-      } catch {
+      } catch (error) {
+        if (!hasLoggedAssistantReplyParseFailure) {
+          console.warn("Failed to parse assistant reply as JSON; attempting fallback extraction.", error);
+          hasLoggedAssistantReplyParseFailure = true;
+        }
         return null;
       }
 
@@ -349,6 +356,7 @@ export const createJournalController = (
         }))
       });
     } catch (error) {
+      console.error("Error in listJournals:", error);
       response.status(500).json({
         message: "Failed to load journals",
         error: error instanceof Error ? error.message : "Unknown error"
@@ -401,6 +409,7 @@ export const createJournalController = (
         }))
       });
     } catch (error) {
+      console.error("Error in getJournal:", error);
       response.status(500).json({
         message: "Failed to load journal",
         error: error instanceof Error ? error.message : "Unknown error"
@@ -489,8 +498,11 @@ export const createJournalController = (
             story.currentProgress = updatedProgress;
             await storyRepository.save(story);
           }
-        } catch {
-          // Ignore progress update failures.
+        } catch (error) {
+          if (!hasLoggedStoryProgressUpdateFailure) {
+            console.warn("Story progress update failed; continuing without updating story progress.", error);
+            hasLoggedStoryProgressUpdateFailure = true;
+          }
         }
       }
 
@@ -501,6 +513,7 @@ export const createJournalController = (
         summary: savedJournal.summary
       });
     } catch (error) {
+      console.error("Error in endConversation:", error);
       response.status(500).json({
         message: "Failed to finalize journal",
         error: error instanceof Error ? error.message : "Unknown error"

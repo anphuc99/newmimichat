@@ -51,6 +51,20 @@ const DEFAULT_TTS_TONE = "neutral, medium pitch";
 const DEFAULT_SPEAKING_RATE = 1.0;
 const DEFAULT_PITCH = 0;
 
+const loggedWarnings = new Set<string>();
+
+/**
+ * Logs a warning only once per key to avoid spamming the console.
+ */
+const warnOnce = (key: string, message: string, error: unknown) => {
+  if (loggedWarnings.has(key)) {
+    return;
+  }
+
+  loggedWarnings.add(key);
+  console.warn(message, error);
+};
+
 /**
  * Renders the Journal list and detail view.
  *
@@ -111,6 +125,7 @@ const JournalView = ({ userId }: JournalViewProps) => {
           }
         }
       } catch (caught) {
+        console.error("Failed to load journals.", caught);
         if (isActive) {
           setError(caught instanceof Error ? caught.message : "Unknown error");
         }
@@ -162,6 +177,7 @@ const JournalView = ({ userId }: JournalViewProps) => {
           window.localStorage.removeItem(storyStorageKey);
         }
       } catch (caught) {
+        console.error("Failed to load stories.", caught);
         if (isActive) {
           setStoryError(caught instanceof Error ? caught.message : "Unknown error");
         }
@@ -191,8 +207,8 @@ const JournalView = ({ userId }: JournalViewProps) => {
         if (isActive) {
           setCharacters(payload ?? []);
         }
-      } catch {
-        // Ignore character load errors.
+      } catch (caught) {
+        warnOnce("journal.loadCharacters", "Failed to load characters; ignoring.", caught);
       }
     };
 
@@ -253,6 +269,7 @@ const JournalView = ({ userId }: JournalViewProps) => {
           setOpenTranslations({});
         }
       } catch (caught) {
+        console.error("Failed to load journal details.", caught);
         if (isActive) {
           setError(caught instanceof Error ? caught.message : "Unknown error");
         }
@@ -303,8 +320,8 @@ const JournalView = ({ userId }: JournalViewProps) => {
 
       source.connect(context.destination);
       source.start();
-    } catch {
-      // Ignore playback errors.
+    } catch (caught) {
+      warnOnce("journal.playAudio", "Audio playback failed; ignoring.", caught);
     }
   };
 

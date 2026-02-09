@@ -104,6 +104,7 @@ const CharactersView = () => {
           setCharacters(payload);
         }
       } catch (caught) {
+        console.error("Failed to load characters.", caught);
         if (isMounted) {
           setError(caught instanceof Error ? caught.message : "Unknown error");
         }
@@ -172,6 +173,7 @@ const CharactersView = () => {
         avatar: payload.url
       }));
     } catch (caught) {
+      console.error("Failed to upload avatar.", caught);
       setError(caught instanceof Error ? caught.message : "Unknown error");
     } finally {
       setIsUploading(false);
@@ -197,6 +199,7 @@ const CharactersView = () => {
         handleCancel();
       }
     } catch (caught) {
+      console.error("Failed to delete character.", caught);
       setError(caught instanceof Error ? caught.message : "Unknown error");
     }
   };
@@ -240,6 +243,7 @@ const CharactersView = () => {
 
       handleCancel();
     } catch (caught) {
+      console.error("Failed to save character.", caught);
       setError(caught instanceof Error ? caught.message : "Unknown error");
     } finally {
       setIsSaving(false);

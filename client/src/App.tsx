@@ -82,6 +82,7 @@ const App = () => {
           setLevels(payload.levels ?? []);
         }
       } catch (caught) {
+        console.error("Failed to load levels.", caught);
         if (isActive) {
           setLevelError(caught instanceof Error ? caught.message : "Unknown error");
         }
@@ -115,8 +116,8 @@ const App = () => {
             setAuth(nextSession);
           }
         }
-      } catch {
-        // Ignore refresh errors and keep the existing session.
+      } catch (caught) {
+        console.warn("Failed to refresh profile; keeping existing session.", caught);
       }
     };
 
@@ -172,6 +173,7 @@ const App = () => {
       setStoredAuth(payload);
       setAuth(payload);
     } catch (caught) {
+      console.error("Failed to update level.", caught);
       setLevelError(caught instanceof Error ? caught.message : "Unknown error");
     } finally {
       setIsLevelSaving(false);

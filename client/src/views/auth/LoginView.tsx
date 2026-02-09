@@ -57,6 +57,7 @@ const LoginView = ({ onAuth }: LoginViewProps) => {
       const session = (await response.json()) as AuthSession;
       onAuth(session);
     } catch (caught) {
+      console.error("Failed to authenticate.", caught);
       setError(caught instanceof Error ? caught.message : "Unknown error");
     } finally {
       setIsSubmitting(false);

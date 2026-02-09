@@ -53,6 +53,8 @@ export const createChatController = (
     deps.openAIService ?? (apiKey ? createOpenAIChatService({ apiKey, model, systemPromptPath }) : null);
   const historyStore = deps.historyStore ?? createChatHistoryStore();
 
+  let hasLoggedAssistantReplyParseFailure = false;
+
   const getSessionId = (value: unknown) => (typeof value === "string" ? value.trim() : "");
 
   const getOptionalString = (value: unknown) => (typeof value === "string" ? value.trim() : "");
@@ -205,7 +207,11 @@ export const createChatController = (
         if (parsed && typeof parsed === "object") {
           return [parsed as AssistantTurn];
         }
-      } catch {
+      } catch (error) {
+        if (!hasLoggedAssistantReplyParseFailure) {
+          console.warn("Failed to parse assistant reply as JSON; attempting fallback extraction.", error);
+          hasLoggedAssistantReplyParseFailure = true;
+        }
         return null;
       }
 
@@ -457,6 +463,7 @@ export const createChatController = (
         messages: adjustedMessages.filter((message) => message.role !== "system" && message.role !== "developer")
       });
     } catch (error) {
+      console.error("Error in getHistory:", error);
       response.status(500).json({
         message: "Failed to load chat history",
         error: error instanceof Error ? error.message : "Unknown error"
@@ -496,6 +503,7 @@ export const createChatController = (
       await historyStore.append(request.user.id, sessionId, [{ role: "developer", content }]);
       response.json({ ok: true });
     } catch (error) {
+      console.error("Error in appendDeveloperMessage:", error);
       response.status(500).json({
         message: "Failed to append developer message",
         error: error instanceof Error ? error.message : "Unknown error"
@@ -546,6 +554,7 @@ export const createChatController = (
         await historyStore.append(request.user.id, sessionId, [{ role: "developer", content }]);
         response.json({ ok: true });
       } catch (error) {
+        console.error("Error in editMessage (assistant):", error);
         response.status(500).json({
           message: "Failed to append developer message",
           error: error instanceof Error ? error.message : "Unknown error"
@@ -609,6 +618,7 @@ export const createChatController = (
         model: result.model
       });
     } catch (error) {
+      console.error("Error in editMessage (user):", error);
       response.status(500).json({
         message: "Failed to edit chat message",
         error: error instanceof Error ? error.message : "Unknown error"
@@ -645,6 +655,7 @@ export const createChatController = (
 
       response.json({ activeCharacterNames });
     } catch (error) {
+      console.error("Error in getDeveloperState:", error);
       response.status(500).json({
         message: "Failed to load developer state",
         error: error instanceof Error ? error.message : "Unknown error"

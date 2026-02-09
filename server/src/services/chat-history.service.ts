@@ -1,6 +1,8 @@
 import fs from "fs/promises";
 import path from "path";
 
+let hasLoggedChatHistoryParseFailure = false;
+
 export type ChatHistoryRole = "system" | "developer" | "user" | "assistant";
 
 export interface ChatHistoryMessage {
@@ -75,7 +77,11 @@ const parseLine = (line: string): ChatHistoryMessage | null => {
     }
 
     return { role: parsed.role, content };
-  } catch {
+  } catch (error) {
+    if (!hasLoggedChatHistoryParseFailure) {
+      console.warn("Failed to parse chat history line; ignoring invalid entry.", error);
+      hasLoggedChatHistoryParseFailure = true;
+    }
     return null;
   }
 };
@@ -105,6 +111,7 @@ export const createChatHistoryStore = (dir: string = process.env.CHAT_HISTORY_DI
         return [];
       }
 
+      console.error("Failed to load chat history.", error);
       throw error;
     }
   };
@@ -167,6 +174,7 @@ export const createChatHistoryStore = (dir: string = process.env.CHAT_HISTORY_DI
         return;
       }
 
+      console.error("Failed to ensure system chat history message.", error);
       throw error;
     }
   };
@@ -187,6 +195,7 @@ export const createChatHistoryStore = (dir: string = process.env.CHAT_HISTORY_DI
         return;
       }
 
+      console.error("Failed to clear chat history.", error);
       throw error;
     }
   };

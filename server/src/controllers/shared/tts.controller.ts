@@ -41,6 +41,7 @@ export const createTtsController = (): TtsController => {
         return;
       } catch (error) {
         if ((error as NodeJS.ErrnoException)?.code !== "ENOENT") {
+          console.error("Failed to access cached TTS audio.", error);
           throw error;
         }
       }
@@ -48,6 +49,7 @@ export const createTtsController = (): TtsController => {
       await createTtsAudio(text, tone, audioId, voice || undefined);
       response.json({ success: true, output: audioId, url: `/audio/${audioId}.mp3` });
     } catch (error) {
+      console.error("Failed to generate TTS.", error);
       response.status(500).json({
         message: "Failed to generate TTS",
         error: error instanceof Error ? error.message : "Unknown error"

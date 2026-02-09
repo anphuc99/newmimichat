@@ -26,6 +26,7 @@ export const createLevelsController = (dataSource: DataSource): LevelsController
       const levels = await repository.find({ order: { id: "ASC" } });
       response.json({ levels });
     } catch (error) {
+      console.error("Failed to load levels.", error);
       response.status(500).json({
         message: "Failed to load levels",
         error: error instanceof Error ? error.message : "Unknown error"
