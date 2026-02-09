@@ -841,23 +841,19 @@ async function migrateStories(
                   continue;
                 }
 
-                // Only migrate bot messages (characterName is present)
-                if (oldMsg.sender === "bot" && oldMsg.characterName) {
-                  const newMsg = new MessageEntity();
-                  newMsg.id = oldMsg.id;
-                  newMsg.content = oldMsg.text;
-                  newMsg.characterName = oldMsg.characterName;
-                  newMsg.translation = oldMsg.translation ?? null;
-                  newMsg.tone = extractTone(oldMsg.rawText);
-                  newMsg.audio = oldMsg.audioData ?? null;
-                  newMsg.userId = DEFAULT_USER_ID;
-                  newMsg.journalId = savedJournal.id;
+                // Migrate all messages - user messages get characterName = "User"
+                const newMsg = new MessageEntity();
+                newMsg.id = oldMsg.id;
+                newMsg.content = oldMsg.text;
+                newMsg.characterName = oldMsg.sender === "user" ? "User" : (oldMsg.characterName || "Unknown");
+                newMsg.translation = oldMsg.translation ?? null;
+                newMsg.tone = extractTone(oldMsg.rawText);
+                newMsg.audio = oldMsg.audioData ?? null;
+                newMsg.userId = DEFAULT_USER_ID;
+                newMsg.journalId = savedJournal.id;
 
-                  await messageRepo.save(newMsg);
-                  stats.messages.success++;
-                } else {
-                  stats.messages.skipped++;
-                }
+                await messageRepo.save(newMsg);
+                stats.messages.success++;
               } catch (err) {
                 const msg = `Message ${oldMsg.id}: ${err instanceof Error ? err.message : String(err)}`;
                 stats.messages.errors.push(msg);
