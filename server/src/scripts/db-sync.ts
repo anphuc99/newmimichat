@@ -1,6 +1,7 @@
 import "reflect-metadata";
 import { DataSource } from "typeorm";
 import { AppDataSource } from "../data-source.js";
+import { seedDefaultLevels } from "../services/seed.service.js";
 
 /**
  * Initializes a data source with schema synchronization enabled for local setup.
@@ -25,6 +26,10 @@ const run = async () => {
 
   try {
     dataSource = await createSyncDataSource();
+    const seedResult = await seedDefaultLevels(dataSource);
+    if (seedResult.inserted || seedResult.updated) {
+      console.log(`Seeded levels: inserted=${seedResult.inserted}, updated=${seedResult.updated}`);
+    }
     console.log("Database schema synchronized successfully.");
   } catch (error) {
     console.error("Failed to synchronize database schema.", error);

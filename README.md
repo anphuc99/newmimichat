@@ -111,6 +111,8 @@ Create/update tables in local dev (TypeORM sync; do not use in production):
 npm run db:sync
 ```
 
+`db:sync` will also seed the default CEFR levels if they are missing or out of date.
+
 Reset and recreate all tables (destructive, local only):
 
 ```bash
