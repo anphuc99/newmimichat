@@ -236,14 +236,66 @@ const TranslationView = () => {
     difficult: [],
     starred: []
   });
+  const [dueQueueIds, setDueQueueIds] = useState<number[]>([]);
 
   const fetchAll = useCallback(async () => {
     setIsLoading(true);
     setError(null);
-  const [dueQueueIds, setDueQueueIds] = useState<number[]>([]);
 
     try {
       const [cardsRes, dueRes, statsRes] = await Promise.all([
+        authFetch(apiUrl("/api/translation")),
+        authFetch(apiUrl("/api/translation/due")),
+        authFetch(apiUrl("/api/translation/stats"))
+      ]);
+
+      if (!cardsRes.ok || !dueRes.ok || !statsRes.ok) {
+        throw new Error("Failed to load translation data");
+      }
+
+      const cardsPayload = (await cardsRes.json()) as { cards: TranslationCard[] };
+      const duePayload = (await dueRes.json()) as { cards: TranslationCard[]; total: number };
+      const statsPayload = (await statsRes.json()) as TranslationStats;
+
+      setAllCards(cardsPayload.cards ?? []);
+      setDueCards(duePayload.cards ?? []);
+      setStats(statsPayload);
+    } catch (caught) {
+      console.error("Failed to load translation data.", caught);
+      setError(caught instanceof Error ? caught.message : "Unknown error");
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  const fetchLearnCandidate = useCallback(async () => {
+    setIsLearnLoading(true);
+    setError(null);
+
+    try {
+      const response = await authFetch(apiUrl("/api/translation/learn"));
+
+      if (!response.ok) {
+        if (response.status === 404) {
+          setLearnCandidate(null);
+          return;
+        }
+        throw new Error("Failed to load learn candidate");
+      }
+
+      const payload = (await response.json()) as LearnCandidate;
+      setLearnCandidate(payload);
+    } catch (caught) {
+      console.error("Failed to load learn candidate.", caught);
+      setError(caught instanceof Error ? caught.message : "Unknown error");
+    } finally {
+      setIsLearnLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void fetchAll();
+  }, [fetchAll]);
 
   useEffect(() => {
     setDueQueueIds((prev) => {
@@ -258,90 +310,6 @@ const TranslationView = () => {
       return prev.filter((id) => dueSet.has(id));
     });
   }, [dueCards]);
-        authFetch(apiUrl("/api/translation")),
-        authFetch(apiUrl("/api/translation/due")),
-        authFetch(apiUrl("/api/translation/stats"))
-      ]);
-
-      if (!cardsRes.ok || !dueRes.ok || !statsRes.ok) {
-        throw new Error("Failed to load translation data");
-      }
-
-
-  const dueQueue = useMemo(
-    () => dueQueueIds.map((id) => cardById.get(id)).filter(Boolean) as TranslationCard[],
-    [dueQueueIds, cardById]
-  );
-      const cardsPayload = (await cardsRes.json()) as { cards: TranslationCard[] };
-    if (tab === "due") return dueQueue;
-      const statsPayload = (await statsRes.json()) as TranslationStats;
-
-      setAllCards(cardsPayload.cards ?? []);
-  }, [tab, dueQueue, difficultQueue, starredQueue]);
-      setStats(statsPayload);
-    } catch (caught) {
-      console.error("Failed to load translation data.", caught);
-      setError(caught instanceof Error ? caught.message : "Unknown error");
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
-
-  const fetchLearnCandidate = useCallback(async () => {
-    setIsLearnLoading(true);
-    setError(null);
-      if (!skipRefresh) {
-        await fetchAll();
-      }
-    try {
-      const response = await authFetch(apiUrl("/api/translation/learn"));
-
-      if (!response.ok) {
-        if (response.status === 404) {
-
-  const handleDueReview = async (cardId: number, rating: number, userTranslation: string) => {
-    await handleReview(cardId, rating, userTranslation, true);
-
-    setDueQueueIds((prev) => {
-      const next = prev.filter((id) => id !== cardId);
-
-      if (next.length === 0) {
-        void fetchAll().then(() => {
-          setDueQueueIds([]);
-          setReviewIndex(0);
-        });
-        return [];
-      }
-
-      return next;
-    });
-
-    setReviewIndex((prev) => (prev >= dueQueue.length - 1 ? 0 : prev));
-  };
-          setLearnCandidate(null);
-    { id: "due", label: "Due", count: dueQueue.length },
-        }
-        throw new Error("Failed to load learn candidate");
-      }
-
-      const payload = (await response.json()) as LearnCandidate;
-      setLearnCandidate(payload);
-    } catch (caught) {
-      console.error("Failed to load learn candidate.", caught);
-      setError(caught instanceof Error ? caught.message : "Unknown error");
-
-            if (tab === "due") {
-              void handleDueReview(active.id, rating, draft);
-              return;
-            }
-    } finally {
-      setIsLearnLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    void fetchAll();
-  }, [fetchAll]);
 
   useEffect(() => {
     let isActive = true;
@@ -439,6 +407,11 @@ const TranslationView = () => {
     [practiceQueues.starred, cardById]
   );
 
+  const dueQueue = useMemo(
+    () => dueQueueIds.map((id) => cardById.get(id)).filter(Boolean) as TranslationCard[],
+    [dueQueueIds, cardById]
+  );
+
   useEffect(() => {
     if (tab === "difficult" && difficultQueue.length === 0 && difficultIds.length > 0) {
       setPracticeQueues((prev) => ({
@@ -459,11 +432,11 @@ const TranslationView = () => {
   }, [tab, difficultQueue.length, starredQueue.length, difficultIds, starredIds]);
 
   const activeList = useMemo(() => {
-    if (tab === "due") return dueCards;
+    if (tab === "due") return dueQueue;
     if (tab === "difficult") return difficultQueue;
     if (tab === "starred") return starredQueue;
     return [] as TranslationCard[];
-  }, [tab, dueCards, difficultQueue, starredQueue]);
+  }, [tab, dueQueue, difficultQueue, starredQueue]);
 
   useEffect(() => {
     if (tab === "learn") {
@@ -574,7 +547,7 @@ const TranslationView = () => {
    * @param rating - FSRS rating (1-4).
    * @param userTranslation - User-provided translation.
    */
-  const handleReview = async (cardId: number, rating: number, userTranslation: string) => {
+  const handleReview = async (cardId: number, rating: number, userTranslation: string, skipRefresh = false) => {
     try {
       const response = await authFetch(apiUrl("/api/translation/review"), {
         method: "POST",
@@ -586,11 +559,33 @@ const TranslationView = () => {
         throw new Error("Review failed");
       }
 
-      await fetchAll();
+      if (!skipRefresh) {
+        await fetchAll();
+      }
     } catch (caught) {
       console.error("Failed to review translation card.", caught);
       setError(caught instanceof Error ? caught.message : "Unknown error");
     }
+  };
+
+  const handleDueReview = async (cardId: number, rating: number, userTranslation: string) => {
+    await handleReview(cardId, rating, userTranslation, true);
+
+    setDueQueueIds((prev) => {
+      const next = prev.filter((id) => id !== cardId);
+
+      if (next.length === 0) {
+        void fetchAll().then(() => {
+          setDueQueueIds([]);
+          setReviewIndex(0);
+        });
+        return [];
+      }
+
+      return next;
+    });
+
+    setReviewIndex((prev) => (prev >= dueQueue.length - 1 ? 0 : prev));
   };
 
   /**
@@ -677,7 +672,7 @@ const TranslationView = () => {
   };
 
   const tabs: { id: TabId; label: string; count?: number }[] = [
-    { id: "due", label: "Due", count: dueCards.length },
+    { id: "due", label: "Due", count: dueQueue.length },
     { id: "difficult", label: "Difficult", count: difficultQueue.length },
     { id: "starred", label: "Starred", count: starredQueue.length },
     { id: "learn", label: "Learn", count: learnCandidate ? 1 : 0 }
@@ -776,6 +771,11 @@ const TranslationView = () => {
             if (tab === "difficult" || tab === "starred") {
               const action = rating === 1 ? "hard" : "easy";
               handleLocalQueueReview(tab, active.id, action);
+              return;
+            }
+
+            if (tab === "due") {
+              void handleDueReview(active.id, rating, draft);
               return;
             }
 
