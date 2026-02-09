@@ -240,9 +240,24 @@ const TranslationView = () => {
   const fetchAll = useCallback(async () => {
     setIsLoading(true);
     setError(null);
+  const [dueQueueIds, setDueQueueIds] = useState<number[]>([]);
 
     try {
       const [cardsRes, dueRes, statsRes] = await Promise.all([
+
+  useEffect(() => {
+    setDueQueueIds((prev) => {
+      const dueIds = dueCards.map((card) => card.id);
+      if (dueIds.length === 0) {
+        return [];
+      }
+      if (prev.length === 0) {
+        return dueIds;
+      }
+      const dueSet = new Set(dueIds);
+      return prev.filter((id) => dueSet.has(id));
+    });
+  }, [dueCards]);
         authFetch(apiUrl("/api/translation")),
         authFetch(apiUrl("/api/translation/due")),
         authFetch(apiUrl("/api/translation/stats"))
@@ -252,12 +267,17 @@ const TranslationView = () => {
         throw new Error("Failed to load translation data");
       }
 
+
+  const dueQueue = useMemo(
+    () => dueQueueIds.map((id) => cardById.get(id)).filter(Boolean) as TranslationCard[],
+    [dueQueueIds, cardById]
+  );
       const cardsPayload = (await cardsRes.json()) as { cards: TranslationCard[] };
-      const duePayload = (await dueRes.json()) as { cards: TranslationCard[]; total: number };
+    if (tab === "due") return dueQueue;
       const statsPayload = (await statsRes.json()) as TranslationStats;
 
       setAllCards(cardsPayload.cards ?? []);
-      setDueCards(duePayload.cards ?? []);
+  }, [tab, dueQueue, difficultQueue, starredQueue]);
       setStats(statsPayload);
     } catch (caught) {
       console.error("Failed to load translation data.", caught);
@@ -270,14 +290,36 @@ const TranslationView = () => {
   const fetchLearnCandidate = useCallback(async () => {
     setIsLearnLoading(true);
     setError(null);
-
+      if (!skipRefresh) {
+        await fetchAll();
+      }
     try {
       const response = await authFetch(apiUrl("/api/translation/learn"));
 
       if (!response.ok) {
         if (response.status === 404) {
+
+  const handleDueReview = async (cardId: number, rating: number, userTranslation: string) => {
+    await handleReview(cardId, rating, userTranslation, true);
+
+    setDueQueueIds((prev) => {
+      const next = prev.filter((id) => id !== cardId);
+
+      if (next.length === 0) {
+        void fetchAll().then(() => {
+          setDueQueueIds([]);
+          setReviewIndex(0);
+        });
+        return [];
+      }
+
+      return next;
+    });
+
+    setReviewIndex((prev) => (prev >= dueQueue.length - 1 ? 0 : prev));
+  };
           setLearnCandidate(null);
-          return;
+    { id: "due", label: "Due", count: dueQueue.length },
         }
         throw new Error("Failed to load learn candidate");
       }
@@ -287,6 +329,11 @@ const TranslationView = () => {
     } catch (caught) {
       console.error("Failed to load learn candidate.", caught);
       setError(caught instanceof Error ? caught.message : "Unknown error");
+
+            if (tab === "due") {
+              void handleDueReview(active.id, rating, draft);
+              return;
+            }
     } finally {
       setIsLearnLoading(false);
     }

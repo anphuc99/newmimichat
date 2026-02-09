@@ -216,6 +216,7 @@ const ListeningView = () => {
     difficult: [],
     starred: []
   });
+  const [dueQueueIds, setDueQueueIds] = useState<number[]>([]);
 
   const fetchAll = useCallback(async () => {
     setIsLoading(true);
@@ -275,6 +276,20 @@ const ListeningView = () => {
   useEffect(() => {
     void fetchAll();
   }, [fetchAll]);
+
+  useEffect(() => {
+    setDueQueueIds((prev) => {
+      const dueIds = dueCards.map((card) => card.id);
+      if (dueIds.length === 0) {
+        return [];
+      }
+      if (prev.length === 0) {
+        return dueIds;
+      }
+      const dueSet = new Set(dueIds);
+      return prev.filter((id) => dueSet.has(id));
+    });
+  }, [dueCards]);
 
   useEffect(() => {
     let isActive = true;
@@ -364,6 +379,11 @@ const ListeningView = () => {
     [practiceQueues.starred, cardById]
   );
 
+  const dueQueue = useMemo(
+    () => dueQueueIds.map((id) => cardById.get(id)).filter(Boolean) as ListeningCard[],
+    [dueQueueIds, cardById]
+  );
+
   useEffect(() => {
     if (tab === "difficult" && difficultQueue.length === 0 && difficultIds.length > 0) {
       setPracticeQueues((prev) => ({
@@ -384,11 +404,11 @@ const ListeningView = () => {
   }, [tab, difficultQueue.length, starredQueue.length, difficultIds, starredIds]);
 
   const activeList = useMemo(() => {
-    if (tab === "due") return dueCards;
+    if (tab === "due") return dueQueue;
     if (tab === "difficult") return difficultQueue;
     if (tab === "starred") return starredQueue;
     return [] as ListeningCard[];
-  }, [tab, dueCards, difficultQueue, starredQueue]);
+  }, [tab, dueQueue, difficultQueue, starredQueue]);
 
   const getCharacterAudioSettings = (name?: string) => {
     if (!name) {
@@ -440,7 +460,7 @@ const ListeningView = () => {
     }
   };
 
-  const handleReview = async (cardId: number, rating: number) => {
+  const handleReview = async (cardId: number, rating: number, skipRefresh = false) => {
     try {
       const response = await authFetch(apiUrl("/api/listening/review"), {
         method: "POST",
@@ -452,11 +472,33 @@ const ListeningView = () => {
         throw new Error("Review failed");
       }
 
-      await fetchAll();
+      if (!skipRefresh) {
+        await fetchAll();
+      }
     } catch (caught) {
       console.error("Failed to review listening card.", caught);
       setError(caught instanceof Error ? caught.message : "Unknown error");
     }
+  };
+
+  const handleDueReview = async (cardId: number, rating: number) => {
+    await handleReview(cardId, rating, true);
+
+    setDueQueueIds((prev) => {
+      const next = prev.filter((id) => id !== cardId);
+
+      if (next.length === 0) {
+        void fetchAll().then(() => {
+          setDueQueueIds([]);
+          setReviewIndex(0);
+        });
+        return [];
+      }
+
+      return next;
+    });
+
+    setReviewIndex((prev) => (prev >= dueQueue.length - 1 ? 0 : prev));
   };
 
   const handleLearnReview = async (messageId: string, rating: number) => {
@@ -531,7 +573,7 @@ const ListeningView = () => {
   };
 
   const tabs: { id: TabId; label: string; count?: number }[] = [
-    { id: "due", label: "Due", count: dueCards.length },
+    { id: "due", label: "Due", count: dueQueue.length },
     { id: "difficult", label: "Difficult", count: difficultQueue.length },
     { id: "starred", label: "Starred", count: starredQueue.length },
     { id: "learn", label: "Learn", count: learnCandidate ? 1 : 0 }
@@ -611,6 +653,11 @@ const ListeningView = () => {
           onRate={(rating) => {
             const active = activeList[reviewIndex];
             if (!active) {
+              return;
+            }
+
+            if (tab === "due") {
+              void handleDueReview(active.id, rating);
               return;
             }
 

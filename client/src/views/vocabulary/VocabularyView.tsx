@@ -98,6 +98,8 @@ const VocabularyView = (_props: VocabularyViewProps) => {
   // ── Learn mode state ──────────────────────────────────────────────────
   const [learnIndex, setLearnIndex] = useState(0);
   const [simpleQueue, setSimpleQueue] = useState<VocabularyItem[]>([]);
+  const [dueQueueIds, setDueQueueIds] = useState<string[]>([]);
+  const [dueIndex, setDueIndex] = useState(0);
 
   // ── Memory editor state ───────────────────────────────────────────────
   const [editingVocab, setEditingVocab] = useState<VocabularyItem | null>(null);
@@ -138,6 +140,20 @@ const VocabularyView = (_props: VocabularyViewProps) => {
     void fetchAll();
   }, [fetchAll]);
 
+  useEffect(() => {
+    setDueQueueIds((prev) => {
+      const dueIds = dueItems.map((item) => item.id);
+      if (dueIds.length === 0) {
+        return [];
+      }
+      if (prev.length === 0) {
+        return dueIds;
+      }
+      const dueSet = new Set(dueIds);
+      return prev.filter((id) => dueSet.has(id));
+    });
+  }, [dueItems]);
+
   // ── Filtered items ────────────────────────────────────────────────────
 
   const starredItems = useMemo(
@@ -176,11 +192,21 @@ const VocabularyView = (_props: VocabularyViewProps) => {
     );
   }, [allItems, searchQuery]);
 
+  const learnItems = useMemo(
+    () => dueItems.filter((item) => !(item.review?.reviewHistory?.length ?? 0)),
+    [dueItems]
+  );
+
+  const dueQueue = useMemo(() => {
+    const map = new Map(dueItems.map((item) => [item.id, item] as const));
+    return dueQueueIds.map((id) => map.get(id)).filter(Boolean) as VocabularyItem[];
+  }, [dueQueueIds, dueItems]);
+
   /** Items shown in the current tab (excluding learn). */
   const displayItems = useMemo(() => {
     switch (tab) {
       case "due":
-        return dueItems;
+        return dueQueue;
       case "starred":
         return starredItems;
       case "difficult":
@@ -188,12 +214,7 @@ const VocabularyView = (_props: VocabularyViewProps) => {
       default:
         return searchedItems;
     }
-  }, [tab, dueItems, starredItems, difficultItems, searchedItems]);
-
-  const learnItems = useMemo(
-    () => dueItems.filter((item) => !(item.review?.reviewHistory?.length ?? 0)),
-    [dueItems]
-  );
+  }, [tab, dueQueue, starredItems, difficultItems, searchedItems]);
 
   const resetSimpleQueue = useCallback((items: VocabularyItem[]) => {
     setSimpleQueue(items);
@@ -231,7 +252,7 @@ const VocabularyView = (_props: VocabularyViewProps) => {
    * @param vocabId - Vocabulary item ID (string).
    * @param rating - FSRS rating 1–4.
    */
-  const handleReview = async (vocabId: string, rating: number) => {
+  const handleReview = async (vocabId: string, rating: number, skipRefresh = false) => {
     try {
       const response = await authFetch(apiUrl(`/api/vocabulary/${vocabId}/review`), {
         method: "POST",
@@ -244,11 +265,33 @@ const VocabularyView = (_props: VocabularyViewProps) => {
       }
 
       // Refresh data after review
-      await fetchAll();
+      if (!skipRefresh) {
+        await fetchAll();
+      }
     } catch (caught) {
       console.error("Failed to review vocabulary.", caught);
       setError(caught instanceof Error ? caught.message : "Unknown error");
     }
+  };
+
+  const handleDueReview = async (vocabId: string, rating: number) => {
+    await handleReview(vocabId, rating, true);
+
+    setDueQueueIds((prev) => {
+      const next = prev.filter((id) => id !== vocabId);
+
+      if (next.length === 0) {
+        void fetchAll().then(() => {
+          setDueQueueIds([]);
+          setDueIndex(0);
+        });
+        return [];
+      }
+
+      return next;
+    });
+
+    setDueIndex((prev) => (prev >= dueQueue.length - 1 ? 0 : prev));
   };
 
   /**
@@ -373,7 +416,7 @@ const VocabularyView = (_props: VocabularyViewProps) => {
 
   const tabs: { id: TabId; label: string; count?: number }[] = [
     { id: "all", label: "All", count: allItems.length },
-    { id: "due", label: "Due", count: dueItems.length },
+    { id: "due", label: "Due", count: dueQueue.length },
     { id: "difficult", label: "Difficult", count: difficultItems.length },
     { id: "starred", label: "Starred", count: starredItems.length },
     { id: "learn", label: "Learn", count: learnItems.length }
@@ -453,30 +496,44 @@ const VocabularyView = (_props: VocabularyViewProps) => {
       {isLoading ? (
         <p className="vocab-loading">Loading...</p>
       ) : tab === "learn" || tab === "due" ? (
-        (tab === "learn" ? learnItems : dueItems).length === 0 ? (
+        (tab === "learn" ? learnItems : dueQueue).length === 0 ? (
           <p className="vocab-empty">No items due for review. Come back later!</p>
         ) : (
           <VocabularyFlashcard
-            item={(tab === "learn" ? learnItems : dueItems)[learnIndex]!}
-            index={learnIndex}
-            total={(tab === "learn" ? learnItems : dueItems).length}
+            item={(tab === "learn" ? learnItems : dueQueue)[tab === "learn" ? learnIndex : dueIndex]!}
+            index={tab === "learn" ? learnIndex : dueIndex}
+            total={(tab === "learn" ? learnItems : dueQueue).length}
             onRate={(rating: number) => {
-              const activeItems = tab === "learn" ? learnItems : dueItems;
-              const currentItem = activeItems[learnIndex];
+              const activeItems = tab === "learn" ? learnItems : dueQueue;
+              const currentIndex = tab === "learn" ? learnIndex : dueIndex;
+              const currentItem = activeItems[currentIndex];
               if (currentItem) {
-                void handleReview(currentItem.id, rating);
+                if (tab === "due") {
+                  void handleDueReview(currentItem.id, rating);
+                } else {
+                  void handleReview(currentItem.id, rating);
+                }
               }
 
-              if (learnIndex < activeItems.length - 1) {
-                setLearnIndex((prev) => prev + 1);
-              } else {
-                setTab("all");
-                setLearnIndex(0);
+              if (tab === "learn") {
+                if (learnIndex < activeItems.length - 1) {
+                  setLearnIndex((prev) => prev + 1);
+                } else {
+                  setTab("all");
+                  setLearnIndex(0);
+                }
+              } else if (tab === "due") {
+                if (dueIndex < activeItems.length - 1) {
+                  setDueIndex((prev) => prev + 1);
+                } else {
+                  setDueIndex(0);
+                }
               }
             }}
             onToggleStar={() => {
-              const activeItems = tab === "learn" ? learnItems : dueItems;
-              const currentItem = activeItems[learnIndex];
+              const activeItems = tab === "learn" ? learnItems : dueQueue;
+              const currentIndex = tab === "learn" ? learnIndex : dueIndex;
+              const currentItem = activeItems[currentIndex];
               if (currentItem) {
                 void handleToggleStar(currentItem.id);
               }
