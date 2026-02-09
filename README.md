@@ -4,7 +4,7 @@ Full-stack MimiChat refactor: React (Vite) client + Express (TypeScript) server 
 
 Core features implemented so far:
 - JWT auth (register/login) + signup gated by a `REGISTRATION_TOKEN`
-- CEFR levels A0–C2 stored in DB (seed script) + user can select their level
+- CEFR levels A0–C2 stored in DB (auto-seeded on server start; seed script also available) + user can select their level
 - Characters CRUD, avatar upload (served under `/public`), optional voiceName selection + per-character pitch/speakingRate
 - Chat endpoint backed by OpenAI
 - OpenAI TTS playback with cached audio (hash includes text + tone + voice)
@@ -121,6 +121,8 @@ Seed default CEFR levels (A0–C2):
 
 ```bash
 npm run db:seed:levels
+
+The API server also auto-seeds the default levels on startup if missing.
 ```
 
 ## Development
