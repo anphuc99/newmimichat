@@ -124,19 +124,6 @@ export const createJournalController = (
     return [];
   };
 
-  const extractSummary = (reply: string) => {
-    const turns = parseAssistantReply(reply);
-    if (!turns.length) {
-      return reply.trim();
-    }
-
-    const first = turns[0] ?? {};
-    const translation = typeof first.Translation === "string" ? first.Translation.trim() : "";
-    const text = typeof first.Text === "string" ? first.Text.trim() : "";
-
-    return translation || text || reply.trim();
-  };
-
   const parseAssistantEditNote = (content: string) => {
     const englishMatch = content.match(/^Assistant\s+message\s+edited:\s+([^\.\n]+)\./i);
     const vietnameseMatch = content.match(/^Chat\s+co\s+messageID\s+duoc\s+sua\s+thanh\s+([^\.\n]+)\./i);
@@ -212,41 +199,6 @@ export const createJournalController = (
         content: JSON.stringify(nextTurns)
       };
     });
-  };
-
-  /**
-   * Requests an updated story progress from OpenAI using the summary.
-   *
-   * @param story - Story entity to update.
-   * @param summary - Vietnamese summary of the conversation.
-   * @returns The updated progress text or null when unavailable.
-   */
-  const requestStoryProgressUpdate = async (story: StoryEntity, summary: string) => {
-    const trimmedSummary = summary.trim();
-    if (!trimmedSummary) {
-      return null;
-    }
-
-    const systemInstruction = [
-      "You are a story progress editor.",
-      "Update the current story progress based on the latest conversation summary.",
-      "Return updated story progress in Vietnamese only.",
-      "Keep it concise (1-3 sentences).",
-      "Return plain text only. No JSON, no labels."
-    ].join("\n");
-
-    const message = [
-      `Story description: ${story.description.trim() || "(none)"}`,
-      `Current progress: ${(story.currentProgress ?? "").trim() || "(none)"}`,
-      `Conversation summary: ${trimmedSummary}`
-    ].join("\n");
-
-    const reply = await openAIService?.createReply(message, [
-      { role: "system", content: systemInstruction }
-    ]);
-
-    const updatedProgress = reply?.reply?.trim() ?? "";
-    return updatedProgress || null;
   };
 
   const buildMessageEntities = (
@@ -549,25 +501,23 @@ export const createJournalController = (
         return;
       }
 
-      const summaryInstruction = [
-        "Conversation ended.",
-        "Summarize what the conversation talked about.",
-        "Return a JSON array with ONE object that includes CharacterName, Text, Tone, Translation.",
-        "Put the Vietnamese summary in Translation.",
-        "Keep Text in Korean.",
-        "Tone can be \"neutral, medium pitch\".",
-        "Return ONLY valid JSON."
-      ].join("\n");
+      const summaryInstruction = `
+Please summarize the above conversation in Vietnamese, update the story description, and return it in JSON format as follows:
+{
+  "Summary": "Summary of the conversation here.", -- Only the summary text in Vietnamese.
+  "UpdatedStoryDescription": "The story description has been updated here." -- Only the story description text in Vietnamese.
+}
+`.trim();
 
-      const summaryReply = await openAIService.createReply("Please summarize the conversation.", [
+      const summaryReply = await openAIService.createReply(undefined, [
         ...adjustedHistory,
         { role: "developer", content: summaryInstruction }
       ]);
-
-      const summary = extractSummary(summaryReply.reply);
+      console.log("Summary reply from OpenAI:", summaryReply.reply);
+      const summaryStory = JSON.parse(summaryReply.reply) as { Summary: string; UpdatedStoryDescription: string };
 
       const journal = journalRepository.create({
-        summary,
+        summary: summaryStory.Summary,
         userId: request.user.id,
         storyId: story?.id ?? null
       });
@@ -588,7 +538,7 @@ export const createJournalController = (
 
       if (story) {
         try {
-          const updatedProgress = await requestStoryProgressUpdate(story, summary);
+          const updatedProgress = summaryStory.UpdatedStoryDescription;
           if (updatedProgress) {
             story.currentProgress = updatedProgress;
             await storyRepository.save(story);

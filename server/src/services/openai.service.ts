@@ -167,7 +167,7 @@ export const createOpenAIClient = (apiKey: string, options: OpenAIClientTlsOptio
 
 export interface OpenAIChatService {
   createReply: (
-    message: string,
+    message?: string,
     history?: Array<{ role: "system" | "developer" | "user" | "assistant"; content: string }>,
     modelOverride?: string
   ) => Promise<{ reply: string; model: string }>;
@@ -211,23 +211,26 @@ export const createOpenAIChatService = (config: OpenAIChatServiceConfig): OpenAI
     const systemPrompt = hasSystemMessage ? hasSystemMessage.content : await loadSystemPrompt();
     const messages = normalizedHistory.filter((entry) => entry.role !== "system");
 
+    if(message !== undefined){
+      messages.push({ role: "user", content: message });
+    }
     const resolvedModel = modelOverride?.trim() || model;
 
     const response = await client.responses.create({
       model: resolvedModel,
       instructions: systemPrompt,
       input: [
-        ...messages,
-        { role: "user", content: message }
+        ...messages
       ]
     });
 
+    const reply = response.output_text?.trim() ?? "";
+    
     if(process.env.NODE_ENV !== 'production')
     {
       console.log(messages);
+      console.log("OpenAI response reply:", reply);
     }
-
-    const reply = response.output_text?.trim() ?? "";
 
     if (!reply) {
       throw new Error("OpenAI returned an empty response");

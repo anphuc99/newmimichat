@@ -123,9 +123,9 @@ Seed default CEFR levels (A0–C2):
 
 ```bash
 npm run db:seed:levels
+```
 
 The API server also auto-seeds the default levels on startup if missing.
-```
 
 ## Development
 
@@ -261,6 +261,8 @@ How the edit is applied:
 
 Chat messages are **not** saved to MySQL during the conversation. When the user ends a conversation, the server:
 - Sends a developer instruction asking OpenAI to summarize the session
+- Summary response is expected as JSON with `Summary` and `UpdatedStoryDescription` (Vietnamese text)
+- Updates story progress from `UpdatedStoryDescription` when a story is attached
 - Creates a Journal entry from the summary
 - Persists all messages from the session history into the `messages` table
 - Clears the session history file

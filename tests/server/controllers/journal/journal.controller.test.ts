@@ -51,7 +51,7 @@ const createController = () => {
 
   const openAIService = {
     createReply: vi.fn().mockResolvedValue({
-      reply: "[{\"CharacterName\":\"Mimi\",\"Text\":\"요약이에요.\",\"Tone\":\"neutral, medium pitch\",\"Translation\":\"Cuoc hoi thoai noi ve...\"}]",
+      reply: "{\"Summary\":\"Cuoc hoi thoai noi ve...\",\"UpdatedStoryDescription\":\"Tien trinh moi.\"}",
       model: "test-model"
     })
   };

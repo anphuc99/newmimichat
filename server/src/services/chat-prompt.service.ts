@@ -202,6 +202,16 @@ Example:
 ]
 
 ====================================
+SUMMARY
+====================================
+
+If a summary is requested by the developer, summarize the entire conversation and update the STORY DESCRIPTION to return JSON as follows:
+{
+  "Summary": "The summary of the conversation is here.", -- Only Vietnamese summary text.
+  "UpdatedStoryDescription": "The story description has been updated here." -- Only Vietnamese updated story description text.
+}
+
+====================================
 FINAL CHECK
 ====================================
 Silently verify all ABSOLUTE RULES before responding.`;
