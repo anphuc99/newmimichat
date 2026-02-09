@@ -392,6 +392,25 @@ const TranslationView = () => {
     [practiceQueues.starred, cardById]
   );
 
+  useEffect(() => {
+    if (tab === "difficult" && difficultQueue.length === 0 && difficultIds.length > 0) {
+      setPracticeQueues((prev) => ({
+        ...prev,
+        difficult: [...difficultIds]
+      }));
+      setReviewIndex(0);
+      return;
+    }
+
+    if (tab === "starred" && starredQueue.length === 0 && starredIds.length > 0) {
+      setPracticeQueues((prev) => ({
+        ...prev,
+        starred: [...starredIds]
+      }));
+      setReviewIndex(0);
+    }
+  }, [tab, difficultQueue.length, starredQueue.length, difficultIds, starredIds]);
+
   const activeList = useMemo(() => {
     if (tab === "due") return dueCards;
     if (tab === "difficult") return difficultQueue;
