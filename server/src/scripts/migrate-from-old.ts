@@ -8,11 +8,12 @@
  *   npm run migrate:old -- --source D:/Unity/mimichat/server/data
  *
  * This script migrates:
+ * - Stories (stories-index.json + stories/*.json)
  * - Vocabularies (vocabulary-store.json)
  * - Vocabulary Reviews (vocabulary-store.json)
  * - Vocabulary Memories (vocabulary-store.json)
  * - Characters (data.json)
- * - Journals and Messages (data.json)
+ * - Journals and Messages (stories/*.json)
  * - Translation Cards and Reviews (translation-store.json)
  * - Streak data (streak.json)
  *
@@ -21,6 +22,7 @@
 
 import fs from "fs";
 import path from "path";
+import bcrypt from "bcryptjs";
 import { AppDataSource } from "../data-source.js";
 import VocabularyEntity from "../models/vocabulary.entity.js";
 import VocabularyReviewEntity from "../models/vocabulary-review.entity.js";
@@ -31,6 +33,8 @@ import MessageEntity from "../models/message.entity.js";
 import TranslationCardEntity from "../models/translation-card.entity.js";
 import TranslationReviewEntity from "../models/translation-review.entity.js";
 import StreakEntity from "../models/streak.entity.js";
+import StoryEntity from "../models/story.entity.js";
+import UserEntity from "../models/user.entity.js";
 
 /** Default user ID since old code has no user system */
 const DEFAULT_USER_ID = 1;
@@ -178,11 +182,35 @@ interface OldStreakJson {
   lastActivityDate: string | null;
 }
 
+interface OldStoryMeta {
+  id: string;
+  name: string;
+  createdAt: string;
+  updatedAt: string;
+  charactersPreview: string[];
+  messageCount: number;
+}
+
+interface OldStoriesIndex {
+  stories: OldStoryMeta[];
+  lastOpenedStoryId?: string;
+}
+
+interface OldStoryFile {
+  version: number;
+  journal: OldDailyChat[];
+  characters: OldCharacter[];
+  storyPlot?: string;
+  context?: string;
+  relatedJournalIds?: string[];
+}
+
 // ============================================================================
 // Migration Statistics
 // ============================================================================
 
 interface MigrationStats {
+  stories: { total: number; success: number; skipped: number; errors: string[] };
   vocabularies: { total: number; success: number; skipped: number; errors: string[] };
   vocabularyReviews: { total: number; success: number; skipped: number; errors: string[] };
   vocabularyMemories: { total: number; success: number; skipped: number; errors: string[] };
@@ -195,6 +223,7 @@ interface MigrationStats {
 }
 
 const createEmptyStats = (): MigrationStats => ({
+  stories: { total: 0, success: 0, skipped: 0, errors: [] },
   vocabularies: { total: 0, success: 0, skipped: 0, errors: [] },
   vocabularyReviews: { total: 0, success: 0, skipped: 0, errors: [] },
   vocabularyMemories: { total: 0, success: 0, skipped: 0, errors: [] },
@@ -249,6 +278,29 @@ function extractTone(rawText?: string): string | null {
 // ============================================================================
 // Migration Functions
 // ============================================================================
+
+/**
+ * Ensures a default user exists for migration (since old code has no user system).
+ * Creates user with ID=1 if not exists.
+ */
+async function ensureDefaultUser(): Promise<void> {
+  const userRepo = AppDataSource.getRepository(UserEntity);
+
+  const existingUser = await userRepo.findOne({ where: { id: DEFAULT_USER_ID } });
+  if (existingUser) {
+    console.log("   ✅ Default user already exists (ID: 1)");
+    return;
+  }
+
+  // Create a default user for migration
+  const passwordHash = await bcrypt.hash("migrated_user_password", 10);
+  const newUser = new UserEntity();
+  newUser.username = "migrated_user";
+  newUser.passwordHash = passwordHash;
+
+  await userRepo.save(newUser);
+  console.log("   ✅ Default user created (ID: 1, username: migrated_user)");
+}
 
 /**
  * Migrates vocabularies from vocabulary-store.json.
@@ -691,6 +743,145 @@ async function migrateStreak(
   }
 }
 
+/**
+ * Migrates stories from stories-index.json and individual story files.
+ * Returns a map of old storyId -> new storyId for journal linking.
+ */
+async function migrateStories(
+  sourcePath: string,
+  stats: MigrationStats
+): Promise<{ storyIdMap: Map<string, number>; journalIdMap: Map<string, number> }> {
+  console.log("\n📖 Migrating stories...");
+  const storyRepo = AppDataSource.getRepository(StoryEntity);
+  const journalRepo = AppDataSource.getRepository(JournalEntity);
+  const messageRepo = AppDataSource.getRepository(MessageEntity);
+
+  const storyIdMap = new Map<string, number>(); // old UUID -> new numeric ID
+  const journalIdMap = new Map<string, number>(); // date/dailyChatId -> journal ID
+
+  const storiesIndexPath = path.join(sourcePath, "stories-index.json");
+  const storiesIndex = readJsonFile<OldStoriesIndex>(storiesIndexPath);
+
+  if (!storiesIndex || !storiesIndex.stories.length) {
+    console.log("   ⚠️ No stories found in stories-index.json");
+    return { storyIdMap, journalIdMap };
+  }
+
+  stats.stories.total = storiesIndex.stories.length;
+
+  for (const storyMeta of storiesIndex.stories) {
+    try {
+      // Check if story already exists by name
+      const existing = await storyRepo.findOne({
+        where: { name: storyMeta.name, userId: DEFAULT_USER_ID }
+      });
+      if (existing) {
+        stats.stories.skipped++;
+        storyIdMap.set(storyMeta.id, existing.id);
+        continue;
+      }
+
+      // Read the story file to get storyPlot
+      const storyFilePath = path.join(sourcePath, "stories", `${storyMeta.id}.json`);
+      const storyFile = readJsonFile<OldStoryFile>(storyFilePath);
+
+      const newStory = new StoryEntity();
+      newStory.name = storyMeta.name;
+      newStory.description = storyFile?.storyPlot || storyFile?.context || `Story created on ${storyMeta.createdAt}`;
+      newStory.currentProgress = null;
+      newStory.userId = DEFAULT_USER_ID;
+
+      const savedStory = await storyRepo.save(newStory);
+      storyIdMap.set(storyMeta.id, savedStory.id);
+      stats.stories.success++;
+
+      // Migrate journals from this story file
+      if (storyFile && storyFile.journal && storyFile.journal.length > 0) {
+        stats.journals.total += storyFile.journal.length;
+
+        for (const oldJournal of storyFile.journal) {
+          try {
+            const identifier = oldJournal.id || oldJournal.date;
+
+            // Check if journal already exists
+            const existingJournal = await journalRepo
+              .createQueryBuilder("j")
+              .where("j.user_id = :userId", { userId: DEFAULT_USER_ID })
+              .andWhere("j.story_id = :storyId", { storyId: savedStory.id })
+              .andWhere("DATE(j.created_at) = :date", { date: oldJournal.date })
+              .getOne();
+
+            if (existingJournal) {
+              stats.journals.skipped++;
+              journalIdMap.set(identifier, existingJournal.id);
+              journalIdMap.set(oldJournal.date, existingJournal.id);
+              continue;
+            }
+
+            const newJournal = new JournalEntity();
+            newJournal.summary = oldJournal.summary;
+            newJournal.userId = DEFAULT_USER_ID;
+            newJournal.storyId = savedStory.id;
+
+            const savedJournal = await journalRepo.save(newJournal);
+            journalIdMap.set(identifier, savedJournal.id);
+            journalIdMap.set(oldJournal.date, savedJournal.id);
+            if (oldJournal.id) {
+              journalIdMap.set(oldJournal.id, savedJournal.id);
+            }
+            stats.journals.success++;
+
+            // Migrate messages for this journal
+            stats.messages.total += oldJournal.messages.length;
+            for (const oldMsg of oldJournal.messages) {
+              try {
+                const existingMsg = await messageRepo.findOne({ where: { id: oldMsg.id } });
+                if (existingMsg) {
+                  stats.messages.skipped++;
+                  continue;
+                }
+
+                // Only migrate bot messages (characterName is present)
+                if (oldMsg.sender === "bot" && oldMsg.characterName) {
+                  const newMsg = new MessageEntity();
+                  newMsg.id = oldMsg.id;
+                  newMsg.content = oldMsg.text;
+                  newMsg.characterName = oldMsg.characterName;
+                  newMsg.translation = oldMsg.translation ?? null;
+                  newMsg.tone = extractTone(oldMsg.rawText);
+                  newMsg.audio = oldMsg.audioData ?? null;
+                  newMsg.userId = DEFAULT_USER_ID;
+                  newMsg.journalId = savedJournal.id;
+
+                  await messageRepo.save(newMsg);
+                  stats.messages.success++;
+                } else {
+                  stats.messages.skipped++;
+                }
+              } catch (err) {
+                const msg = `Message ${oldMsg.id}: ${err instanceof Error ? err.message : String(err)}`;
+                stats.messages.errors.push(msg);
+              }
+            }
+          } catch (err) {
+            const msg = `Journal ${oldJournal.date}: ${err instanceof Error ? err.message : String(err)}`;
+            stats.journals.errors.push(msg);
+          }
+        }
+      }
+    } catch (err) {
+      const msg = `Story ${storyMeta.name}: ${err instanceof Error ? err.message : String(err)}`;
+      stats.stories.errors.push(msg);
+    }
+  }
+
+  console.log(`   ✅ Stories: ${stats.stories.success} migrated, ${stats.stories.skipped} skipped`);
+  console.log(`   ✅ Journals: ${stats.journals.success} migrated, ${stats.journals.skipped} skipped`);
+  console.log(`   ✅ Messages: ${stats.messages.success} migrated, ${stats.messages.skipped} skipped`);
+
+  return { storyIdMap, journalIdMap };
+}
+
 // ============================================================================
 // Main Migration Entry Point
 // ============================================================================
@@ -704,6 +895,7 @@ function printReport(stats: MigrationStats): void {
   console.log("=".repeat(60));
 
   const categories = [
+    { name: "Stories", data: stats.stories },
     { name: "Vocabularies", data: stats.vocabularies },
     { name: "Vocabulary Reviews", data: stats.vocabularyReviews },
     { name: "Vocabulary Memories", data: stats.vocabularyMemories },
@@ -764,6 +956,10 @@ async function runMigration(sourcePath: string): Promise<void> {
   await AppDataSource.initialize();
   console.log("   ✅ Database connected");
 
+  // Ensure default user exists (ID=1) for migration
+  console.log("\n👤 Checking default user...");
+  await ensureDefaultUser();
+
   const stats = createEmptyStats();
 
   try {
@@ -782,21 +978,22 @@ async function runMigration(sourcePath: string): Promise<void> {
       await migrateVocabularyMemories(vocabStore, vocabIdMap, stats);
     }
 
-    // 2. Migrate characters, journals, messages
+    // 2. Migrate stories (includes journals and messages from story files)
+    const { journalIdMap } = await migrateStories(sourcePath, stats);
+
+    // 3. Migrate characters from data.json
     const dataJson = readJsonFile<OldDataJson>(dataJsonPath);
-    let journalIdMap = new Map<string, number>();
     if (dataJson) {
       await migrateCharacters(dataJson, stats);
-      journalIdMap = await migrateJournalsAndMessages(dataJson, stats);
     }
 
-    // 3. Migrate translation data
+    // 4. Migrate translation data
     const translationStore = readJsonFile<OldTranslationStore>(translationStorePath);
     if (translationStore) {
       await migrateTranslationData(translationStore, journalIdMap, stats);
     }
 
-    // 4. Migrate streak
+    // 5. Migrate streak
     const streakJson = readJsonFile<OldStreakJson>(streakJsonPath);
     if (streakJson) {
       await migrateStreak(streakJson, stats);
