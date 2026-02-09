@@ -92,6 +92,8 @@ export const createVocabularyController = (dataSource: DataSource): VocabularyCo
   const vocabRepo: Repository<VocabularyEntity> = dataSource.getRepository(VocabularyEntity);
   const reviewRepo: Repository<VocabularyReviewEntity> = dataSource.getRepository(VocabularyReviewEntity);
   const memoryRepo: Repository<VocabularyMemoryEntity> = dataSource.getRepository(VocabularyMemoryEntity);
+  const toDateKey = (value: Date | string) =>
+    new Date(value).toLocaleDateString("en-CA", { timeZone: "Asia/Ho_Chi_Minh" });
 
   // ──────────────────────────────────────────────────────────────────────────
   // List all vocabularies for the current user (with reviews + memories).
@@ -432,8 +434,8 @@ export const createVocabularyController = (dataSource: DataSource): VocabularyCo
 
     try {
       const reviews = await reviewRepo.find({ where: { userId } });
-      const now = new Date();
-      const dueReviews = reviews.filter((r: VocabularyReviewEntity) => new Date(r.nextReviewDate) <= now);
+      const todayKey = toDateKey(new Date());
+      const dueReviews = reviews.filter((r: VocabularyReviewEntity) => toDateKey(r.nextReviewDate) <= todayKey);
 
       const vocabIds = dueReviews.map((r: VocabularyReviewEntity) => r.vocabularyId);
       const vocabularies = vocabIds.length
@@ -496,7 +498,8 @@ export const createVocabularyController = (dataSource: DataSource): VocabularyCo
 
       const allReviews = await reviewRepo.find({ where: { userId } });
       const now = new Date();
-      const dueToday = allReviews.filter((r: VocabularyReviewEntity) => new Date(r.nextReviewDate) <= now).length;
+      const todayKey = toDateKey(now);
+      const dueToday = allReviews.filter((r: VocabularyReviewEntity) => toDateKey(r.nextReviewDate) <= todayKey).length;
       const withoutReview = totalVocabularies - totalReviews;
 
       // Count difficult today (rated Hard/Again today)
