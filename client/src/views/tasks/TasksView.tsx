@@ -41,7 +41,7 @@ const TasksView = () => {
 
         if (!response.ok) {
           const errorPayload = (await response.json().catch(() => null)) as { message?: string } | null;
-          throw new Error(errorPayload?.message ?? "Failed to load tasks");
+          throw new Error(errorPayload?.message ?? "Không thể tải nhiệm vụ");
         }
 
         const data = (await response.json()) as TasksResponse;
@@ -75,14 +75,14 @@ const TasksView = () => {
       return "";
     }
 
-    return `${payload.completedCount}/${payload.totalCount} nhiem vu hoan thanh`;
+    return `${payload.completedCount}/${payload.totalCount} nhiệm vụ hoàn thành`;
   }, [payload]);
 
   return (
     <main className="tasks-shell">
       <header className="tasks-header">
         <div>
-          <h1>Nhiem vu hom nay</h1>
+          <h1>Nhiệm vụ hôm nay</h1>
           {payload ? <p className="tasks-date">{payload.date}</p> : null}
         </div>
         {payload ? <span className="tasks-summary">{completionLabel}</span> : null}
@@ -91,9 +91,9 @@ const TasksView = () => {
       {error ? <p className="tasks-error">{error}</p> : null}
 
       {isLoading ? (
-        <p className="tasks-loading">Loading...</p>
+        <p className="tasks-loading">Đang tải...</p>
       ) : tasks.length === 0 ? (
-        <p className="tasks-empty">Chua co nhiem vu cho hom nay.</p>
+        <p className="tasks-empty">Chưa có nhiệm vụ cho hôm nay.</p>
       ) : (
         <section className="tasks-grid">
           {tasks.map((task) => {
@@ -107,7 +107,7 @@ const TasksView = () => {
                 <div className="tasks-card__header">
                   <h2 className="tasks-card__label">{task.label}</h2>
                   <span className={`tasks-tag ${task.completed ? "is-complete" : ""}`}>
-                    {task.completed ? "Hoan thanh" : "Dang lam"}
+                    {task.completed ? "Hoàn thành" : "Đang làm"}
                   </span>
                 </div>
 
@@ -116,12 +116,12 @@ const TasksView = () => {
                     <span>
                       {task.progress}/{task.target}
                     </span>
-                    <span>Con lai: {task.remaining}</span>
+                    <span>Còn lại: {task.remaining}</span>
                   </div>
                 ) : (
                   <div className="tasks-card__meta">
-                    <span>Con lai: {task.remaining}</span>
-                    <span>{task.remaining === 0 ? "Da on het" : "Can on"}</span>
+                    <span>Còn lại: {task.remaining}</span>
+                    <span>{task.remaining === 0 ? "Đã ôn hết" : "Cần ôn"}</span>
                   </div>
                 )}
 

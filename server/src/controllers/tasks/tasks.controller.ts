@@ -107,7 +107,7 @@ export const createTasksController = (dataSource: DataSource): TasksController =
       const tasks: TaskItem[] = [
         {
           id: "vocab_new",
-          label: "Hoc 20 tu moi",
+          label: "Học 20 từ mới",
           type: "count",
           progress: vocabLearned,
           target: 20,
@@ -116,7 +116,7 @@ export const createTasksController = (dataSource: DataSource): TasksController =
         },
         {
           id: "vocab_due",
-          label: "On tap het tu den han",
+          label: "Ôn tập hết từ đến hạn",
           type: "clear_due",
           progress: 0,
           target: 0,
@@ -125,7 +125,7 @@ export const createTasksController = (dataSource: DataSource): TasksController =
         },
         {
           id: "translation_new",
-          label: "Luyen dich 5 cau moi",
+          label: "Luyện dịch 5 câu mới",
           type: "count",
           progress: translationLearned,
           target: 5,
@@ -134,7 +134,7 @@ export const createTasksController = (dataSource: DataSource): TasksController =
         },
         {
           id: "translation_due",
-          label: "On tap het cau dich den han",
+          label: "Ôn tập hết câu dịch đến hạn",
           type: "clear_due",
           progress: 0,
           target: 0,
@@ -143,7 +143,7 @@ export const createTasksController = (dataSource: DataSource): TasksController =
         },
         {
           id: "listening_new",
-          label: "Luyen nghe 5 cau moi",
+          label: "Luyện nghe 5 câu mới",
           type: "count",
           progress: listeningLearned,
           target: 5,
@@ -152,7 +152,7 @@ export const createTasksController = (dataSource: DataSource): TasksController =
         },
         {
           id: "listening_due",
-          label: "On tap het cau nghe den han",
+          label: "Ôn tập hết câu nghe đến hạn",
           type: "clear_due",
           progress: 0,
           target: 0,
@@ -161,7 +161,7 @@ export const createTasksController = (dataSource: DataSource): TasksController =
         },
         {
           id: "shadowing_new",
-          label: "Luyen shadowing 5 cau moi",
+          label: "Luyện shadowing 5 câu mới",
           type: "count",
           progress: shadowingLearned,
           target: 5,
@@ -170,7 +170,7 @@ export const createTasksController = (dataSource: DataSource): TasksController =
         },
         {
           id: "shadowing_due",
-          label: "On tap het shadowing den han",
+          label: "Ôn tập hết shadowing đến hạn",
           type: "clear_due",
           progress: 0,
           target: 0,
@@ -190,7 +190,7 @@ export const createTasksController = (dataSource: DataSource): TasksController =
       response.json(payload);
     } catch (error) {
       console.error("Failed to load tasks.", error);
-      response.status(500).json({ message: "Failed to load tasks" });
+      response.status(500).json({ message: "Không thể tải nhiệm vụ" });
     }
   };
 
