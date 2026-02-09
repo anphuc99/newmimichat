@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import MessageInput from "./components/MessageInput";
 import MessageList from "./components/MessageList";
+import VocabularyCollectPopup from "../vocabulary/components/VocabularyCollectPopup";
 import { apiUrl } from "../../lib/api";
 import { authFetch } from "../../lib/auth";
 
@@ -328,6 +329,23 @@ const ChatView = ({ userId, model }: ChatViewProps) => {
   const lastAutoPlayIndex = useRef(0);
   const audioContextRef = useRef<AudioContext | null>(null);
   const audioCacheRef = useRef<Map<string, AudioBuffer>>(new Map());
+
+  // ── Vocabulary collect popup state ──────────────────────────────────
+  const [collectPopupKorean, setCollectPopupKorean] = useState("");
+  const [collectPopupMessageIds, setCollectPopupMessageIds] = useState<string[]>([]);
+  const [showCollectPopup, setShowCollectPopup] = useState(false);
+
+  /**
+   * Opens the vocabulary collect popup pre-filled with Korean text.
+   *
+   * @param korean - Korean text from the assistant message.
+   * @param messageId - Optional assistant message id to link as memory.
+   */
+  const handleOpenCollectPopup = (korean: string, messageId?: string) => {
+    setCollectPopupKorean(korean);
+    setCollectPopupMessageIds(messageId ? [messageId] : []);
+    setShowCollectPopup(true);
+  };
 
   /**
    * Loads stories for the current user and keeps the active story selection.
@@ -1185,6 +1203,7 @@ const ChatView = ({ userId, model }: ChatViewProps) => {
           onReloadAudio={handleReloadAudio}
           onEditUserMessage={canEditMessages ? handleEditUserMessage : undefined}
           onEditAssistantMessage={canEditMessages ? handleEditAssistantMessage : undefined}
+          onCollectVocab={handleOpenCollectPopup}
         />
       </section>
 
@@ -1194,6 +1213,14 @@ const ChatView = ({ userId, model }: ChatViewProps) => {
         onSend={handleSend}
         disabled={isChatLocked}
       />
+
+      {showCollectPopup ? (
+        <VocabularyCollectPopup
+          initialKorean={collectPopupKorean}
+          linkedMessageIds={collectPopupMessageIds}
+          onClose={() => setShowCollectPopup(false)}
+        />
+      ) : null}
     </main>
   );
 };

@@ -3,6 +3,7 @@ import ChatView from "./views/chat";
 import CharactersView from "./views/characters";
 import JournalView from "./views/journal";
 import StoryView from "./views/story";
+import VocabularyView from "./views/vocabulary";
 import LoginView from "./views/auth";
 import { apiUrl } from "./lib/api";
 import {
@@ -13,7 +14,7 @@ import {
   type AuthSession
 } from "./lib/auth";
 
-type AppView = "chat" | "characters" | "journal" | "story";
+type AppView = "chat" | "characters" | "journal" | "story" | "vocabulary";
 const MODEL_STORAGE_KEY = "mimi_chat_model";
 const MODEL_OPTIONS = ["gpt-4o-mini", "gpt-4.1-mini", "gpt-4.1", "gpt-4o", "gpt-5-mini", "gpt-5", "gpt-5.1"];
 
@@ -215,6 +216,13 @@ const App = () => {
         >
           Story
         </button>
+        <button
+          type="button"
+          className={`app-nav__button ${view === "vocabulary" ? "active" : ""}`}
+          onClick={() => setView("vocabulary")}
+        >
+          Vocabulary
+        </button>
         <div className="app-nav__level">
           <label>
             Level
@@ -255,6 +263,8 @@ const App = () => {
         <CharactersView />
       ) : view === "journal" ? (
         <JournalView userId={auth.user.id} />
+      ) : view === "vocabulary" ? (
+        <VocabularyView userId={auth.user.id} />
       ) : (
         <StoryView />
       )}

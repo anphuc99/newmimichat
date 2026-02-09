@@ -21,6 +21,7 @@ interface MessageListProps {
   onReloadAudio?: (messageId: string) => void;
   onEditUserMessage?: (userMessageIndex: number, content: string) => void;
   onEditAssistantMessage?: (assistantMessageId: string, localMessageId: string, content: string) => void;
+  onCollectVocab?: (korean: string, messageId?: string) => void;
 }
 
 /**
@@ -35,7 +36,8 @@ const MessageList = ({
   onPlayAudio,
   onReloadAudio,
   onEditUserMessage,
-  onEditAssistantMessage
+  onEditAssistantMessage,
+  onCollectVocab
 }: MessageListProps) => {
   const endRef = useRef<HTMLDivElement | null>(null);
   let userIndex = 0;
@@ -73,6 +75,11 @@ const MessageList = ({
             }}
             onPlayAudio={onPlayAudio ? () => onPlayAudio(message.id) : undefined}
             onReloadAudio={onReloadAudio ? () => onReloadAudio(message.id) : undefined}
+            onCollectVocab={
+              onCollectVocab && message.role === "assistant"
+                ? (korean: string) => onCollectVocab(korean, message.assistantId)
+                : undefined
+            }
           />
         );
       })}

@@ -13,6 +13,7 @@ interface MessageBubbleProps {
   onEdit?: (nextContent: string) => void;
   onPlayAudio?: () => void;
   onReloadAudio?: () => void;
+  onCollectVocab?: (korean: string) => void;
 }
 
 /**
@@ -31,7 +32,8 @@ const MessageBubble = ({
   isEditable,
   onEdit,
   onPlayAudio,
-  onReloadAudio
+  onReloadAudio,
+  onCollectVocab
 }: MessageBubbleProps) => {
   const [showTranslation, setShowTranslation] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -115,6 +117,16 @@ const MessageBubble = ({
             Reload
           </button>
         </div>
+      ) : null}
+      {role === "assistant" && onCollectVocab ? (
+        <button
+          type="button"
+          className="chat-bubble__collect-button"
+          onClick={() => onCollectVocab(content)}
+          title="Collect vocabulary from this message"
+        >
+          📝 Collect
+        </button>
       ) : null}
       <span className="chat-bubble__meta">{timeLabel}</span>
     </article>
