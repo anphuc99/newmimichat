@@ -3,6 +3,7 @@ import ChatView from "./views/chat";
 import CharactersView from "./views/characters";
 import JournalView from "./views/journal";
 import StoryView from "./views/story";
+import TranslationView from "./views/translation";
 import VocabularyView from "./views/vocabulary";
 import LoginView from "./views/auth";
 import { apiUrl } from "./lib/api";
@@ -14,7 +15,7 @@ import {
   type AuthSession
 } from "./lib/auth";
 
-type AppView = "chat" | "characters" | "journal" | "story" | "vocabulary";
+type AppView = "chat" | "characters" | "journal" | "story" | "translation" | "vocabulary";
 const MODEL_STORAGE_KEY = "mimi_chat_model";
 const MODEL_OPTIONS = ["gpt-4o-mini", "gpt-4.1-mini", "gpt-4.1", "gpt-4o", "gpt-5-mini", "gpt-5", "gpt-5.1"];
 
@@ -237,6 +238,8 @@ const App = () => {
           <CharactersView />
         ) : view === "journal" ? (
           <JournalView userId={auth.user.id} />
+        ) : view === "translation" ? (
+          <TranslationView />
         ) : view === "vocabulary" ? (
           <VocabularyView userId={auth.user.id} />
         ) : (
@@ -265,6 +268,13 @@ const App = () => {
           onClick={() => setView("journal")}
         >
           Journal
+        </button>
+        <button
+          type="button"
+          className={`app-tab ${view === "translation" ? "active" : ""}`}
+          onClick={() => setView("translation")}
+        >
+          Translate
         </button>
         <button
           type="button"

@@ -8,6 +8,7 @@ import { createCharactersRoutes } from "./characters.routes.js";
 import { createJournalRoutes } from "./journal.routes.js";
 import { createLevelsRoutes } from "./levels.routes.js";
 import { createStoryRoutes } from "./story.routes.js";
+import { createTranslationRoutes } from "./translation.routes.js";
 import { createUsersRoutes } from "./users.routes.js";
 import { createVocabularyRoutes } from "./vocabulary.routes.js";
 
@@ -27,6 +28,7 @@ export const createApiRouter = (dataSource: DataSource) => {
   router.use("/journals", createJournalRoutes(dataSource));
   router.use("/levels", createLevelsRoutes(dataSource));
   router.use("/stories", createStoryRoutes(dataSource));
+  router.use("/translation", createTranslationRoutes(dataSource));
   router.use("/users", createUsersRoutes(dataSource));
   router.use("/vocabulary", createVocabularyRoutes(dataSource));
   router.use("/", createSharedRoutes());
