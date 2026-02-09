@@ -14,6 +14,7 @@
     "db:sync": "npm run db:sync --workspace server",
     "db:reset": "npm run db:reset --workspace server",
     "db:seed:levels": "npm run db:seed:levels --workspace server",
+    "migrate:old": "npm run migrate:old --workspace server",
     "mvc:gen": "node Tool/mvc-gen.js",
     "test": "vitest run",
     "test:watch": "vitest"

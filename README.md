@@ -131,6 +131,32 @@ npm run db:seed:levels
 
 The API server also auto-seeds the default levels on startup if missing.
 
+## Migration from Old MimiChat
+
+To migrate data from the old MimiChat (JSON-based storage) to the new system (MySQL/SQLite):
+
+```bash
+npm run migrate:old -- --source <path-to-old-server-data>
+```
+
+Example:
+
+```bash
+npm run migrate:old -- --source D:/Unity/mimichat/server/data
+```
+
+This migrates:
+- **Vocabularies** and FSRS review schedules
+- **Vocabulary memories** (user notes linked to messages)
+- **Characters** (profiles, voice settings)
+- **Journals** and chat messages
+- **Translation cards** and reviews
+- **Streak** data
+
+**Note:** Since the old code has no user system, all records are assigned `userId = 1`.
+
+The migration is **idempotent** - running it multiple times will skip already-imported records.
+
 ## Development
 
 Runs both the server and client concurrently:
