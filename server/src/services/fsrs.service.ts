@@ -154,20 +154,19 @@ export const calculateRetrievability = (stability: number, elapsedDays: number):
 
 /**
  * Builds the initial review state for a newly collected vocabulary.
- * The first review is scheduled for tomorrow.
+ * The first review is scheduled immediately to show in learn/review.
  *
  * @returns A fresh ReviewState.
  */
 export const createInitialReviewState = (): ReviewState => {
-  const tomorrow = new Date();
-  tomorrow.setDate(tomorrow.getDate() + 1);
+  const now = new Date();
 
   return {
     stability: 0,
     difficulty: 5,
     lapses: 0,
     currentIntervalDays: 1,
-    nextReviewDate: tomorrow.toISOString(),
+    nextReviewDate: now.toISOString(),
     lastReviewDate: null,
     reviewHistory: []
   };
@@ -197,7 +196,6 @@ export const createReviewFromDifficulty = (
     difficultyRating === "very_easy" ? 1 : difficultyRating === "easy" ? 3 : difficultyRating === "medium" ? 5 : 7;
 
   const nextReviewDate = new Date(now);
-  nextReviewDate.setDate(now.getDate() + intervalDays);
 
   const historyEntry: ReviewHistoryEntry = {
     date: now.toISOString(),
