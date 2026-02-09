@@ -326,15 +326,6 @@ const TranslationView = () => {
     setExplanationMd(null);
   }, [tab, learnCandidate?.messageId]);
 
-  useEffect(() => {
-    if (tab === "learn") {
-      return;
-    }
-
-    const active = activeList[reviewIndex];
-    setExplanationMd(active?.explanationMd ?? null);
-  }, [tab, activeList, reviewIndex]);
-
   const starredItems = useMemo(
     () => allCards.filter((card) => card.review?.isStarred),
     [allCards]
@@ -364,6 +355,15 @@ const TranslationView = () => {
     if (tab === "starred") return starredItems;
     return [] as TranslationCard[];
   }, [tab, dueCards, difficultItems, starredItems]);
+
+  useEffect(() => {
+    if (tab === "learn") {
+      return;
+    }
+
+    const active = activeList[reviewIndex];
+    setExplanationMd(active?.explanationMd ?? null);
+  }, [tab, activeList, reviewIndex]);
 
   const getCharacterAudioSettings = (name?: string) => {
     if (!name) {

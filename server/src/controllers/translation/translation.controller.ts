@@ -78,7 +78,7 @@ const serialiseCard = (entity: TranslationCardEntity) => {
 
 /**
  * Builds the prompt for grammar/vocabulary explanations.
-
+ */
 const buildExplanationPrompt = (payload: {
   content: string;
   translation?: string | null;
