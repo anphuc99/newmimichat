@@ -34,7 +34,7 @@ The server auto-loads dotenv from either:
 - `.env` (repo root), or
 - `server/.env`
 
-Examples exist under `server/.env.example` and `server/.env.ex`.
+Examples exist under `.env.ex` and `server/.env.ex`.
 
 Minimum server env (local):
 
@@ -58,6 +58,17 @@ REGISTRATION_TOKEN=replace_me
 OPENAI_API_KEY=replace_me
 OPENAI_MODEL=gpt-4.1-mini
 # Note: `OPENAI_MODEL` is the server default. The client can override it per request via the Model dropdown (sent as `model`).
+# TLS / corporate proxy (optional)
+# If you see: `SELF_SIGNED_CERT_IN_CHAIN` or `self-signed certificate in certificate chain`
+# provide your corporate root CA certificate so the server can trust the proxy.
+# Prefer one of these:
+# OPENAI_TLS_CA_CERT_PATH=C:\\path\\to\\corp-root-ca.pem
+# OPENAI_TLS_CA_CERT_BASE64=... (base64-encoded PEM)
+# Dev mode default: SSL verification is skipped when running `npm run dev` (or `NODE_ENV=development`).
+# To force SSL verification in dev, set:
+# OPENAI_TLS_INSECURE=false
+# To force skipping SSL in other modes (not recommended), set:
+# OPENAI_TLS_INSECURE=true
 # Optional TTS overrides
 # OPENAI_TTS_MODEL=gpt-4o-mini-tts-2025-03-20
 # OPENAI_TTS_VOICE=alloy
