@@ -207,24 +207,19 @@ export const createOpenAIChatService = (config: OpenAIChatServiceConfig): OpenAI
       )
       .map((entry) => ({ role: entry.role, content: entry.content }));
 
-    const hasSystemMessage = normalizedHistory.some((entry) => entry.role === "system");
-    const systemPrompt = hasSystemMessage ? null : await loadSystemPrompt();
-    const systemMessages = systemPrompt ? [{ role: "developer" as const, content: systemPrompt }] : [];
-
+    const hasSystemMessage = normalizedHistory.find((entry) => entry.role === "system");
+    const systemPrompt = hasSystemMessage ? hasSystemMessage.content : await loadSystemPrompt();
+      console.log("System Prompt:", systemPrompt);
     const messages = normalizedHistory.map((entry) => {
-      if (entry.role === "developer" || entry.role === "system") {
-        return { role: "developer" as const, content: entry.content };
-      }
-
-      return { role: entry.role as "system" | "user" | "assistant", content: entry.content };
+      return { role: entry.role as "developer" | "user" | "assistant", content: entry.content };
     });
 
     const resolvedModel = modelOverride?.trim() || model;
 
     const response = await client.responses.create({
       model: resolvedModel,
+      instructions: systemPrompt,
       input: [
-        ...systemMessages,
         ...messages,
         { role: "user", content: message }
       ]

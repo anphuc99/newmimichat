@@ -206,7 +206,6 @@ FINAL CHECK
 ====================================
 Silently verify all ABSOLUTE RULES before responding.`;
 
-  console.log("Generated system prompt:", p);
   return p;
 };
 
