@@ -189,7 +189,10 @@ const VocabularyView = (_props: VocabularyViewProps) => {
     }
   }, [tab, dueItems, starredItems, difficultItems, searchedItems]);
 
-  const learnItems = useMemo(() => dueItems, [dueItems]);
+  const learnItems = useMemo(
+    () => dueItems.filter((item) => !(item.review?.reviewHistory?.length ?? 0)),
+    [dueItems]
+  );
 
   // ── Handlers ──────────────────────────────────────────────────────────
 
