@@ -187,6 +187,45 @@ describe("Journal controller", () => {
     expect(response.json).toHaveBeenCalledWith({ journalId: 5, summary: "Cuoc hoi thoai noi ve..." });
   });
 
+  it("searches messages by message id", async () => {
+    const { controller, journalRepository, messageRepository } = createController();
+    const response = createMockResponse();
+
+    journalRepository.find.mockResolvedValue([
+      { id: 10, createdAt: new Date("2025-02-01T00:00:00.000Z"), userId: 1 }
+    ]);
+    messageRepository.find.mockResolvedValue([
+      {
+        id: "msg-123",
+        content: "Hello",
+        characterName: "Mimi",
+        translation: null,
+        tone: null,
+        audio: null,
+        createdAt: new Date("2025-02-01T00:00:01.000Z")
+      }
+    ]);
+
+    await controller.searchMessages({ user: { id: 1 }, query: { q: "msg-123" } } as any, response);
+
+    expect(response.json).toHaveBeenCalledWith({
+      results: [
+        {
+          messageId: "msg-123",
+          journalId: 10,
+          journalDate: "2025-02-01T00:00:00.000Z",
+          content: "Hello",
+          characterName: "Mimi",
+          translation: null,
+          tone: null,
+          audio: null
+        }
+      ],
+      total: 1,
+      hasMore: false
+    });
+  });
+
   it("applies assistant edit notes before saving messages", async () => {
     const { controller, journalRepository, messageRepository, characterRepository, historyStore } = createController();
     const response = createMockResponse();

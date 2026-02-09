@@ -463,16 +463,16 @@ export const createJournalController = (
         });
 
         for (const message of messages) {
-          // Try regex match first, fallback to simple includes
-          let matches = false;
+          const queryLower = query.toLowerCase();
+          // Allow searching by message id (used by memory linking)
+          let matches = message.id.toLowerCase().includes(queryLower);
           try {
             const regex = new RegExp(query, "i");
-            matches = regex.test(message.content) || (message.translation ? regex.test(message.translation) : false);
+            matches = matches || regex.test(message.content) || (message.translation ? regex.test(message.translation) : false);
           } catch {
             // Invalid regex, fallback to includes
-            const lowerQuery = query.toLowerCase();
-            matches = message.content.toLowerCase().includes(lowerQuery) ||
-              (message.translation?.toLowerCase().includes(lowerQuery) ?? false);
+            matches = matches || message.content.toLowerCase().includes(queryLower) ||
+              (message.translation?.toLowerCase().includes(queryLower) ?? false);
           }
 
           if (matches) {
