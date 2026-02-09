@@ -97,6 +97,7 @@ const VocabularyView = (_props: VocabularyViewProps) => {
 
   // ── Learn mode state ──────────────────────────────────────────────────
   const [learnIndex, setLearnIndex] = useState(0);
+  const [simpleQueue, setSimpleQueue] = useState<VocabularyItem[]>([]);
 
   // ── Memory editor state ───────────────────────────────────────────────
   const [editingVocab, setEditingVocab] = useState<VocabularyItem | null>(null);
@@ -193,6 +194,34 @@ const VocabularyView = (_props: VocabularyViewProps) => {
     () => dueItems.filter((item) => !(item.review?.reviewHistory?.length ?? 0)),
     [dueItems]
   );
+
+  const resetSimpleQueue = useCallback((items: VocabularyItem[]) => {
+    setSimpleQueue(items);
+  }, []);
+
+  useEffect(() => {
+    if (tab === "difficult") {
+      resetSimpleQueue(difficultItems);
+    } else if (tab === "starred") {
+      resetSimpleQueue(starredItems);
+    }
+  }, [tab, difficultItems, starredItems, resetSimpleQueue]);
+
+  const handleSimpleRemember = useCallback(() => {
+    setSimpleQueue((prev) => {
+      const next = prev.slice(1);
+      return next;
+    });
+  }, []);
+
+  const handleSimpleForgot = useCallback(() => {
+    setSimpleQueue((prev) => {
+      if (prev.length <= 1) {
+        return prev;
+      }
+      return [...prev.slice(1), prev[0]];
+    });
+  }, []);
 
   // ── Handlers ──────────────────────────────────────────────────────────
 
@@ -453,6 +482,61 @@ const VocabularyView = (_props: VocabularyViewProps) => {
               }
             }}
           />
+        )
+      ) : tab === "difficult" || tab === "starred" ? (
+        (tab === "difficult" ? difficultItems : starredItems).length === 0 ? (
+          <p className="vocab-empty">No vocabulary items in this tab.</p>
+        ) : simpleQueue.length === 0 ? (
+          <div className="vocab-empty">
+            <p>Hoàn thành lượt học.</p>
+            <button
+              type="button"
+              className="vocab-add-button"
+              onClick={() =>
+                resetSimpleQueue(tab === "difficult" ? difficultItems : starredItems)
+              }
+            >
+              Học lại
+            </button>
+          </div>
+        ) : (
+          <div className="vocab-flashcard">
+            <div className="vocab-flashcard__progress">
+              {(tab === "difficult" ? difficultItems : starredItems).length - simpleQueue.length + 1} / {(
+                tab === "difficult" ? difficultItems : starredItems
+              ).length}
+            </div>
+            <div className="vocab-flashcard__card flipped">
+              <div className="vocab-flashcard__front">
+                <p className="vocab-flashcard__text">{simpleQueue[0]?.korean}</p>
+                <p className="vocab-flashcard__hint">Nhớ hay quên?</p>
+              </div>
+              <div className="vocab-flashcard__back">
+                <p className="vocab-flashcard__text vocab-flashcard__text--answer">
+                  {simpleQueue[0]?.vietnamese}
+                </p>
+                {simpleQueue[0]?.memory?.userMemory ? (
+                  <p className="vocab-flashcard__memory">{simpleQueue[0]?.memory?.userMemory}</p>
+                ) : null}
+              </div>
+            </div>
+            <div className="vocab-flashcard__ratings">
+              <button
+                type="button"
+                className="rating-btn rating-btn--good"
+                onClick={handleSimpleRemember}
+              >
+                Nhớ
+              </button>
+              <button
+                type="button"
+                className="rating-btn rating-btn--again"
+                onClick={handleSimpleForgot}
+              >
+                Quên
+              </button>
+            </div>
+          </div>
         )
       ) : (
         <>
