@@ -222,4 +222,52 @@ describe("Users controller", () => {
     expect(response.payload.user.levelId).toBe(1);
     expect(response.payload.user.level).toBe("A1");
   });
+
+  it("resets password with registration token", async () => {
+    const repository = createUserRepository();
+    let savedUser: any = null;
+    repository.findOne = async (options?: { where?: { username?: string } }) =>
+      options?.where?.username ? ({ id: 1, username: "mimi", passwordHash: "old" } as any) : null;
+    repository.save = async (payload: any) => {
+      savedUser = payload;
+      return payload;
+    };
+    const controller = createController(repository);
+    const response = createMockResponse();
+
+    await controller.resetPassword(
+      { body: { username: "mimi", newPassword: "newpass12", registerToken: "invite-123" } } as any,
+      response
+    );
+
+    expect(response.payload.message).toBe("Password updated");
+    expect(savedUser).toBeTruthy();
+    const matches = await bcrypt.compare("newpass12", savedUser.passwordHash);
+    expect(matches).toBe(true);
+  });
+
+  it("rejects password reset with invalid token", async () => {
+    const repository = createUserRepository();
+    const controller = createController(repository);
+    const response = createMockResponse();
+
+    await controller.resetPassword(
+      { body: { username: "mimi", newPassword: "newpass12", registerToken: "wrong" } } as any,
+      response
+    );
+
+    expect(response.statusCode).toBe(403);
+    expect(response.payload.message).toBe("Invalid registration token");
+  });
+
+  it("rejects password reset with missing fields", async () => {
+    const repository = createUserRepository();
+    const controller = createController(repository);
+    const response = createMockResponse();
+
+    await controller.resetPassword({ body: { username: "" } } as any, response);
+
+    expect(response.statusCode).toBe(400);
+    expect(response.payload.message).toBe("Username and new password are required");
+  });
 });

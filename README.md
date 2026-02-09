@@ -191,6 +191,19 @@ Unit tests live outside `client/` and `server/` under `tests/`.
 npm test
 ```
 
+## Password reset (registration token)
+
+Reset a user password using the registration token (no old password required):
+
+```bash
+POST /api/users/reset-password
+{
+  "username": "mimi",
+  "newPassword": "newpass123",
+  "registerToken": "<REGISTRATION_TOKEN>"
+}
+```
+
 ## Project structure
 
 - `client/`: React (Vite)

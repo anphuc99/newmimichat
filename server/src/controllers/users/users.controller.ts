@@ -12,6 +12,12 @@ interface UserPayload {
   registerToken?: string;
 }
 
+interface ResetPasswordPayload {
+  username: string;
+  newPassword: string;
+  registerToken?: string;
+}
+
 interface UserResponse {
   user: UserProfile;
   token: string;
@@ -20,6 +26,7 @@ interface UserResponse {
 interface UsersController {
   register: (request: Request, response: Response) => Promise<void>;
   login: (request: Request, response: Response) => Promise<void>;
+  resetPassword: (request: Request, response: Response) => Promise<void>;
   getMe: (request: Request, response: Response) => Promise<void>;
   updateLevel: (request: Request, response: Response) => Promise<void>;
 }
@@ -152,6 +159,56 @@ export const createUsersController = (dataSource: DataSource): UsersController =
     }
   };
 
+  /**
+   * Resets a user's password using the registration token (no old password required).
+   *
+   * @param request - Express request with reset payload.
+   * @param response - Express response for reset results.
+   */
+  const resetPassword: UsersController["resetPassword"] = async (request, response) => {
+    const payload = request.body as ResetPasswordPayload;
+    const username = normalizeUsername(payload?.username);
+    const newPassword = typeof payload?.newPassword === "string" ? payload.newPassword : "";
+    const providedToken = typeof payload?.registerToken === "string" ? payload.registerToken.trim() : "";
+
+    if (!username || !isValidPassword(newPassword)) {
+      response.status(400).json({ message: "Username and new password are required" });
+      return;
+    }
+
+    const registrationToken = getRegistrationToken();
+
+    if (!registrationToken) {
+      response.status(500).json({ message: "Registration token is not configured" });
+      return;
+    }
+
+    if (providedToken !== registrationToken) {
+      response.status(403).json({ message: "Invalid registration token" });
+      return;
+    }
+
+    try {
+      const user = await repository.findOne({ where: { username } });
+
+      if (!user) {
+        response.status(404).json({ message: "User not found" });
+        return;
+      }
+
+      user.passwordHash = await bcrypt.hash(newPassword, 10);
+      await repository.save(user);
+
+      response.json({ message: "Password updated" });
+    } catch (error) {
+      console.error("Failed to reset password.", error);
+      response.status(500).json({
+        message: "Failed to reset password",
+        error: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  };
+
   const getMe: UsersController["getMe"] = async (request, response) => {
     if (!request.user) {
       response.status(401).json({ message: "Unauthorized" });
@@ -228,6 +285,7 @@ export const createUsersController = (dataSource: DataSource): UsersController =
   return {
     register,
     login,
+    resetPassword,
     getMe,
     updateLevel
   };
