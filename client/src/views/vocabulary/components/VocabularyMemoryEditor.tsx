@@ -275,7 +275,7 @@ const VocabularyMemoryEditor = ({
 
     for (const id of ids) {
       try {
-        const response = await authFetch(apiUrl(`/api/journal/search?q=${encodeURIComponent(id)}&limit=10`));
+        const response = await authFetch(apiUrl(`/api/journals/search?q=${encodeURIComponent(id)}&limit=10`));
         if (response.ok) {
           const data = (await response.json()) as { results: MessageSearchResult[] };
           const result = data.results.find((r) => r.messageId === id);
@@ -361,7 +361,7 @@ const VocabularyMemoryEditor = ({
 
     try {
       const response = await authFetch(
-        apiUrl(`/api/journal/search?q=${encodeURIComponent(query)}&limit=50`)
+        apiUrl(`/api/journals/search?q=${encodeURIComponent(query)}&limit=50`)
       );
 
       if (!response.ok) {
