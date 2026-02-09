@@ -424,20 +424,21 @@ const VocabularyView = (_props: VocabularyViewProps) => {
       {isLoading ? (
         <p className="vocab-loading">Loading...</p>
       ) : tab === "learn" || tab === "due" ? (
-        dueItems.length === 0 ? (
+        (tab === "learn" ? learnItems : dueItems).length === 0 ? (
           <p className="vocab-empty">No items due for review. Come back later!</p>
         ) : (
           <VocabularyFlashcard
-            item={dueItems[learnIndex]!}
+            item={(tab === "learn" ? learnItems : dueItems)[learnIndex]!}
             index={learnIndex}
-            total={dueItems.length}
+            total={(tab === "learn" ? learnItems : dueItems).length}
             onRate={(rating: number) => {
-              const currentItem = dueItems[learnIndex];
+              const activeItems = tab === "learn" ? learnItems : dueItems;
+              const currentItem = activeItems[learnIndex];
               if (currentItem) {
                 void handleReview(currentItem.id, rating);
               }
 
-              if (learnIndex < dueItems.length - 1) {
+              if (learnIndex < activeItems.length - 1) {
                 setLearnIndex((prev) => prev + 1);
               } else {
                 setTab("all");
@@ -445,7 +446,8 @@ const VocabularyView = (_props: VocabularyViewProps) => {
               }
             }}
             onToggleStar={() => {
-              const currentItem = dueItems[learnIndex];
+              const activeItems = tab === "learn" ? learnItems : dueItems;
+              const currentItem = activeItems[learnIndex];
               if (currentItem) {
                 void handleToggleStar(currentItem.id);
               }
