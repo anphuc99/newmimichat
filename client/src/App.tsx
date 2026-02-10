@@ -29,7 +29,25 @@ type AppView =
   | "shadowing"
   | "vocabulary";
 const MODEL_STORAGE_KEY = "mimi_chat_model";
-const MODEL_OPTIONS = ["gpt-4o-mini", "gpt-4.1-mini", "gpt-4.1", "gpt-4o", "gpt-5-mini", "gpt-5", "gpt-5.1"];
+/**
+ * Available AI model options.
+ * Includes both OpenAI and Gemini models.
+ */
+const MODEL_OPTIONS = [
+  // OpenAI models
+  "gpt-4o-mini",
+  "gpt-4.1-mini",
+  "gpt-4.1",
+  "gpt-4o",
+  "gpt-5-mini",
+  "gpt-5",
+  "gpt-5.1",
+  // Gemini models
+  "gemini-2.5-flash",
+  "gemini-2.5-pro",
+  "gemini-3-flash-preview",
+  "gemini-3-pro-preview"
+];
 
 /**
  * Describes a selectable proficiency level option.

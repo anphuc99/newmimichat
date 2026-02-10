@@ -18,7 +18,19 @@ const createRepository = () => ({
   save: vi.fn()
 });
 
-const createController = (repository: ReturnType<typeof createRepository>, openAIService?: any) => {
+/**
+ * Creates a controller with optional OpenAI and Gemini services for testing.
+ *
+ * @param repository - Mock repository.
+ * @param openAIService - Optional mock OpenAI service.
+ * @param geminiService - Optional mock Gemini service.
+ * @returns Controller and history store for testing.
+ */
+const createController = (
+  repository: ReturnType<typeof createRepository>,
+  openAIService?: any,
+  geminiService?: any
+) => {
   const dataSource = {
     getRepository: vi.fn(() => repository)
   } as any;
@@ -38,6 +50,7 @@ const createController = (repository: ReturnType<typeof createRepository>, openA
 
   const controller = createChatController(dataSource, {
     ...(openAIService ? { openAIService } : {}),
+    ...(geminiService ? { geminiService } : {}),
     historyStore,
     systemPromptBuilder: () => "Instruction"
   });
@@ -409,5 +422,121 @@ describe("Chat controller", () => {
 
     expect(historyStore.load).toHaveBeenCalledWith(1, "s1");
     expect(response.json).toHaveBeenCalledWith({ activeCharacterNames: ["Luna"] });
+  });
+
+  it("uses Gemini service when a Gemini model is specified", async () => {
+    const openAIService = {
+      createReply: vi.fn().mockResolvedValue({ reply: "OpenAI reply", model: "gpt-4o" })
+    };
+    const geminiService = {
+      createReply: vi.fn().mockResolvedValue({ reply: "Gemini reply", model: "gemini-2.5-flash" })
+    };
+
+    const repository = createRepository();
+    const { controller } = createController(repository, openAIService, geminiService);
+    const response = createMockResponse();
+
+    await controller.sendMessage(
+      { body: { message: "Hi", sessionId: "s1", model: "gemini-2.5-flash" }, user: { id: 1, username: "mimi" } } as any,
+      response
+    );
+
+    expect(geminiService.createReply).toHaveBeenCalledWith(
+      "Hi",
+      expect.any(Array),
+      "gemini-2.5-flash"
+    );
+    expect(openAIService.createReply).not.toHaveBeenCalled();
+    expect(response.json).toHaveBeenCalledWith({ reply: "Gemini reply", model: "gemini-2.5-flash" });
+  });
+
+  it("uses OpenAI service when an OpenAI model is specified", async () => {
+    const openAIService = {
+      createReply: vi.fn().mockResolvedValue({ reply: "OpenAI reply", model: "gpt-4o" })
+    };
+    const geminiService = {
+      createReply: vi.fn().mockResolvedValue({ reply: "Gemini reply", model: "gemini-2.5-flash" })
+    };
+
+    const repository = createRepository();
+    const { controller } = createController(repository, openAIService, geminiService);
+    const response = createMockResponse();
+
+    await controller.sendMessage(
+      { body: { message: "Hi", sessionId: "s1", model: "gpt-4o" }, user: { id: 1, username: "mimi" } } as any,
+      response
+    );
+
+    expect(openAIService.createReply).toHaveBeenCalledWith(
+      "Hi",
+      expect.any(Array),
+      "gpt-4o"
+    );
+    expect(geminiService.createReply).not.toHaveBeenCalled();
+    expect(response.json).toHaveBeenCalledWith({ reply: "OpenAI reply", model: "gpt-4o" });
+  });
+
+  it("returns 500 when Gemini is selected but not configured", async () => {
+    const openAIService = {
+      createReply: vi.fn().mockResolvedValue({ reply: "OpenAI reply", model: "gpt-4o" })
+    };
+    // No Gemini service provided
+
+    const repository = createRepository();
+    const { controller } = createController(repository, openAIService);
+    const response = createMockResponse();
+
+    await controller.sendMessage(
+      { body: { message: "Hi", sessionId: "s1", model: "gemini-2.5-flash" }, user: { id: 1, username: "mimi" } } as any,
+      response
+    );
+
+    expect(response.status).toHaveBeenCalledWith(500);
+    expect(response.json).toHaveBeenCalledWith({ message: "Gemini API key is not configured" });
+    expect(openAIService.createReply).not.toHaveBeenCalled();
+  });
+
+  it("uses Gemini service for editMessage when a Gemini model is specified", async () => {
+    const openAIService = {
+      createReply: vi.fn().mockResolvedValue({ reply: "OpenAI reply", model: "gpt-4o" })
+    };
+    const geminiService = {
+      createReply: vi.fn().mockResolvedValue({ reply: "Gemini reply", model: "gemini-2.5-pro" })
+    };
+
+    const repository = createRepository();
+    const { controller, historyStore } = createController(repository, openAIService, geminiService);
+    const response = createMockResponse();
+
+    const history = [
+      { role: "system", content: "Instruction" },
+      { role: "user", content: "Hello" },
+      { role: "assistant", content: "Hi" },
+      { role: "user", content: "Old message" },
+      { role: "assistant", content: "Old reply" }
+    ];
+
+    historyStore.load.mockResolvedValueOnce(history);
+
+    await controller.editMessage(
+      {
+        body: {
+          sessionId: "s1",
+          kind: "user",
+          userMessageIndex: 1,
+          content: "Updated message",
+          model: "gemini-2.5-pro"
+        },
+        user: { id: 1, username: "mimi" }
+      } as any,
+      response
+    );
+
+    expect(geminiService.createReply).toHaveBeenCalledWith(
+      "Updated message",
+      expect.any(Array),
+      "gemini-2.5-pro"
+    );
+    expect(openAIService.createReply).not.toHaveBeenCalled();
   });
 });

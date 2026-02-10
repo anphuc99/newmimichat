@@ -1,12 +1,13 @@
 # New Mimi Chat (Full Stack)
 
-Full-stack MimiChat refactor: React (Vite) client + Express (TypeScript) server + MySQL (TypeORM) + OpenAI chat.
+Full-stack MimiChat refactor: React (Vite) client + Express (TypeScript) server + MySQL (TypeORM) + OpenAI/Gemini chat.
 
 Core features implemented so far:
 - JWT auth (register/login) + signup gated by a `REGISTRATION_TOKEN`
 - CEFR levels A0–C2 stored in DB (seeded via `npm run db:sync` / `npm run db:seed:levels`) + user can select their level
 - Characters CRUD, avatar upload (served under `/public`), optional voiceName selection + per-character pitch/speakingRate
-- Chat endpoint backed by OpenAI
+- Chat endpoint backed by OpenAI or Gemini (switchable via model selector)
+- Multi-model support: OpenAI (gpt-4o, gpt-4.1, gpt-5, etc.) and Gemini (gemini-2.5-flash, gemini-2.5-pro, gemini-3-flash-preview, gemini-3-pro-preview)
 - OpenAI TTS playback with cached audio (hash includes text + tone + voice)
 - Journal summaries + message persistence on conversation end
 - Vocabulary collection + FSRS spaced repetition (Due/Learn/Difficult/Starred)
@@ -22,6 +23,7 @@ Core features implemented so far:
 - File-backed chat history (JSONL stored in `.txt`) scoped by `sessionId`
 - System instruction stored in history (for stable prompting / caching)
 - Character context injected via per-session **developer messages** (add/remove)
+- Gemini-compatible developer role handling (automatically converted for Gemini API)
 
 ## Requirements
 
@@ -83,6 +85,13 @@ OPENAI_MODEL=gpt-4.1-mini
 # OPENAI_TTS_VOICE=alloy
 # Optional (defaults to server/src/prompts/chat.system.txt)
 # OPENAI_SYSTEM_PROMPT_PATH=
+
+# Gemini (Google AI)
+# GOOGLE_API_KEY=replace_me
+# GEMINI_MODEL=gemini-2.5-flash
+# Note: Gemini models available: gemini-2.5-flash, gemini-2.5-pro, gemini-3-flash-preview, gemini-3-pro-preview
+# The client can select between OpenAI and Gemini models via the Model dropdown.
+# Developer role messages are automatically converted for Gemini compatibility.
 
 # Optional chat history directory
 # CHAT_HISTORY_DIR=server/data/chat-history
