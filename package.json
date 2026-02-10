@@ -13,6 +13,8 @@
     "format": "npm run format --workspace server && npm run format --workspace client",
     "db:sync": "npm run db:sync --workspace server",
     "db:reset": "npm run db:reset --workspace server",
+    "dbserver:sync": "npm run dbserver:sync --workspace server",
+    "dbserver:reset": "npm run dbserver:reset --workspace server",
     "db:seed:levels": "npm run db:seed:levels --workspace server",
     "migrate:old": "npm run migrate:old --workspace server",
     "mvc:gen": "node Tool/mvc-gen.js",
