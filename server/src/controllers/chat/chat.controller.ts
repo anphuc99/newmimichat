@@ -1,6 +1,7 @@
 import type { Request, Response } from "express";
 import type { DataSource } from "typeorm";
 import { createOpenAIChatService, type OpenAIChatService } from "../../services/openai.service.js";
+import { createGeminiChatService, isGeminiModel, type GeminiChatService } from "../../services/gemini.service.js";
 import { buildChatSystemPrompt } from "../../services/chat-prompt.service.js";
 import StoryEntity from "../../models/story.entity.js";
 import UserEntity from "../../models/user.entity.js";
@@ -16,6 +17,7 @@ interface ChatController {
 
 interface ChatControllerDeps {
   openAIService?: OpenAIChatService;
+  geminiService?: GeminiChatService;
   historyStore?: ChatHistoryStore;
   /**
    * Optional override for building the system instruction text.
@@ -46,11 +48,20 @@ export const createChatController = (
   const dataSource = _dataSource;
   const userRepository = dataSource.getRepository(UserEntity);
   const storyRepository = dataSource.getRepository(StoryEntity);
-  const apiKey = process.env.OPENAI_API_KEY ?? "";
-  const model = process.env.OPENAI_MODEL ?? "gpt-4.1-mini";
+  
+  // OpenAI configuration
+  const openAIApiKey = process.env.OPENAI_API_KEY ?? "";
+  const openAIModel = process.env.OPENAI_MODEL ?? "gpt-4.1-mini";
   const systemPromptPath = process.env.OPENAI_SYSTEM_PROMPT_PATH;
   const openAIService =
-    deps.openAIService ?? (apiKey ? createOpenAIChatService({ apiKey, model, systemPromptPath }) : null);
+    deps.openAIService ?? (openAIApiKey ? createOpenAIChatService({ apiKey: openAIApiKey, model: openAIModel, systemPromptPath }) : null);
+  
+  // Gemini configuration
+  const geminiApiKey = process.env.GOOGLE_API_KEY ?? "";
+  const geminiModel = process.env.GEMINI_MODEL ?? "gemini-2.5-flash";
+  const geminiService =
+    deps.geminiService ?? (geminiApiKey ? createGeminiChatService({ apiKey: geminiApiKey, model: geminiModel }) : null);
+  
   const historyStore = deps.historyStore ?? createChatHistoryStore();
 
   let hasLoggedAssistantReplyParseFailure = false;
@@ -413,9 +424,14 @@ export const createChatController = (
       return;
     }
 
-    if (!openAIService) {
+    // Determine which AI service to use based on model
+    const useGemini = isGeminiModel(modelOverride || openAIModel);
+    const selectedService = useGemini ? geminiService : openAIService;
+    const serviceName = useGemini ? "Gemini" : "OpenAI";
+
+    if (!selectedService) {
       response.status(500).json({
-        message: "OpenAI API key is not configured"
+        message: `${serviceName} API key is not configured`
       });
       return;
     }
@@ -424,7 +440,7 @@ export const createChatController = (
       const systemPrompt = await buildSystemPrompt(request.user.id, request.body);
       await historyStore.ensureSystemMessage(request.user.id, sessionId, systemPrompt);
       const history = await historyStore.load(request.user.id, sessionId);
-      const result = await openAIService.createReply(
+      const result = await selectedService.createReply(
         message,
         history,
         modelOverride || undefined
@@ -577,8 +593,13 @@ export const createChatController = (
       return;
     }
 
-    if (!openAIService) {
-      response.status(500).json({ message: "OpenAI API key is not configured" });
+    // Determine which AI service to use based on model
+    const useGemini = isGeminiModel(modelOverride || openAIModel);
+    const selectedService = useGemini ? geminiService : openAIService;
+    const serviceName = useGemini ? "Gemini" : "OpenAI";
+
+    if (!selectedService) {
+      response.status(500).json({ message: `${serviceName} API key is not configured` });
       return;
     }
 
@@ -594,7 +615,7 @@ export const createChatController = (
       const prefix = history.slice(0, targetIndex);
       const systemPrompt = await buildSystemPrompt(request.user.id, request.body);
       const prefixWithoutSystem = prefix.filter((message) => message.role !== "system");
-      const historyForOpenAI: ChatHistoryMessage[] = [
+      const historyForAI: ChatHistoryMessage[] = [
         { role: "system", content: systemPrompt },
         ...prefixWithoutSystem
       ];
@@ -602,9 +623,9 @@ export const createChatController = (
       await historyStore.clear(request.user.id, sessionId);
       await historyStore.ensureSystemMessage(request.user.id, sessionId, systemPrompt);
 
-      const result = await openAIService.createReply(
+      const result = await selectedService.createReply(
         editedContent,
-        historyForOpenAI,
+        historyForAI,
         modelOverride || undefined
       );
       const nextMessages: ChatHistoryMessage[] = [
