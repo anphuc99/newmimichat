@@ -1,4 +1,5 @@
 import cors from "cors";
+import fs from "fs";
 import path from "path";
 import express from "express";
 import { fileURLToPath } from "url";
@@ -10,6 +11,8 @@ const DEFAULT_PORT = 4000;
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = path.join(__dirname, "..", "public");
 const AUDIO_DIR = path.join(process.cwd(), "data", "audio");
+const CLIENT_DIST_DIR = path.resolve(__dirname, "..", "..", "client", "dist");
+const CLIENT_INDEX_HTML = path.join(CLIENT_DIST_DIR, "index.html");
 
 /**
  * Creates the Express application instance with default middleware and routes.
@@ -28,6 +31,13 @@ const createApp = () => {
   app.use("/audio", express.static(AUDIO_DIR));
 
   app.use("/api", createApiRouter(AppDataSource));
+
+  if (fs.existsSync(CLIENT_INDEX_HTML)) {
+    app.use(express.static(CLIENT_DIST_DIR));
+    app.get("*", (_req, res) => {
+      res.sendFile(CLIENT_INDEX_HTML);
+    });
+  }
 
   return app;
 };
