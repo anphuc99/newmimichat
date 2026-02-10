@@ -1,4 +1,4 @@
-import type { Request, Response } from "express";
+﻿import type { Request, Response } from "express";
 import type { DataSource, Repository } from "typeorm";
 import ListeningCardEntity from "../../models/listening-card.entity.js";
 import ListeningReviewEntity from "../../models/listening-review.entity.js";
@@ -153,12 +153,12 @@ export const createTasksController = (dataSource: DataSource): TasksController =
       const tasks: TaskItem[] = [
         {
           id: "vocab_new",
-          label: "Học 20 từ mới",
+          label: "Học 10 từ mới",
           type: "count",
           progress: vocabLearned,
-          target: 20,
-          remaining: Math.max(20 - vocabLearned, 0),
-          completed: vocabLearned >= 20
+          target: 10,
+          remaining: Math.max(10 - vocabLearned, 0),
+          completed: vocabLearned >= 10
         },
         {
           id: "vocab_due",

@@ -199,7 +199,7 @@ describe("Tasks controller", () => {
     });
 
     const controller = createController([
-      createRepository(Array.from({ length: 20 }, (_, index) => ({ id: `v${index}`, createdAt: now }))),
+      createRepository(Array.from({ length: 10 }, (_, index) => ({ id: `v${index}`, createdAt: now }))),
       createRepository([]),
       createRepository(Array.from({ length: 5 }, (_, index) => ({ id: index, createdAt: now }))),
       createRepository([]),
