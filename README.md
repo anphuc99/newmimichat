@@ -4,7 +4,7 @@ Full-stack MimiChat refactor: React (Vite) client + Express (TypeScript) server 
 
 Core features implemented so far:
 - JWT auth (register/login) + signup gated by a `REGISTRATION_TOKEN`
-- CEFR levels A0–C2 stored in DB (auto-seeded on server start; seed script also available) + user can select their level
+- CEFR levels A0–C2 stored in DB (seeded via `npm run db:sync` / `npm run db:seed:levels`) + user can select their level
 - Characters CRUD, avatar upload (served under `/public`), optional voiceName selection + per-character pitch/speakingRate
 - Chat endpoint backed by OpenAI
 - OpenAI TTS playback with cached audio (hash includes text + tone + voice)
@@ -129,7 +129,7 @@ Seed default CEFR levels (A0–C2):
 npm run db:seed:levels
 ```
 
-The API server also auto-seeds the default levels on startup if missing.
+Note: the API server does not currently auto-seed levels on startup. Use `db:sync` (local) or `db:seed:levels`.
 
 ## Migration from Old MimiChat
 
@@ -139,6 +139,12 @@ To migrate data from the old MimiChat (JSON-based storage) to the new system (My
 npm run migrate:old -- --source <path-to-old-server-data>
 ```
 
+Positional argument is also supported:
+
+```bash
+npm run migrate:old -- <path-to-old-server-data>
+```
+
 Example:
 
 ```bash
@@ -146,6 +152,7 @@ npm run migrate:old -- --source D:/Unity/mimichat/server/data
 ```
 
 This migrates:
+- **Stories** (from `stories-index.json` + `stories/*.json`)
 - **Vocabularies** and FSRS review schedules
 - **Vocabulary memories** (user notes linked to messages)
 - **Characters** (profiles, voice settings)
@@ -153,7 +160,11 @@ This migrates:
 - **Translation cards** and reviews
 - **Streak** data
 
-**Note:** Since the old code has no user system, all records are assigned `userId = 1`.
+**Notes:**
+- Since the old code has no user system, all records are assigned `userId = 1`.
+- The script ensures a default user exists for `userId = 1`. If missing, it creates:
+  - `username: migrated_user`
+  - `password: migrated_user_password`
 
 The migration is **idempotent** - running it multiple times will skip already-imported records.
 
@@ -327,6 +338,7 @@ Health/Home:
 Auth/Users:
 - `POST /api/users/register` (requires `registerToken` matching `REGISTRATION_TOKEN`)
 - `POST /api/users/login`
+- `POST /api/users/reset-password` (requires `registerToken`; resets without old password)
 - `GET /api/users/me`
 - `PUT /api/users/level`
 
@@ -353,17 +365,52 @@ Vocabulary (FSRS):
 - `PUT /api/vocabulary/:id` (update vocab text)
 - `DELETE /api/vocabulary/:id` (delete vocab)
 - `GET /api/vocabulary/due` (vocab due for review today)
-
-Tasks:
-- `GET /api/tasks/today` (daily checklist progress for vocab/translation/listening/shadowing)
-
-Streak:
-- `GET /api/streak` (current streak status; resets if a day is missed)
 - `POST /api/vocabulary/:id/review` (submit FSRS rating 1–4)
 - `GET /api/vocabulary/stats` (counts: total, dueToday, starred, difficult)
 - `PUT /api/vocabulary/:id/memory` (save memory content + linkedMessageIds)
 - `PUT /api/vocabulary/:id/star` (toggle starred)
 - `PUT /api/vocabulary/:id/direction` (set `kr-vn` or `vn-kr`)
+
+Tasks:
+- `GET /api/tasks/today` (daily checklist progress for vocab/translation/listening/shadowing)
+
+Tasks response shape:
+
+```json
+{
+  "date": "2026-02-10",
+  "tasks": [
+    {
+      "id": "vocab_new",
+      "label": "Học 20 từ mới",
+      "type": "count",
+      "progress": 3,
+      "target": 20,
+      "remaining": 17,
+      "completed": false
+    }
+  ],
+  "completedCount": 1,
+  "totalCount": 8
+}
+```
+
+Streak update behavior:
+- The server updates the streak automatically when *all* tasks are completed for the day.
+- This update happens during `GET /api/tasks/today` (not via a separate “complete task” endpoint).
+
+Streak:
+- `GET /api/streak` (current streak status; resets current streak to 0 if a day is missed)
+
+Streak response shape:
+
+```json
+{
+  "currentStreak": 2,
+  "longestStreak": 7,
+  "lastCompletedDate": "2026-02-10T12:34:56.000Z"
+}
+```
 
 Translation Drill:
 - `GET /api/translation` (list translation cards with reviews)
@@ -395,6 +442,31 @@ Notes:
 - Due/difficult calculations use the `Asia/Ho_Chi_Minh` day boundary.
 - Translation cards store `userTranslation`, `audio`, and `explanationMd` fields for drill playback and explain caching.
 - Difficult/Starred drill queues are handled locally (Hard moves to end, Easy removes) and do not update FSRS or persist to DB.
+
+Shadowing transcription payload:
+
+```json
+{
+  "audio": "data:audio/webm;codecs=opus;base64,...."
+}
+```
+
+Notes:
+- `audio` must be a base64 data URL (`data:audio/<type>[;...];base64,<data>`). `;codecs=...` is accepted.
+- Response is `{ "transcript": "..." }`.
+
+## Server internals (new helpers)
+
+These are not HTTP APIs, but are useful entry points when extending the server:
+
+- OpenAI:
+  - `createOpenAIClient(apiKey, options)` and `createOpenAIChatService(config)` (TLS override support via `OPENAI_TLS_*` env)
+- Prompting:
+  - `buildChatSystemPrompt(params)` (includes the JSON contract for end-of-session summaries)
+- Seeding:
+  - `seedDefaultLevels(dataSource)` (used by `npm run db:sync` and `npm run db:seed:levels`)
+- Migration:
+  - `runMigration(sourcePath)` + CLI parsing supports `--source <path>` or positional `<path>`
 
 TTS:
 - `GET /api/text-to-speech?text=...&tone=...&voice=...` (cached by MD5 of text+tone+voice)
