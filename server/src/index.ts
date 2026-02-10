@@ -11,8 +11,23 @@ const DEFAULT_PORT = 4000;
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = path.join(__dirname, "..", "public");
 const AUDIO_DIR = path.join(process.cwd(), "data", "audio");
-const CLIENT_DIST_DIR = path.resolve(__dirname, "..", "..", "client", "dist");
-const CLIENT_INDEX_HTML = path.join(CLIENT_DIST_DIR, "index.html");
+const CLIENT_DIST_CANDIDATES = [
+  process.env.CLIENT_DIST_DIR,
+  path.resolve(process.cwd(), "client", "dist"),
+  path.resolve(process.cwd(), "public"),
+  path.resolve(__dirname, "..", "..", "client", "dist")
+].filter((candidate): candidate is string => Boolean(candidate));
+
+const resolveClientIndex = () => {
+  for (const candidate of CLIENT_DIST_CANDIDATES) {
+    const indexHtml = path.join(candidate, "index.html");
+    if (fs.existsSync(indexHtml)) {
+      return { distDir: candidate, indexHtml };
+    }
+  }
+
+  return null;
+};
 
 /**
  * Creates the Express application instance with default middleware and routes.
@@ -32,10 +47,11 @@ const createApp = () => {
 
   app.use("/api", createApiRouter(AppDataSource));
 
-  if (fs.existsSync(CLIENT_INDEX_HTML)) {
-    app.use(express.static(CLIENT_DIST_DIR));
+  const clientBuild = resolveClientIndex();
+  if (clientBuild) {
+    app.use(express.static(clientBuild.distDir));
     app.get("*", (_req, res) => {
-      res.sendFile(CLIENT_INDEX_HTML);
+      res.sendFile(clientBuild.indexHtml);
     });
   }
 
