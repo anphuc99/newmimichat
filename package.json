@@ -8,7 +8,7 @@
   ],
   "scripts": {
     "dev": "concurrently \"npm run dev --workspace server\" \"npm run dev --workspace client\"",
-    "build": "npm run build --workspace server && npm run build --workspace client",
+    "build": "npm run build --workspace client && node scripts/copy-client-build.js && npm run build --workspace server",
     "lint": "npm run lint --workspace server && npm run lint --workspace client",
     "format": "npm run format --workspace server && npm run format --workspace client",
     "db:sync": "npm run db:sync --workspace server",
