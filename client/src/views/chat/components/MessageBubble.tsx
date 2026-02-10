@@ -7,6 +7,7 @@ interface MessageBubbleProps {
   content: string;
   timestamp: string;
   characterName?: string;
+  avatarUrl?: string;
   translation?: string;
   showAudioControls?: boolean;
   isEditable?: boolean;
@@ -27,6 +28,7 @@ const MessageBubble = ({
   content,
   timestamp,
   characterName,
+  avatarUrl,
   translation,
   showAudioControls,
   isEditable,
@@ -38,6 +40,8 @@ const MessageBubble = ({
   const [showTranslation, setShowTranslation] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [draft, setDraft] = useState(content);
+  const showHeader = role === "assistant" && (Boolean(characterName) || Boolean(avatarUrl));
+  const avatarFallback = characterName?.trim()?.slice(0, 1).toUpperCase() ?? "?";
   const timeLabel = new Date(timestamp).toLocaleTimeString([], {
     hour: "2-digit",
     minute: "2-digit"
@@ -57,7 +61,18 @@ const MessageBubble = ({
 
   return (
     <article className={`chat-bubble chat-bubble--${role}`}>
-      {characterName ? <p className="chat-bubble__name">{characterName}</p> : null}
+      {showHeader ? (
+        <div className="chat-bubble__header">
+          <div className="chat-bubble__avatar">
+            {avatarUrl ? (
+              <img src={avatarUrl} alt={characterName ? `${characterName} avatar` : "Character avatar"} />
+            ) : (
+              <span>{avatarFallback}</span>
+            )}
+          </div>
+          {characterName ? <p className="chat-bubble__name">{characterName}</p> : null}
+        </div>
+      ) : null}
       {isEditing ? (
         <textarea
           className="chat-bubble__edit-field"

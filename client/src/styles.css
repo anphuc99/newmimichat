@@ -1181,6 +1181,32 @@ body::after {
   white-space: pre-wrap;
 }
 
+.chat-bubble__header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.chat-bubble__avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.1);
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  font-weight: 700;
+  font-size: 0.85rem;
+  color: var(--ink);
+  flex-shrink: 0;
+}
+
+.chat-bubble__avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
 .chat-bubble__name {
   margin: 0;
   font-size: 0.75rem;

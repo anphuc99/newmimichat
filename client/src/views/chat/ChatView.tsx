@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import MessageInput from "./components/MessageInput";
 import MessageList from "./components/MessageList";
 import VocabularyCollectPopup from "../vocabulary/components/VocabularyCollectPopup";
-import { apiUrl } from "../../lib/api";
+import { apiUrl, toAbsoluteUrl } from "../../lib/api";
 import { authFetch } from "../../lib/auth";
 
 type ChatRole = "user" | "assistant";
@@ -15,6 +15,7 @@ interface ChatMessage {
   assistantId?: string;
   audioId?: string;
   characterName?: string;
+  avatarUrl?: string;
   translation?: string;
   tone?: string;
   suppressAutoPlay?: boolean;
@@ -69,6 +70,7 @@ interface Character {
   personality: string;
   gender: CharacterGender;
   appearance?: string | null;
+  avatar?: string | null;
   voiceName?: string | null;
   pitch?: number | null;
   speakingRate?: number | null;
@@ -416,6 +418,23 @@ const ChatView = ({ userId, model }: ChatViewProps) => {
 
     const character = characters.find((item) => item.name === characterName);
     return character?.voiceName?.trim() ?? "";
+  };
+
+  /**
+   * Resolves an absolute avatar URL for a character name.
+   *
+   * @param characterName - Assistant character name.
+   * @returns Absolute avatar URL or empty string when missing.
+   */
+  const getCharacterAvatarUrl = (characterName?: string) => {
+    if (!characterName) {
+      return "";
+    }
+
+    const normalizedName = characterName.trim().toLowerCase();
+    const character = characters.find((item) => item.name.trim().toLowerCase() === normalizedName);
+    const avatar = character?.avatar?.trim() ?? "";
+    return avatar ? toAbsoluteUrl(avatar) : "";
   };
 
   /**
@@ -788,6 +807,19 @@ const ChatView = ({ userId, model }: ChatViewProps) => {
 
     return createMessage("assistant", "...");
   }, [isSending]);
+
+  const messagesWithAvatars = useMemo(
+    () =>
+      messages.map((message) => {
+        if (message.role !== "assistant") {
+          return message;
+        }
+
+        const avatarUrl = getCharacterAvatarUrl(message.characterName);
+        return avatarUrl ? { ...message, avatarUrl } : message;
+      }),
+    [messages, characters]
+  );
 
   const hasActiveCharacter = activeCharacterIds.length > 0;
   const isChatLocked = isSending || isEnding || isEditing || !hasActiveCharacter;
@@ -1232,7 +1264,7 @@ const ChatView = ({ userId, model }: ChatViewProps) => {
         {notice ? <p className="chat-notice">{notice}</p> : null}
         {chatLockMessage ? <p className="chat-notice">{chatLockMessage}</p> : null}
         <MessageList
-          messages={messages}
+          messages={messagesWithAvatars}
           pendingMessage={pendingMessage}
           onPlayAudio={handlePlayAudio}
           onReloadAudio={handleReloadAudio}

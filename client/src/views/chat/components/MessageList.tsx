@@ -9,6 +9,7 @@ interface ChatMessage {
   content: string;
   timestamp: string;
   characterName?: string;
+  avatarUrl?: string;
   translation?: string;
   audioId?: string;
   assistantId?: string;
@@ -61,6 +62,7 @@ const MessageList = ({
             content={message.content}
             timestamp={message.timestamp}
             characterName={message.characterName}
+            avatarUrl={message.avatarUrl}
             translation={message.translation}
             showAudioControls={message.role === "assistant"}
             isEditable={Boolean(canEditUser || canEditAssistant)}
@@ -90,6 +92,7 @@ const MessageList = ({
           content={pendingMessage.content}
           timestamp={pendingMessage.timestamp}
           characterName={pendingMessage.characterName}
+          avatarUrl={pendingMessage.avatarUrl}
           translation={pendingMessage.translation}
           showAudioControls={false}
         />
