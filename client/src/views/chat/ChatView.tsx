@@ -289,6 +289,68 @@ const persistToggle = (storageKey: string, value: boolean) => {
   window.localStorage.setItem(storageKey, value ? "true" : "false");
 };
 
+/**
+ * Reads a persisted character order list from localStorage.
+ *
+ * @param storageKey - Key used for storing the character order.
+ * @returns Ordered character id list, or an empty array when missing.
+ */
+const readStoredCharacterOrder = (storageKey: string) => {
+  const stored = window.localStorage.getItem(storageKey);
+  if (!stored) {
+    return [] as number[];
+  }
+
+  try {
+    const parsed = JSON.parse(stored) as unknown;
+    return Array.isArray(parsed)
+      ? parsed.map((value) => Number(value)).filter((value) => Number.isInteger(value))
+      : [];
+  } catch {
+    return [] as number[];
+  }
+};
+
+/**
+ * Persists the character order list to localStorage.
+ *
+ * @param storageKey - Key used for storing the character order.
+ * @param order - Ordered character id list.
+ */
+const persistCharacterOrder = (storageKey: string, order: number[]) => {
+  window.localStorage.setItem(storageKey, JSON.stringify(order));
+};
+
+/**
+ * Ensures the stored character order matches the latest character set.
+ *
+ * @param characters - Latest character list.
+ * @param storedOrder - Stored order list.
+ * @returns Normalized order list that includes every character id once.
+ */
+const normalizeCharacterOrder = (characters: Character[], storedOrder: number[]) => {
+  const availableIds = new Set(characters.map((character) => character.id));
+  const sanitized = storedOrder.filter((id) => availableIds.has(id));
+  const existing = new Set(sanitized);
+  const missing = characters.filter((character) => !existing.has(character.id)).map((character) => character.id);
+  return [...sanitized, ...missing];
+};
+
+/**
+ * Compares two arrays of numbers for strict equality.
+ *
+ * @param left - First array.
+ * @param right - Second array.
+ * @returns True when arrays are the same length and values.
+ */
+const areOrdersEqual = (left: number[], right: number[]) => {
+  if (left.length !== right.length) {
+    return false;
+  }
+
+  return left.every((value, index) => value === right[index]);
+};
+
 interface ChatViewProps {
   userId: number;
   model?: string;
@@ -304,6 +366,7 @@ const ChatView = ({ userId, model }: ChatViewProps) => {
   const storyStorageKey = `mimi_chat_story_id_${userId}`;
   const characterPanelKey = `mimi_chat_show_characters_${userId}`;
   const storyPanelKey = `mimi_chat_show_story_${userId}`;
+  const characterOrderKey = `mimi_chat_character_order_${userId}`;
   const [messages, setMessages] = useState<ChatMessage[]>(() => []);
   const [input, setInput] = useState("");
   const [contextInput, setContextInput] = useState("");
@@ -315,6 +378,7 @@ const ChatView = ({ userId, model }: ChatViewProps) => {
   const [notice, setNotice] = useState<string | null>(null);
   const [characters, setCharacters] = useState<Character[]>([]);
   const [activeCharacterIds, setActiveCharacterIds] = useState<number[]>([]);
+  const [characterOrder, setCharacterOrder] = useState<number[]>(() => readStoredCharacterOrder(characterOrderKey));
   const [stories, setStories] = useState<Story[]>([]);
   const [storyError, setStoryError] = useState<string | null>(null);
   const [showCharacters, setShowCharacters] = useState(() => readStoredToggle(characterPanelKey, true));
@@ -677,6 +741,18 @@ const ChatView = ({ userId, model }: ChatViewProps) => {
   }, []);
 
   useEffect(() => {
+    if (!characters.length) {
+      return;
+    }
+
+    const normalized = normalizeCharacterOrder(characters, characterOrder);
+    if (!areOrdersEqual(normalized, characterOrder)) {
+      setCharacterOrder(normalized);
+      persistCharacterOrder(characterOrderKey, normalized);
+    }
+  }, [characters, characterOrder, characterOrderKey]);
+
+  useEffect(() => {
     let isActive = true;
 
     if (!characters.length) {
@@ -807,6 +883,59 @@ const ChatView = ({ userId, model }: ChatViewProps) => {
 
     return createMessage("assistant", "...");
   }, [isSending]);
+
+  const orderedCharacters = useMemo(() => {
+    if (!characters.length) {
+      return [] as Character[];
+    }
+
+    const orderMap = new Map(characterOrder.map((id, index) => [id, index]));
+    const withOrder = [...characters].sort((left, right) => {
+      const leftIndex = orderMap.get(left.id);
+      const rightIndex = orderMap.get(right.id);
+      if (leftIndex === undefined && rightIndex === undefined) {
+        return 0;
+      }
+      if (leftIndex === undefined) {
+        return 1;
+      }
+      if (rightIndex === undefined) {
+        return -1;
+      }
+      return leftIndex - rightIndex;
+    });
+
+    return withOrder;
+  }, [characters, characterOrder]);
+
+  const updateCharacterOrder = (nextOrder: number[]) => {
+    setCharacterOrder(nextOrder);
+    persistCharacterOrder(characterOrderKey, nextOrder);
+  };
+
+  /**
+   * Reorders the character list based on drag-and-drop interactions.
+   *
+   * @param sourceId - Character id being dragged.
+   * @param targetId - Character id being dropped onto.
+   */
+  const reorderCharacters = (sourceId: number, targetId: number) => {
+    if (sourceId === targetId) {
+      return;
+    }
+
+    const baseOrder = characterOrder.length
+      ? [...characterOrder]
+      : characters.map((character) => character.id);
+    const filtered = baseOrder.filter((id) => id !== sourceId);
+    const targetIndex = filtered.indexOf(targetId);
+    if (targetIndex < 0) {
+      return;
+    }
+
+    const nextOrder = [...filtered.slice(0, targetIndex), sourceId, ...filtered.slice(targetIndex)];
+    updateCharacterOrder(nextOrder);
+  };
 
   const messagesWithAvatars = useMemo(
     () =>
@@ -1168,14 +1297,52 @@ const ChatView = ({ userId, model }: ChatViewProps) => {
               <p className="chat-characters__muted">No characters yet. Create one in the Characters tab.</p>
             ) : (
               <ul className="chat-characters__list">
-                {characters.map((character) => {
+                {orderedCharacters.map((character) => {
                   const isActive = activeCharacterIds.includes(character.id);
 
                   return (
-                    <li key={character.id} className="chat-characters__item">
+                    <li
+                      key={character.id}
+                      className="chat-characters__item"
+                      onDragOver={(event) => {
+                        event.preventDefault();
+                        event.dataTransfer.dropEffect = "move";
+                      }}
+                      onDrop={(event) => {
+                        event.preventDefault();
+                        const rawId = event.dataTransfer.getData("text/plain");
+                        const sourceId = Number.parseInt(rawId, 10);
+                        if (!Number.isInteger(sourceId)) {
+                          return;
+                        }
+                        reorderCharacters(sourceId, character.id);
+                      }}
+                    >
                       <div className="chat-characters__meta">
-                        <p className="chat-characters__name">{character.name}</p>
-                        <p className="chat-characters__desc">{character.personality}</p>
+                        <button
+                          type="button"
+                          className="chat-characters__drag"
+                          draggable
+                          aria-label="Drag to reorder"
+                          title="Drag to reorder"
+                          onDragStart={(event) => {
+                            event.dataTransfer.setData("text/plain", String(character.id));
+                            event.dataTransfer.effectAllowed = "move";
+                          }}
+                        >
+                          <svg viewBox="0 0 24 24" aria-hidden="true">
+                            <circle cx="8" cy="7" r="1.6" fill="currentColor" />
+                            <circle cx="16" cy="7" r="1.6" fill="currentColor" />
+                            <circle cx="8" cy="12" r="1.6" fill="currentColor" />
+                            <circle cx="16" cy="12" r="1.6" fill="currentColor" />
+                            <circle cx="8" cy="17" r="1.6" fill="currentColor" />
+                            <circle cx="16" cy="17" r="1.6" fill="currentColor" />
+                          </svg>
+                        </button>
+                        <div className="chat-characters__text">
+                          <p className="chat-characters__name">{character.name}</p>
+                          <p className="chat-characters__desc">{character.personality}</p>
+                        </div>
                       </div>
                       {isActive ? (
                         <button

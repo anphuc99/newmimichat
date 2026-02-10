@@ -1374,6 +1374,9 @@ body::after {
   display: flex;
   flex-direction: column;
   gap: 10px;
+  max-height: 360px;
+  overflow-y: auto;
+  padding-right: 6px;
 }
 
 .chat-characters__item {
@@ -1387,6 +1390,36 @@ body::after {
 }
 
 .chat-characters__meta {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.chat-characters__drag {
+  border: none;
+  background: rgba(15, 23, 42, 0.08);
+  color: var(--ink-soft);
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: grab;
+  flex-shrink: 0;
+}
+
+.chat-characters__drag:active {
+  cursor: grabbing;
+}
+
+.chat-characters__drag svg {
+  width: 18px;
+  height: 18px;
+}
+
+.chat-characters__text {
   min-width: 0;
 }
 
