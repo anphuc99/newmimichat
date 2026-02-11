@@ -11,6 +11,7 @@ import { embeddedClientAssets, embeddedClientIndexHtml } from "./embedded-client
 const DEFAULT_PORT = 4000;
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = path.join(__dirname, "..", "public");
+const AVATARS_DIR = path.join(process.cwd(), "public", "avatars");
 const AUDIO_DIR = path.join(process.cwd(), "data", "audio");
 const CLIENT_DIST_CANDIDATES = [
   process.env.CLIENT_DIST_DIR,
@@ -64,6 +65,7 @@ const createApp = () => {
   app.use(express.urlencoded({ limit: "10mb", extended: true }));
 
   app.use("/public", express.static(PUBLIC_DIR));
+  app.use("/public/avatars", express.static(AVATARS_DIR));
   app.use("/audio", express.static(AUDIO_DIR));
 
   app.use("/api", createApiRouter(AppDataSource));
