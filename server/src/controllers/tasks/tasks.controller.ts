@@ -7,8 +7,6 @@ import ShadowingReviewEntity from "../../models/shadowing-review.entity.js";
 import StreakEntity from "../../models/streak.entity.js";
 import TranslationCardEntity from "../../models/translation-card.entity.js";
 import TranslationReviewEntity from "../../models/translation-review.entity.js";
-import VocabularyEntity from "../../models/vocabulary.entity.js";
-import VocabularyReviewEntity from "../../models/vocabulary-review.entity.js";
 
 interface TaskItem {
   id: string;
@@ -38,8 +36,6 @@ interface TasksController {
  * @returns Tasks controller handlers.
  */
 export const createTasksController = (dataSource: DataSource): TasksController => {
-  const vocabularyRepo: Repository<VocabularyEntity> = dataSource.getRepository(VocabularyEntity);
-  const vocabularyReviewRepo: Repository<VocabularyReviewEntity> = dataSource.getRepository(VocabularyReviewEntity);
   const translationRepo: Repository<TranslationCardEntity> = dataSource.getRepository(TranslationCardEntity);
   const translationReviewRepo: Repository<TranslationReviewEntity> = dataSource.getRepository(TranslationReviewEntity);
   const listeningRepo: Repository<ListeningCardEntity> = dataSource.getRepository(ListeningCardEntity);
@@ -122,8 +118,6 @@ export const createTasksController = (dataSource: DataSource): TasksController =
 
     try {
       const [
-        vocabularies,
-        vocabularyReviews,
         translationCards,
         translationReviews,
         listeningCards,
@@ -131,8 +125,6 @@ export const createTasksController = (dataSource: DataSource): TasksController =
         shadowingCards,
         shadowingReviews
       ] = await Promise.all([
-        vocabularyRepo.find({ where: { userId } }),
-        vocabularyReviewRepo.find({ where: { userId } }),
         translationRepo.find({ where: { userId } }),
         translationReviewRepo.find({ where: { userId } }),
         listeningRepo.find({ where: { userId } }),
@@ -141,8 +133,6 @@ export const createTasksController = (dataSource: DataSource): TasksController =
         shadowingReviewRepo.find({ where: { userId } })
       ]);
 
-      const vocabLearned = countCreatedOn(vocabularies, todayKey);
-      const vocabDueRemaining = countDueOnOrBefore(vocabularyReviews, todayKey);
       const translationLearned = countCreatedOn(translationCards, todayKey);
       const translationDueRemaining = countDueOnOrBefore(translationReviews, todayKey);
       const listeningLearned = countCreatedOn(listeningCards, todayKey);
@@ -151,24 +141,6 @@ export const createTasksController = (dataSource: DataSource): TasksController =
       const shadowingDueRemaining = countDueOnOrBefore(shadowingReviews, todayKey);
 
       const tasks: TaskItem[] = [
-        {
-          id: "vocab_new",
-          label: "Học 10 từ mới",
-          type: "count",
-          progress: vocabLearned,
-          target: 10,
-          remaining: Math.max(10 - vocabLearned, 0),
-          completed: vocabLearned >= 10
-        },
-        {
-          id: "vocab_due",
-          label: "Ôn tập hết từ đến hạn",
-          type: "clear_due",
-          progress: 0,
-          target: 0,
-          remaining: vocabDueRemaining,
-          completed: vocabDueRemaining === 0
-        },
         {
           id: "translation_new",
           label: "Luyện dịch 5 câu mới",

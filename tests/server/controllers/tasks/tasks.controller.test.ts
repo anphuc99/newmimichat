@@ -93,8 +93,6 @@ describe("Tasks controller", () => {
       createRepository(),
       createRepository(),
       createRepository(),
-      createRepository(),
-      createRepository(),
       createStreakRepository()
     ]);
     const response = createMockResponse();
@@ -107,20 +105,10 @@ describe("Tasks controller", () => {
 
   it("returns daily task progress", async () => {
     const now = new Date();
-    const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
     const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
 
     const streakRepo = createStreakRepository();
     const controller = createController([
-      createRepository([
-        { id: "v1", createdAt: now },
-        { id: "v2", createdAt: now },
-        { id: "v3", createdAt: yesterday }
-      ]),
-      createRepository([
-        { id: 1, nextReviewDate: now },
-        { id: 2, nextReviewDate: tomorrow }
-      ]),
       createRepository([
         { id: 1, createdAt: now },
         { id: 2, createdAt: now },
@@ -158,13 +146,7 @@ describe("Tasks controller", () => {
 
     expect(response.json).toHaveBeenCalledTimes(1);
     const payload = response.json.mock.calls[0][0];
-    expect(payload.tasks).toHaveLength(8);
-
-    const vocabNew = findTask(payload.tasks, "vocab_new");
-    expect(vocabNew?.progress).toBe(2);
-
-    const vocabDue = findTask(payload.tasks, "vocab_due");
-    expect(vocabDue?.remaining).toBe(1);
+    expect(payload.tasks).toHaveLength(6);
 
     const translationNew = findTask(payload.tasks, "translation_new");
     expect(translationNew?.progress).toBe(3);
@@ -199,8 +181,6 @@ describe("Tasks controller", () => {
     });
 
     const controller = createController([
-      createRepository(Array.from({ length: 10 }, (_, index) => ({ id: `v${index}`, createdAt: now }))),
-      createRepository([]),
       createRepository(Array.from({ length: 5 }, (_, index) => ({ id: index, createdAt: now }))),
       createRepository([]),
       createRepository(Array.from({ length: 5 }, (_, index) => ({ id: index, createdAt: now }))),

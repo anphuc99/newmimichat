@@ -17,7 +17,7 @@ Core features implemented so far:
 - Translation drill audio playback (reuses chat TTS audio, applies character pitch/speakingRate)
 - Listening drill with FSRS scheduling (Due/Learn/Difficult/Starred)
 - Shadowing drill with FSRS scheduling + OpenAI `gpt-4o-transcribe` scoring
-- Daily task checklist for vocab, translation, listening, and shadowing goals
+- Daily task checklist for translation, listening, and shadowing goals
 - Streak tracking that increments when all daily tasks are completed
 - Stories (user-created) with description + current progress, linked to journals
 - File-backed chat history (JSONL stored in `.txt`) scoped by `sessionId`
