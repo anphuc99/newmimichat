@@ -3,6 +3,22 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import { DataSource } from "typeorm";
+import CharacterEntity from "./models/character.entity.js";
+import JournalEntity from "./models/journal.entity.js";
+import LevelEntity from "./models/level.entity.js";
+import ListeningCardEntity from "./models/listening-card.entity.js";
+import ListeningReviewEntity from "./models/listening-review.entity.js";
+import MessageEntity from "./models/message.entity.js";
+import ShadowingCardEntity from "./models/shadowing-card.entity.js";
+import ShadowingReviewEntity from "./models/shadowing-review.entity.js";
+import StoryEntity from "./models/story.entity.js";
+import StreakEntity from "./models/streak.entity.js";
+import TranslationCardEntity from "./models/translation-card.entity.js";
+import TranslationReviewEntity from "./models/translation-review.entity.js";
+import UserEntity from "./models/user.entity.js";
+import VocabularyEntity from "./models/vocabulary.entity.js";
+import VocabularyMemoryEntity from "./models/vocabulary-memory.entity.js";
+import VocabularyReviewEntity from "./models/vocabulary-review.entity.js";
 import { repoRoot } from "./env.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -65,7 +81,24 @@ const buildDatabaseOptions = (): DataSource["options"] => {
  */
 export const AppDataSource = new DataSource({
   ...buildDatabaseOptions(),
-  entities: [path.join(__dirname, "models", "*.entity.{ts,js}")],
+  entities: [
+    CharacterEntity,
+    JournalEntity,
+    LevelEntity,
+    ListeningCardEntity,
+    ListeningReviewEntity,
+    MessageEntity,
+    ShadowingCardEntity,
+    ShadowingReviewEntity,
+    StoryEntity,
+    StreakEntity,
+    TranslationCardEntity,
+    TranslationReviewEntity,
+    UserEntity,
+    VocabularyEntity,
+    VocabularyMemoryEntity,
+    VocabularyReviewEntity
+  ],
   synchronize: readBool(process.env.TYPEORM_SYNCHRONIZE, false),
   logging: readBool(process.env.TYPEORM_LOGGING, false)
 });
