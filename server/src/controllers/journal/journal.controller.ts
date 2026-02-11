@@ -492,7 +492,7 @@ export const createJournalController = (
         }
       }
 
-      const history = await historyStore.load(request.user.id, sessionId);
+      const history = await historyStore.load(request.user.id);
       const adjustedHistory = applyAssistantEdits(history);
       const hasConversation = adjustedHistory.some((message) => message.role === "user" || message.role === "assistant");
 
@@ -551,7 +551,7 @@ Please summarize the above conversation in Vietnamese, update the story descript
         }
       }
 
-      await historyStore.clear(request.user.id, sessionId);
+      await historyStore.clear(request.user.id);
 
       response.json({
         journalId: savedJournal.id,

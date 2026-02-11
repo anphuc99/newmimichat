@@ -438,15 +438,15 @@ export const createChatController = (
 
     try {
       const systemPrompt = await buildSystemPrompt(request.user.id, request.body);
-      await historyStore.ensureSystemMessage(request.user.id, sessionId, systemPrompt);
-      const history = await historyStore.load(request.user.id, sessionId);
+      await historyStore.ensureSystemMessage(request.user.id, systemPrompt);
+      const history = await historyStore.load(request.user.id);
       const result = await selectedService.createReply(
         message,
         history,
         modelOverride || undefined
       );
 
-      await historyStore.append(request.user.id, sessionId, [
+      await historyStore.append(request.user.id, [
         { role: "user", content: message },
         { role: "assistant", content: result.reply }
       ]);
@@ -473,7 +473,7 @@ export const createChatController = (
     const sessionId = getSessionId(request.query?.sessionId);
 
     try {
-      const messages = await historyStore.load(request.user.id, sessionId);
+      const messages = await historyStore.load(request.user.id);
       const adjustedMessages = applyAssistantEdits(messages);
       response.json({
         messages: adjustedMessages.filter((message) => message.role !== "system" && message.role !== "developer")
@@ -516,7 +516,7 @@ export const createChatController = (
     }
 
     try {
-      await historyStore.append(request.user.id, sessionId, [{ role: "developer", content }]);
+      await historyStore.append(request.user.id, [{ role: "developer", content }]);
       response.json({ ok: true });
     } catch (error) {
       console.error("Error in appendDeveloperMessage:", error);
@@ -567,7 +567,7 @@ export const createChatController = (
       }
 
       try {
-        await historyStore.append(request.user.id, sessionId, [{ role: "developer", content }]);
+        await historyStore.append(request.user.id, [{ role: "developer", content }]);
         response.json({ ok: true });
       } catch (error) {
         console.error("Error in editMessage (assistant):", error);
@@ -604,7 +604,7 @@ export const createChatController = (
     }
 
     try {
-      const history = await historyStore.load(request.user.id, sessionId);
+      const history = await historyStore.load(request.user.id);
       const targetIndex = findUserHistoryIndex(history, userIndex);
 
       if (targetIndex < 0) {
@@ -620,8 +620,8 @@ export const createChatController = (
         ...prefixWithoutSystem
       ];
 
-      await historyStore.clear(request.user.id, sessionId);
-      await historyStore.ensureSystemMessage(request.user.id, sessionId, systemPrompt);
+      await historyStore.clear(request.user.id);
+      await historyStore.ensureSystemMessage(request.user.id, systemPrompt);
 
       const result = await selectedService.createReply(
         editedContent,
@@ -634,7 +634,7 @@ export const createChatController = (
         { role: "assistant", content: result.reply }
       ];
 
-      await historyStore.append(request.user.id, sessionId, nextMessages);
+      await historyStore.append(request.user.id, nextMessages);
 
       response.json({
         messages: nextMessages.filter((message) => message.role !== "system" && message.role !== "developer"),
@@ -659,7 +659,7 @@ export const createChatController = (
     const sessionId = getSessionId(request.query?.sessionId);
 
     try {
-      const messages = await historyStore.load(request.user.id, sessionId);
+      const messages = await historyStore.load(request.user.id);
       const activeMap = new Map<string, boolean>();
 
       for (const message of messages) {

@@ -183,7 +183,7 @@ describe("Journal controller", () => {
     expect(savedMessages.some((message) => message.translation === "Xin chao.")).toBe(true);
     const expectedAudio = buildAudioId("안녕.", "neutral, medium pitch", "alloy");
     expect(savedMessages.some((message) => message.audio === expectedAudio)).toBe(true);
-    expect(historyStore.clear).toHaveBeenCalledWith(1, "s1");
+    expect(historyStore.clear).toHaveBeenCalledWith(1);
     expect(response.json).toHaveBeenCalledWith({ journalId: 5, summary: "Cuoc hoi thoai noi ve..." });
   });
 

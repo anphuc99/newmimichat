@@ -119,8 +119,8 @@ describe("Chat controller", () => {
       response
     );
 
-    expect(historyStore.ensureSystemMessage).toHaveBeenCalledWith(1, "s1", expect.any(String));
-    expect(historyStore.load).toHaveBeenCalledWith(1, "s1");
+    expect(historyStore.ensureSystemMessage).toHaveBeenCalledWith(1, expect.any(String));
+    expect(historyStore.load).toHaveBeenCalledWith(1);
     expect(openAIService.createReply).toHaveBeenCalledWith(
       "Hi",
       [
@@ -130,7 +130,7 @@ describe("Chat controller", () => {
       ],
       undefined
     );
-    expect(historyStore.append).toHaveBeenCalledWith(1, "s1", [
+    expect(historyStore.append).toHaveBeenCalledWith(1, [
       { role: "user", content: "Hi" },
       { role: "assistant", content: "Hello there" }
     ]);
@@ -193,7 +193,7 @@ describe("Chat controller", () => {
       response
     );
 
-    expect(historyStore.load).toHaveBeenCalledWith(1, "s1");
+    expect(historyStore.load).toHaveBeenCalledWith(1);
     expect(response.json).toHaveBeenCalledWith({ messages: [{ role: "user", content: "previous" }] });
   });
 
@@ -268,9 +268,9 @@ describe("Chat controller", () => {
     );
 
     expect(openAIService.createReply).toHaveBeenCalledWith("Updated message", history.slice(0, 4), "gpt-4.1-mini");
-    expect(historyStore.clear).toHaveBeenCalledWith(1, "s1");
-    expect(historyStore.ensureSystemMessage).toHaveBeenCalledWith(1, "s1", "Instruction");
-    expect(historyStore.append).toHaveBeenCalledWith(1, "s1", [
+    expect(historyStore.clear).toHaveBeenCalledWith(1);
+    expect(historyStore.ensureSystemMessage).toHaveBeenCalledWith(1, "Instruction");
+    expect(historyStore.append).toHaveBeenCalledWith(1, [
       { role: "developer", content: "Developer note" },
       { role: "user", content: "Hello" },
       { role: "assistant", content: "Hi" },
@@ -308,7 +308,7 @@ describe("Chat controller", () => {
       response
     );
 
-    expect(historyStore.append).toHaveBeenCalledWith(1, "s1", [
+    expect(historyStore.append).toHaveBeenCalledWith(1, [
       {
         role: "developer",
         content: expect.stringContaining("Character \"Mimi\" has been added")
@@ -336,7 +336,7 @@ describe("Chat controller", () => {
       response
     );
 
-    expect(historyStore.append).toHaveBeenCalledWith(1, "s1", [
+    expect(historyStore.append).toHaveBeenCalledWith(1, [
       {
         role: "developer",
         content: expect.stringContaining("has been removed")
@@ -364,7 +364,7 @@ describe("Chat controller", () => {
       response
     );
 
-    expect(historyStore.append).toHaveBeenCalledWith(1, "s1", [
+    expect(historyStore.append).toHaveBeenCalledWith(1, [
       {
         role: "developer",
         content: expect.stringContaining("Developer context update")
@@ -393,7 +393,7 @@ describe("Chat controller", () => {
       response
     );
 
-    expect(historyStore.append).toHaveBeenCalledWith(1, "s1", [
+    expect(historyStore.append).toHaveBeenCalledWith(1, [
       {
         role: "developer",
         content: expect.stringContaining("Assistant message edited: msg-123.")
@@ -420,7 +420,7 @@ describe("Chat controller", () => {
       response
     );
 
-    expect(historyStore.load).toHaveBeenCalledWith(1, "s1");
+    expect(historyStore.load).toHaveBeenCalledWith(1);
     expect(response.json).toHaveBeenCalledWith({ activeCharacterNames: ["Luna"] });
   });
 
