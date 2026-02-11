@@ -41,16 +41,35 @@ const sanitizeSessionId = (sessionId: string) => {
   return trimmed;
 };
 
-const toHistoryPath = (dir: string, userId: number, sessionId: string) => {
+const toHistoryPath = (dir: string, userId: number) => {
+  const safeUserId = sanitizeUserId(userId);
+  return path.join(dir, `${safeUserId}.history.txt`);
+};
+
+const toLegacyHistoryPath = (dir: string, userId: number, sessionId: string) => {
   const safeUserId = sanitizeUserId(userId);
   const safeSessionId = sanitizeSessionId(sessionId);
 
-  // Backwards-compat: keep the original path for the default session.
   if (safeSessionId === "default") {
     return path.join(dir, `${safeUserId}.history.txt`);
   }
 
   return path.join(dir, safeUserId, `${safeSessionId}.history.txt`);
+};
+
+const parseHistoryRaw = (raw: string) =>
+  raw
+    .split(/\r?\n/g)
+    .map(parseLine)
+    .filter((value): value is ChatHistoryMessage => Boolean(value));
+
+const migrateLegacyHistory = async (filePath: string, legacyPath: string, raw: string) => {
+  if (filePath === legacyPath) {
+    return;
+  }
+
+  await fs.mkdir(path.dirname(filePath), { recursive: true });
+  await fs.writeFile(filePath, raw, "utf8");
 };
 
 const parseLine = (line: string): ChatHistoryMessage | null => {
@@ -98,17 +117,26 @@ const parseLine = (line: string): ChatHistoryMessage | null => {
  */
 export const createChatHistoryStore = (dir: string = process.env.CHAT_HISTORY_DIR ?? DEFAULT_DIR): ChatHistoryStore => {
   const load: ChatHistoryStore["load"] = async (userId, sessionId) => {
-    const filePath = toHistoryPath(dir, userId, sessionId);
+    const filePath = toHistoryPath(dir, userId);
+    const legacyPath = toLegacyHistoryPath(dir, userId, sessionId);
 
     try {
       const raw = await fs.readFile(filePath, "utf8");
-      return raw
-        .split(/\r?\n/g)
-        .map(parseLine)
-        .filter((value): value is ChatHistoryMessage => Boolean(value));
+      return parseHistoryRaw(raw);
     } catch (error) {
       if ((error as NodeJS.ErrnoException)?.code === "ENOENT") {
-        return [];
+        try {
+          const legacyRaw = await fs.readFile(legacyPath, "utf8");
+          await migrateLegacyHistory(filePath, legacyPath, legacyRaw);
+          return parseHistoryRaw(legacyRaw);
+        } catch (legacyError) {
+          if ((legacyError as NodeJS.ErrnoException)?.code === "ENOENT") {
+            return [];
+          }
+
+          console.error("Failed to load chat history.", legacyError);
+          throw legacyError;
+        }
       }
 
       console.error("Failed to load chat history.", error);
@@ -121,7 +149,7 @@ export const createChatHistoryStore = (dir: string = process.env.CHAT_HISTORY_DI
       return;
     }
 
-    const filePath = toHistoryPath(dir, userId, sessionId);
+    const filePath = toHistoryPath(dir, userId);
     await fs.mkdir(path.dirname(filePath), { recursive: true });
 
     const lines = messages
@@ -144,7 +172,8 @@ export const createChatHistoryStore = (dir: string = process.env.CHAT_HISTORY_DI
     sessionId,
     content
   ) => {
-    const filePath = toHistoryPath(dir, userId, sessionId);
+    const filePath = toHistoryPath(dir, userId);
+    const legacyPath = toLegacyHistoryPath(dir, userId, sessionId);
     const systemContent = content.trim();
 
     if (!systemContent) {
@@ -152,11 +181,36 @@ export const createChatHistoryStore = (dir: string = process.env.CHAT_HISTORY_DI
     }
 
     try {
-      const raw = await fs.readFile(filePath, "utf8");
-      const messages = raw
-        .split(/\r?\n/g)
-        .map(parseLine)
-        .filter((value): value is ChatHistoryMessage => Boolean(value));
+      let raw = "";
+      let hasHistory = true;
+
+      try {
+        raw = await fs.readFile(filePath, "utf8");
+      } catch (readError) {
+        if ((readError as NodeJS.ErrnoException)?.code === "ENOENT") {
+          try {
+            raw = await fs.readFile(legacyPath, "utf8");
+            await migrateLegacyHistory(filePath, legacyPath, raw);
+          } catch (legacyError) {
+            if ((legacyError as NodeJS.ErrnoException)?.code === "ENOENT") {
+              hasHistory = false;
+            } else {
+              throw legacyError;
+            }
+          }
+        } else {
+          throw readError;
+        }
+      }
+
+      if (!hasHistory) {
+        const systemMessage = JSON.stringify({ role: "system", content: systemContent });
+        await fs.mkdir(path.dirname(filePath), { recursive: true });
+        await fs.writeFile(filePath, `${systemMessage}\n`, "utf8");
+        return;
+      }
+
+      const messages = parseHistoryRaw(raw);
 
       if (messages.length && messages[0].role === "system" && messages[0].content === systemContent) {
         return;
@@ -186,10 +240,30 @@ export const createChatHistoryStore = (dir: string = process.env.CHAT_HISTORY_DI
    * @param sessionId - Session id for the conversation.
    */
   const clear: ChatHistoryStore["clear"] = async (userId, sessionId) => {
-    const filePath = toHistoryPath(dir, userId, sessionId);
+    const filePath = toHistoryPath(dir, userId);
+    const legacyPath = toLegacyHistoryPath(dir, userId, sessionId);
 
     try {
       await fs.unlink(filePath);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException)?.code === "ENOENT") {
+        if (filePath === legacyPath) {
+          return;
+        }
+      }
+
+      if ((error as NodeJS.ErrnoException)?.code !== "ENOENT") {
+        console.error("Failed to clear chat history.", error);
+        throw error;
+      }
+    }
+
+    if (filePath === legacyPath) {
+      return;
+    }
+
+    try {
+      await fs.unlink(legacyPath);
     } catch (error) {
       if ((error as NodeJS.ErrnoException)?.code === "ENOENT") {
         return;
