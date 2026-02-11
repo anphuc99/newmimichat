@@ -1,17 +1,50 @@
-import fs from "fs/promises";
 import fsSync from "fs";
 import path from "path";
-import { fileURLToPath } from "url";
 import https from "https";
 import OpenAI from "openai";
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const DEFAULT_SYSTEM_PROMPT_PATH = path.join(__dirname, "..", "prompts", "chat.system.txt");
+/**
+ * Default system prompt embedded at build time.
+ * This avoids runtime file reads which fail in bundled deployments.
+ */
+const DEFAULT_SYSTEM_PROMPT = `YOU ARE A CONVERSATION PARTNER FOR KOREAN LEARNERS.
+
+====================================
+ABSOLUTE RULES (SYSTEM CRITICAL)
+====================================
+1. Reply in Korean.
+2. Keep replies short and friendly.
+3. Avoid numerals; write numbers in Korean words.
+
+====================================
+LANGUAGE LEVEL
+====================================
+Use simple learner-friendly Korean. Prefer short sentences.
+
+====================================
+SCENE / CONTEXT
+====================================
+A casual Korean practice chat between the user and the assistant.
+
+====================================
+DIALOGUE RULES
+====================================
+- Prefer 1-3 short sentences per reply.
+- If the user mixes Vietnamese/Korean, still respond in Korean.
+- If the user asks for translation/explanation, keep it short.
+
+====================================
+FINAL CHECK
+====================================
+Silently verify all ABSOLUTE RULES before responding.`;
 
 export interface OpenAIChatServiceConfig {
   apiKey: string;
   model: string;
-  systemPromptPath?: string;
+  /**
+   * Optional custom system prompt to override the embedded default.
+   */
+  customSystemPrompt?: string;
   /**
    * Optional path to a PEM/CRT file containing additional CA certificates.
    * Useful in corporate environments where TLS is intercepted by a proxy.
@@ -174,7 +207,7 @@ export interface OpenAIChatService {
 }
 
 /**
- * Creates a lightweight OpenAI chat service that loads system prompts from disk.
+ * Creates a lightweight OpenAI chat service with an embedded default system prompt.
  *
  * @param config - OpenAI service configuration.
  * @returns OpenAI chat service helpers.
@@ -186,18 +219,8 @@ export const createOpenAIChatService = (config: OpenAIChatServiceConfig): OpenAI
     tlsCaCertBase64: config.tlsCaCertBase64
   });
   const model = config.model;
-  const systemPromptPath = config.systemPromptPath ?? DEFAULT_SYSTEM_PROMPT_PATH;
-  let cachedPrompt: string | null = null;
-
-  const loadSystemPrompt = async () => {
-    if (cachedPrompt) {
-      return cachedPrompt;
-    }
-
-    const contents = await fs.readFile(systemPromptPath, "utf8");
-    cachedPrompt = contents.trim();
-    return cachedPrompt;
-  };
+  /** Use custom prompt if provided, otherwise use embedded default */
+  const systemPrompt = config.customSystemPrompt?.trim() || DEFAULT_SYSTEM_PROMPT;
 
   const createReply: OpenAIChatService["createReply"] = async (message, history = [], modelOverride) => {
     const normalizedHistory = history
@@ -208,7 +231,7 @@ export const createOpenAIChatService = (config: OpenAIChatServiceConfig): OpenAI
       .map((entry) => ({ role: entry.role, content: entry.content }));
 
     const hasSystemMessage = normalizedHistory.find((entry) => entry.role === "system");
-    const systemPrompt = hasSystemMessage ? hasSystemMessage.content : await loadSystemPrompt();
+    const effectiveSystemPrompt = hasSystemMessage ? hasSystemMessage.content : systemPrompt;
     const messages = normalizedHistory.filter((entry) => entry.role !== "system");
 
     if(message !== undefined){
@@ -218,7 +241,7 @@ export const createOpenAIChatService = (config: OpenAIChatServiceConfig): OpenAI
 
     const response = await client.responses.create({
       model: resolvedModel,
-      instructions: systemPrompt,
+      instructions: effectiveSystemPrompt,
       input: [
         ...messages
       ]

@@ -1,7 +1,6 @@
 import "reflect-metadata";
 import fs from "fs";
 import path from "path";
-import { fileURLToPath } from "url";
 import { DataSource } from "typeorm";
 import CharacterEntity from "./models/character.entity.js";
 import JournalEntity from "./models/journal.entity.js";
@@ -20,8 +19,6 @@ import VocabularyEntity from "./models/vocabulary.entity.js";
 import VocabularyMemoryEntity from "./models/vocabulary-memory.entity.js";
 import VocabularyReviewEntity from "./models/vocabulary-review.entity.js";
 import { repoRoot } from "./env.js";
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 type SupportedDbType = "mysql" | "sqlite";
 
