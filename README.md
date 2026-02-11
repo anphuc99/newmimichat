@@ -196,6 +196,8 @@ Note: if the server cannot initialize the data source (e.g. MySQL not running / 
 npm run build
 ```
 
+Build output includes a single server bundle at `server/dist/app.js` that embeds the client assets.
+
 ## Lint / Format
 
 ```bash

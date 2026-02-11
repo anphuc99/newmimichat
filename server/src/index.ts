@@ -6,6 +6,7 @@ import { fileURLToPath } from "url";
 import "./env.js";
 import { AppDataSource } from "./data-source.js";
 import { createApiRouter } from "./routes/index.js";
+import { embeddedClientAssets, embeddedClientIndexHtml } from "./embedded-client.js";
 
 const DEFAULT_PORT = 4000;
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -29,6 +30,26 @@ const resolveClientIndex = () => {
   return null;
 };
 
+const hasEmbeddedClient = () =>
+  Boolean(embeddedClientIndexHtml) && Object.keys(embeddedClientAssets).length > 0;
+
+const sendEmbeddedAsset = (assetPath: string, res: express.Response) => {
+  const asset = embeddedClientAssets[assetPath];
+
+  if (!asset) {
+    return false;
+  }
+
+  res.setHeader("Content-Type", asset.contentType);
+  if (asset.encoding === "base64") {
+    res.send(Buffer.from(asset.content, "base64"));
+    return true;
+  }
+
+  res.send(asset.content);
+  return true;
+};
+
 /**
  * Creates the Express application instance with default middleware and routes.
  *
@@ -47,12 +68,25 @@ const createApp = () => {
 
   app.use("/api", createApiRouter(AppDataSource));
 
-  const clientBuild = resolveClientIndex();
-  if (clientBuild) {
-    app.use(express.static(clientBuild.distDir));
-    app.get("*", (_req, res) => {
-      res.sendFile(clientBuild.indexHtml);
+  if (hasEmbeddedClient()) {
+    app.get("*", (req, res) => {
+      const assetPath = req.path === "/" ? "index.html" : req.path.replace(/^\/+/, "");
+
+      if (sendEmbeddedAsset(assetPath, res)) {
+        return;
+      }
+
+      res.setHeader("Content-Type", "text/html; charset=utf-8");
+      res.send(embeddedClientIndexHtml);
     });
+  } else {
+    const clientBuild = resolveClientIndex();
+    if (clientBuild) {
+      app.use(express.static(clientBuild.distDir));
+      app.get("*", (_req, res) => {
+        res.sendFile(clientBuild.indexHtml);
+      });
+    }
   }
 
   return app;

@@ -32,3 +32,4 @@ server/public/avatars/
 
 # File-backed chat history
 server/data/
+embedded-client.ts

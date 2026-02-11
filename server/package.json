@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/index.ts",
-    "build": "esbuild src/index.ts --bundle --platform=node --format=esm --minify --target=node18 --outfile=dist/app.js --packages=external",
+    "build": "tsx src/scripts/generate-embedded-client.ts && esbuild src/index.ts --bundle --platform=node --format=esm --minify --target=node18 --outfile=dist/app.js --packages=external",
     "start": "node dist/app.js",
     "build:tsc": "tsc -p tsconfig.json",
     "db:sync": "tsx src/scripts/db-sync.ts",
