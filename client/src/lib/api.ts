@@ -1,21 +1,23 @@
 /**
- * Builds an API URL using an optional base URL from Vite environment.
+ * Builds an API URL using a dev-only base URL from Vite environment.
  *
- * If VITE_API_BASE_URL is not set, this returns the input path unchanged,
- * allowing same-origin requests (e.g. behind a reverse proxy).
+ * In dev, uses VITE_API_BASE_URL when provided. In production, always
+ * returns a root-relative path for same-origin requests.
  *
  * @param apiPath - API path starting with "/" (e.g. "/api/health").
  * @returns The final URL string.
  */
 export const apiUrl = (apiPath: string) => {
-  const baseUrl = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? "";
+  const isDev = import.meta.env.DEV === true;
+  const baseUrl = isDev ? (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? "" : "/";
 
-  if (!baseUrl) {
-    return apiPath;
+  const normalizedPath = apiPath.startsWith("/") ? apiPath : `/${apiPath}`;
+
+  if (!baseUrl || baseUrl === "/") {
+    return normalizedPath;
   }
 
   const normalizedBase = baseUrl.endsWith("/") ? baseUrl.slice(0, -1) : baseUrl;
-  const normalizedPath = apiPath.startsWith("/") ? apiPath : `/${apiPath}`;
 
   return `${normalizedBase}${normalizedPath}`;
 };
