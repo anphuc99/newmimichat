@@ -220,9 +220,14 @@ const ShadowingFlashcard = ({
   );
 };
 
-const tokenize = (value: string) => value.trim().split(/\s+/).filter(Boolean);
+const tokenize = (value: string) =>
+  value
+    .replace(/[^\p{L}\p{N}\s]+/gu, "")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
 
-const normalizeToken = (value: string) => value.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, "");
+const normalizeToken = (value: string) => value.toLowerCase();
 
 const buildComparison = (reference: string, transcript: string): ShadowingToken[] => {
   const referenceTokens = tokenize(reference);
