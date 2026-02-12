@@ -446,9 +446,11 @@ const TranslationView = () => {
     }
 
     const active = activeList[reviewIndex];
-    setIsExplanationVisible(false);
-    setExplanationCardId(active?.id ?? null);
-  }, [tab, activeList, reviewIndex]);
+    if (active?.id !== explanationCardId) {
+      setIsExplanationVisible(false);
+      setExplanationCardId(active?.id ?? null);
+    }
+  }, [tab, activeList, reviewIndex, explanationCardId]);
 
   const getCharacterAudioSettings = (name?: string) => {
     if (!name) {
