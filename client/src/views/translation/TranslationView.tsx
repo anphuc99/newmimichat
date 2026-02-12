@@ -438,15 +438,6 @@ const TranslationView = () => {
     return [] as TranslationCard[];
   }, [tab, dueQueue, difficultQueue, starredQueue]);
 
-  useEffect(() => {
-    if (tab === "learn") {
-      return;
-    }
-
-    const active = activeList[reviewIndex];
-    setExplanationMd(active?.explanationMd ?? null);
-  }, [tab, activeList, reviewIndex]);
-
   const getCharacterAudioSettings = (name?: string) => {
     if (!name) {
       return { speakingRate: 1.0, pitch: 0 };
@@ -740,7 +731,7 @@ const TranslationView = () => {
           isStarred={!!activeList[reviewIndex]?.review?.isStarred}
           showStar
           onPlayAudio={playAudio}
-          explanationMd={explanationMd}
+          explanationMd={activeList[reviewIndex]?.explanationMd ?? null}
           isExplainLoading={isExplainLoading}
           onExplain={(draft) => {
             const active = activeList[reviewIndex];
