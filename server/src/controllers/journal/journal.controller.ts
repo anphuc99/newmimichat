@@ -343,7 +343,7 @@ export const createJournalController = (
 
       const messages = await messageRepository.find({
         where: { journalId: journal.id, userId: request.user.id },
-        order: { id: "ASC" }
+        order: { createdAt: "ASC" }
       });
 
       response.json({
