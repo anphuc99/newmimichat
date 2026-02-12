@@ -545,6 +545,40 @@ body::after {
   color: var(--ink-soft);
 }
 
+.app-header__actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.streak-widget {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: white;
+  padding: 6px 12px;
+  border-radius: 999px;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.08);
+  font-weight: 700;
+  color: #f97316;
+  font-size: 0.95rem;
+  cursor: help;
+  transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.streak-widget:hover {
+  transform: scale(1.05);
+}
+
+.streak-widget__icon {
+  font-size: 1.2rem;
+  filter: drop-shadow(0 0 4px rgba(249, 115, 22, 0.4));
+}
+
+.streak-widget__count {
+  line-height: 1;
+}
+
 .app-header__logout {
   border: none;
   border-radius: 999px;

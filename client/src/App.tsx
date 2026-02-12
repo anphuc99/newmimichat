@@ -9,6 +9,7 @@ import ListeningView from "./views/listening";
 import ShadowingView from "./views/shadowing";
 import VocabularyView from "./views/vocabulary";
 import LoginView from "./views/auth";
+import StreakWidget from "./views/shared/StreakWidget";
 import { apiUrl } from "./lib/api";
 import {
   authFetch,
@@ -226,9 +227,12 @@ const App = () => {
             <div className="app-header__subtitle">{auth.user.username} - Online</div>
           </div>
         </div>
-        <button type="button" className="app-header__logout" onClick={handleLogout}>
-          Logout
-        </button>
+        <div className="app-header__actions">
+          <StreakWidget />
+          <button type="button" className="app-header__logout" onClick={handleLogout}>
+            Logout
+          </button>
+        </div>
       </header>
 
       <section className="app-controls">
