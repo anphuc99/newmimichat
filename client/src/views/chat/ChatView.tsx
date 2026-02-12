@@ -502,6 +502,38 @@ const ChatView = ({ userId, model }: ChatViewProps) => {
   };
 
   /**
+   * Downloads the current chat conversation as a .txt file.
+   */
+  const handleDownloadTxt = () => {
+    if (messages.length === 0) {
+      return;
+    }
+
+    const story = stories.find((s) => s.id === activeStoryId);
+    let content = `Story: ${story?.name ?? "Live Chat"}\n`;
+    content += `Date: ${new Date().toLocaleDateString()}\n\n`;
+    content += `--- Conversation ---\n`;
+
+    const lines = messages.map((msg) => {
+      const sender = msg.characterName || (msg.role === "assistant" ? "Assistant" : "User");
+      return `${sender}: ${msg.content}`;
+    });
+
+    content += lines.join("\n");
+
+    const blob = new Blob([content], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    const dateStr = new Date().toISOString().split("T")[0];
+    link.download = `chat-${activeStoryId ?? "live"}-${dateStr}.txt`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  /**
    * Plays a cached audio file using per-character playback settings.
    *
    * @param audioId - Hash id for the audio file.
@@ -1252,6 +1284,15 @@ const ChatView = ({ userId, model }: ChatViewProps) => {
           <p className="chat-subtitle">Practice Korean with short, friendly replies.</p>
         </div>
         <div className="chat-header__actions">
+          <button
+            type="button"
+            className="chat-toggle-button"
+            onClick={handleDownloadTxt}
+            disabled={messages.length === 0}
+            title="Download conversation as TXT"
+          >
+            Download TXT
+          </button>
           <button
             type="button"
             className="chat-toggle-button"

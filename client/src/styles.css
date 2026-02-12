@@ -1719,9 +1719,37 @@ body::after {
 
 .journal-list h2,
 .journal-detail h2 {
-  margin: 0 0 12px;
+  margin: 0;
   font-size: 1rem;
   color: var(--ink);
+}
+
+.journal-detail__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.journal-detail__download {
+  border: none;
+  background: var(--accent);
+  color: #fff;
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.1s;
+}
+
+.journal-detail__download:hover {
+  background: var(--accent-strong);
+  transform: translateY(-1px);
+}
+
+.journal-detail__download:active {
+  transform: translateY(0);
 }
 
 .journal-muted {

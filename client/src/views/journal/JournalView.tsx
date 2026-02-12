@@ -243,6 +243,38 @@ const JournalView = ({ userId }: JournalViewProps) => {
     return character?.voiceName?.trim() ?? "";
   };
 
+  /**
+   * Downloads the current active journal as a .txt file.
+   */
+  const handleDownloadTxt = () => {
+    if (!activeJournal || messages.length === 0) {
+      return;
+    }
+
+    const story = stories.find((s) => s.id === activeStoryId);
+    let content = `Story: ${story?.name ?? "Unknown"}\n`;
+    content += `Date: ${new Date(activeJournal.createdAt).toLocaleDateString()}\n`;
+    content += `Summary: ${activeJournal.summary}\n\n`;
+    content += `--- Conversation ---\n`;
+
+    const lines = messages.map((msg) => {
+      const sender = msg.characterName || "User";
+      return `${sender}: ${msg.content}`;
+    });
+
+    content += lines.join("\n");
+
+    const blob = new Blob([content], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `journal-${activeJournal.id}-${new Date(activeJournal.createdAt).toISOString().split("T")[0]}.txt`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   useEffect(() => {
     let isActive = true;
 
@@ -455,7 +487,19 @@ const JournalView = ({ userId }: JournalViewProps) => {
         </aside>
 
         <section className="journal-detail">
-          <h2>Messages</h2>
+          <div className="journal-detail__header">
+            <h2>Messages</h2>
+            {activeJournal && messages.length > 0 && (
+              <button
+                type="button"
+                className="journal-detail__download"
+                onClick={handleDownloadTxt}
+                title="Download conversation as TXT"
+              >
+                Download TXT
+              </button>
+            )}
+          </div>
           {!activeJournal ? (
             <p className="journal-muted">Select a journal to view messages.</p>
           ) : messages.length === 0 ? (
