@@ -290,9 +290,24 @@ export const createShadowingController = (
       const existingMessageIds = existingCards.map((card: ShadowingCardEntity) => card.messageId);
       const orderBy = dataSource.options.type === "mysql" ? "RAND()" : "RANDOM()";
 
+      // Get the last 1000 message IDs for this user to limit the candidate pool
+      const recentMessages = await messageRepo.find({
+        where: { userId },
+        order: { createdAt: "DESC" },
+        take: 1000,
+        select: ["id"]
+      });
+
+      const recentIds = recentMessages.map(m => m.id);
+
+      if (recentIds.length === 0) {
+        response.status(404).json({ message: "No new messages available" });
+        return;
+      }
+
       const query = messageRepo
         .createQueryBuilder("m")
-        .where("m.user_id = :userId", { userId })
+        .where("m.id IN (:...recentIds)", { recentIds })
         .andWhere("m.translation IS NOT NULL")
         .andWhere("m.translation != ''")
         .andWhere("m.audio IS NOT NULL")
