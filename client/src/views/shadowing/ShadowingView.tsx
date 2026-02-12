@@ -222,7 +222,7 @@ const ShadowingFlashcard = ({
 
 const tokenize = (value: string) =>
   value
-    .replace(/[^\p{L}\p{N}\s]+/gu, "")
+    .replace(/[^\p{L}\p{N}]+/gu, "")
     .trim()
     .split(/\s+/)
     .filter(Boolean);
