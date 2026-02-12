@@ -121,7 +121,8 @@ export const createShadowingController = (
 
       const response = await openAIClient.audio.transcriptions.create({
         file,
-        model: "gpt-4o-transcribe"
+        model: "gpt-4o-transcribe",
+        language: "ko"
       });
 
       const transcript = response.text?.trim() ?? "";
