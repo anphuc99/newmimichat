@@ -228,6 +228,8 @@ const TranslationView = () => {
   const [error, setError] = useState<string | null>(null);
   const [reviewIndex, setReviewIndex] = useState(0);
   const [explanationMd, setExplanationMd] = useState<string | null>(null);
+  const [isExplanationVisible, setIsExplanationVisible] = useState(false);
+  const [explanationCardId, setExplanationCardId] = useState<number | null>(null);
   const [isExplainLoading, setIsExplainLoading] = useState(false);
   const [characters, setCharacters] = useState<Character[]>([]);
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -437,6 +439,16 @@ const TranslationView = () => {
     if (tab === "starred") return starredQueue;
     return [] as TranslationCard[];
   }, [tab, dueQueue, difficultQueue, starredQueue]);
+
+  useEffect(() => {
+    if (tab === "learn") {
+      return;
+    }
+
+    const active = activeList[reviewIndex];
+    setIsExplanationVisible(false);
+    setExplanationCardId(active?.id ?? null);
+  }, [tab, activeList, reviewIndex]);
 
   const getCharacterAudioSettings = (name?: string) => {
     if (!name) {
@@ -731,11 +743,17 @@ const TranslationView = () => {
           isStarred={!!activeList[reviewIndex]?.review?.isStarred}
           showStar
           onPlayAudio={playAudio}
-          explanationMd={activeList[reviewIndex]?.explanationMd ?? null}
+          explanationMd={
+            isExplanationVisible && explanationCardId === activeList[reviewIndex]?.id
+              ? activeList[reviewIndex]?.explanationMd ?? null
+              : null
+          }
           isExplainLoading={isExplainLoading}
           onExplain={(draft) => {
             const active = activeList[reviewIndex];
             if (active) {
+              setIsExplanationVisible(true);
+              setExplanationCardId(active.id);
               void handleExplain({ cardId: active.id, userTranslation: draft });
             }
           }}
