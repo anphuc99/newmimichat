@@ -52,8 +52,9 @@ export const createChatController = (
   // OpenAI configuration
   const openAIApiKey = process.env.OPENAI_API_KEY ?? "";
   const openAIModel = process.env.OPENAI_MODEL ?? "gpt-4.1-mini";
+  const systemPromptPath = process.env.OPENAI_SYSTEM_PROMPT_PATH;
   const openAIService =
-    deps.openAIService ?? (openAIApiKey ? createOpenAIChatService({ apiKey: openAIApiKey, model: openAIModel }) : null);
+    deps.openAIService ?? (openAIApiKey ? createOpenAIChatService({ apiKey: openAIApiKey, model: openAIModel, systemPromptPath }) : null);
   
   // Gemini configuration
   const geminiApiKey = process.env.GOOGLE_API_KEY ?? "";

@@ -46,6 +46,11 @@ export interface OpenAIChatServiceConfig {
    */
   customSystemPrompt?: string;
   /**
+   * Optional path to a file containing a custom system prompt.
+   * Takes precedence over embedded default, but overridden by {@link customSystemPrompt}.
+   */
+  systemPromptPath?: string;
+  /**
    * Optional path to a PEM/CRT file containing additional CA certificates.
    * Useful in corporate environments where TLS is intercepted by a proxy.
    */
@@ -219,8 +224,26 @@ export const createOpenAIChatService = (config: OpenAIChatServiceConfig): OpenAI
     tlsCaCertBase64: config.tlsCaCertBase64
   });
   const model = config.model;
-  /** Use custom prompt if provided, otherwise use embedded default */
-  const systemPrompt = config.customSystemPrompt?.trim() || DEFAULT_SYSTEM_PROMPT;
+
+  /** Use custom prompt if provided, otherwise try reading from path, else use embedded default */
+  const systemPrompt = (() => {
+    if (config.customSystemPrompt?.trim()) {
+      return config.customSystemPrompt.trim();
+    }
+
+    if (config.systemPromptPath?.trim()) {
+      try {
+        const resolvedPath = path.resolve(process.cwd(), config.systemPromptPath.trim());
+        if (fsSync.existsSync(resolvedPath)) {
+          return fsSync.readFileSync(resolvedPath, "utf8").trim();
+        }
+      } catch (caught) {
+        console.warn(`Failed to read system prompt from path: ${config.systemPromptPath}`, caught);
+      }
+    }
+
+    return DEFAULT_SYSTEM_PROMPT;
+  })();
 
   const createReply: OpenAIChatService["createReply"] = async (message, history = [], modelOverride) => {
     const normalizedHistory = history
