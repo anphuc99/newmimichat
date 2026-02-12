@@ -384,9 +384,6 @@ const ShadowingView = () => {
 
   useEffect(() => {
     setReviewIndex(0);
-    setTranscript(null);
-    setComparison([]);
-    setShowMeaning(false);
   }, [tab, dueCards, allCards]);
 
   const starredItems = useMemo(
@@ -475,6 +472,12 @@ const ShadowingView = () => {
   const activeCard = activeList[reviewIndex] ?? null;
   const learnText = learnCandidate?.content ?? "";
   const learnTranslation = learnCandidate?.translation ?? null;
+
+  useEffect(() => {
+    setTranscript(null);
+    setComparison([]);
+    setShowMeaning(false);
+  }, [tab, activeCard?.id, learnCandidate?.messageId]);
 
   const getCharacterAudioSettings = (name?: string) => {
     if (!name) {
