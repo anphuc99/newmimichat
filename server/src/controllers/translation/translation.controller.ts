@@ -1,5 +1,6 @@
 import type { Request, Response } from "express";
 import type { DataSource, Repository } from "typeorm";
+import { toFile, type Uploadable } from "openai/uploads";
 import MessageEntity from "../../models/message.entity.js";
 import TranslationCardEntity from "../../models/translation-card.entity.js";
 import TranslationReviewEntity from "../../models/translation-review.entity.js";
@@ -19,6 +20,7 @@ interface TranslationController {
   reviewTranslation: (request: Request, response: Response) => Promise<void>;
   toggleStar: (request: Request, response: Response) => Promise<void>;
   explainTranslation: (request: Request, response: Response) => Promise<void>;
+  transcribeAudio: (request: Request, response: Response) => Promise<void>;
 }
 
 interface TranslationControllerDeps {
@@ -28,7 +30,10 @@ interface TranslationControllerDeps {
     userTranslation?: string | null;
     characterName?: string;
   }) => Promise<string>;
+  transcribeWithOpenAI?: (file: Uploadable) => Promise<string>;
 }
+
+const MAX_AUDIO_BYTES = 12 * 1024 * 1024;
 
 /**
  * Serialises a translation review entity to a client-facing JSON shape.
@@ -74,6 +79,33 @@ const serialiseCard = (entity: TranslationCardEntity) => {
     createdAt: entity.createdAt,
     updatedAt: entity.updatedAt
   };
+};
+
+/**
+ * Parses a base64 audio data URL and extracts mime type and buffer.
+ */
+const parseAudioDataUrl = (dataUrl: string) => {
+  const match = /^data:(audio\/[a-z0-9.+-]+)(?:;[^,]*)?;base64,(.+)$/i.exec(dataUrl.trim());
+
+  if (!match) {
+    return null;
+  }
+
+  const mime = match[1];
+  const buffer = Buffer.from(match[2], "base64");
+
+  return { mime, buffer };
+};
+
+/**
+ * Resolves the file extension from a mime type.
+ */
+const resolveAudioExtension = (mime: string) => {
+  if (mime.includes("webm")) return "webm";
+  if (mime.includes("wav")) return "wav";
+  if (mime.includes("mpeg") || mime.includes("mp3")) return "mp3";
+  if (mime.includes("ogg")) return "ogg";
+  return "webm";
 };
 
 /**
@@ -137,6 +169,28 @@ export const createTranslationController = (
       }
 
       return reply;
+    });
+
+  const transcribeWithOpenAI =
+    deps.transcribeWithOpenAI ??
+    (async (file) => {
+      if (!openAIClient) {
+        throw new Error("OpenAI API key is not configured");
+      }
+
+      const response = await openAIClient.audio.transcriptions.create({
+        file,
+        model: "gpt-4o-transcribe",
+        language: "ko"
+      });
+
+      const transcript = response.text?.trim() ?? "";
+
+      if (!transcript) {
+        throw new Error("OpenAI returned an empty transcript");
+      }
+
+      return transcript;
     });
 
   /**
@@ -590,6 +644,47 @@ export const createTranslationController = (
     }
   };
 
+  /**
+   * Transcribes user audio using OpenAI for shadowing practice.
+   */
+  const transcribeAudio: TranslationController["transcribeAudio"] = async (request, response) => {
+    const userId = request.user?.id;
+
+    if (!userId) {
+      response.status(401).json({ message: "Unauthorized" });
+      return;
+    }
+
+    const { audio } = request.body as { audio?: string };
+
+    if (!audio || typeof audio !== "string") {
+      response.status(400).json({ message: "audio is required" });
+      return;
+    }
+
+    const parsed = parseAudioDataUrl(audio);
+
+    if (!parsed) {
+      response.status(400).json({ message: "Invalid audio data URL" });
+      return;
+    }
+
+    if (parsed.buffer.byteLength > MAX_AUDIO_BYTES) {
+      response.status(413).json({ message: "Audio payload is too large" });
+      return;
+    }
+
+    try {
+      const extension = resolveAudioExtension(parsed.mime);
+      const file = await toFile(parsed.buffer, `translation.${extension}`, { type: parsed.mime });
+      const transcript = await transcribeWithOpenAI(file);
+      response.json({ transcript });
+    } catch (error) {
+      console.error("Failed to transcribe audio.", error);
+      response.status(500).json({ message: "Failed to transcribe audio" });
+    }
+  };
+
   return {
     listCards,
     getDueCards,
@@ -597,6 +692,7 @@ export const createTranslationController = (
     getLearnCandidate,
     reviewTranslation,
     toggleStar,
-    explainTranslation
+    explainTranslation,
+    transcribeAudio
   };
 };

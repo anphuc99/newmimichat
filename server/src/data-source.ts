@@ -5,11 +5,7 @@ import { DataSource } from "typeorm";
 import CharacterEntity from "./models/character.entity.js";
 import JournalEntity from "./models/journal.entity.js";
 import LevelEntity from "./models/level.entity.js";
-import ListeningCardEntity from "./models/listening-card.entity.js";
-import ListeningReviewEntity from "./models/listening-review.entity.js";
 import MessageEntity from "./models/message.entity.js";
-import ShadowingCardEntity from "./models/shadowing-card.entity.js";
-import ShadowingReviewEntity from "./models/shadowing-review.entity.js";
 import StoryEntity from "./models/story.entity.js";
 import StreakEntity from "./models/streak.entity.js";
 import TranslationCardEntity from "./models/translation-card.entity.js";
@@ -82,11 +78,7 @@ export const AppDataSource = new DataSource({
     CharacterEntity,
     JournalEntity,
     LevelEntity,
-    ListeningCardEntity,
-    ListeningReviewEntity,
     MessageEntity,
-    ShadowingCardEntity,
-    ShadowingReviewEntity,
     StoryEntity,
     StreakEntity,
     TranslationCardEntity,

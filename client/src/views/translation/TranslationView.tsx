@@ -75,6 +75,12 @@ interface TranslationStats {
 
 type TabId = "due" | "difficult" | "starred" | "learn";
 
+/** Token comparison result for shadowing. */
+interface ShadowingToken {
+  text: string;
+  match: boolean;
+}
+
 interface TranslationFlashcardProps {
   title: string;
   content: string;
@@ -90,13 +96,24 @@ interface TranslationFlashcardProps {
   onRate: (rating: number, userTranslation: string) => void;
   onToggleStar?: () => void;
   ratingOptions?: Array<{ value: number; label: string }>;
+  // Shadowing props
+  onStartRecording: () => void;
+  onStopRecording: () => void;
+  isRecording: boolean;
+  isTranscribing: boolean;
+  transcript: string | null;
+  comparison: ShadowingToken[];
 }
 
 /**
- * Renders a translation drill flashcard with rating controls.
+ * Renders a unified translation/listening/shadowing drill flashcard.
+ * Workflow:
+ * 1. First hides text and plays audio (listening mode)
+ * 2. Button to reveal text
+ * 3. Shows AI explanation, recording for shadowing, and rating options
  *
  * @param props - Component props.
- * @returns The flashcard UI for translation drilling.
+ * @returns The flashcard UI for drilling.
  */
 const TranslationFlashcard = ({
   title,
@@ -112,10 +129,18 @@ const TranslationFlashcard = ({
   onExplain,
   onRate,
   onToggleStar,
-  ratingOptions
+  ratingOptions,
+  onStartRecording,
+  onStopRecording,
+  isRecording,
+  isTranscribing,
+  transcript,
+  comparison
 }: TranslationFlashcardProps) => {
   const [draft, setDraft] = useState("");
-  const [revealed, setRevealed] = useState(false);
+  const [textRevealed, setTextRevealed] = useState(false);
+  const [meaningRevealed, setMeaningRevealed] = useState(false);
+
   const resolvedRatings =
     ratingOptions ??
     [
@@ -125,10 +150,15 @@ const TranslationFlashcard = ({
       { value: 4, label: "Easy" }
     ];
 
+  // Reset state when content changes
   useEffect(() => {
     setDraft("");
-    setRevealed(false);
+    setTextRevealed(false);
+    setMeaningRevealed(false);
   }, [content, translation]);
+
+  // Show ratings only when text is revealed
+  const canRate = textRevealed;
 
   return (
     <div className="translation-card">
@@ -143,77 +173,183 @@ const TranslationFlashcard = ({
               type="button"
               className="translation-card__audio"
               onClick={() => onPlayAudio(audioId, characterName)}
-              title="Play audio"
+              title="Nghe am thanh"
             >
-              Audio
+              🔊 Audio
             </button>
           ) : null}
           {showStar ? (
             <button type="button" className="translation-card__star" onClick={onToggleStar}>
-              {isStarred ? "Starred" : "Star"}
+              {isStarred ? "⭐ Starred" : "☆ Star"}
             </button>
           ) : null}
         </div>
       </div>
-      <div className="translation-card__prompt">{content}</div>
-      <label className="translation-card__label" htmlFor="translation-input">
-        Your translation
-      </label>
-      <textarea
-        id="translation-input"
-        className="translation-card__input"
-        rows={3}
-        value={draft}
-        onChange={(event) => setDraft(event.target.value)}
-        placeholder="Nhap cau ban dich..."
-      />
-      {revealed ? (
-        <div className="translation-card__answer">
-          <span>Dap an goi y:</span>
-          <strong>{translation || "(Chua co ban dich mau)"}</strong>
-        </div>
-      ) : null}
-      {explanationMd ? (
-        <div className="translation-card__explanation">
-          <ReactMarkdown>{explanationMd}</ReactMarkdown>
-        </div>
-      ) : null}
-      <div className="translation-card__actions">
-        {!revealed ? (
-          <button type="button" className="translation-card__primary" onClick={() => setRevealed(true)}>
-            Xem dap an
-          </button>
-        ) : (
-          <div className="translation-card__ratings">
-            {resolvedRatings.map((rating) => (
-              <button
-                key={rating.value}
-                type="button"
-                className="translation-card__rating"
-                onClick={() => onRate(rating.value, draft)}
-              >
-                {rating.label}
-              </button>
-            ))}
-          </div>
-        )}
-        {onExplain ? (
-          <button
-            type="button"
-            className="translation-card__explain"
-            onClick={() => onExplain(draft)}
-            disabled={isExplainLoading}
-          >
-            {isExplainLoading ? "Dang giai thich..." : "AI giai thich"}
-          </button>
-        ) : null}
+
+      {/* Hidden/revealed text - first listen then reveal */}
+      <div className="translation-card__prompt">
+        {textRevealed ? content : "••••••••••••••••••••"}
       </div>
+
+      {/* Reveal text button */}
+      {!textRevealed ? (
+        <button
+          type="button"
+          className="translation-card__primary"
+          onClick={() => setTextRevealed(true)}
+        >
+          👁 Hien chu
+        </button>
+      ) : null}
+
+      {/* Show additional controls when text is revealed */}
+      {textRevealed ? (
+        <>
+          {/* User translation input */}
+          <label className="translation-card__label" htmlFor="translation-input">
+            Ban dich cua ban
+          </label>
+          <textarea
+            id="translation-input"
+            className="translation-card__input"
+            rows={3}
+            value={draft}
+            onChange={(event) => setDraft(event.target.value)}
+            placeholder="Nhap cau ban dich..."
+          />
+
+          {/* Show meaning button and answer */}
+          {meaningRevealed ? (
+            <div className="translation-card__answer">
+              <span>Dap an goi y:</span>
+              <strong>{translation || "(Chua co ban dich mau)"}</strong>
+            </div>
+          ) : (
+            <button
+              type="button"
+              className="translation-card__primary"
+              onClick={() => setMeaningRevealed(true)}
+            >
+              📖 Xem nghia
+            </button>
+          )}
+
+          {/* AI Explanation */}
+          {explanationMd ? (
+            <div className="translation-card__explanation">
+              <ReactMarkdown>{explanationMd}</ReactMarkdown>
+            </div>
+          ) : null}
+
+          {/* Shadowing controls */}
+          <div className="shadowing-controls">
+            <button
+              type="button"
+              className={`translation-card__primary ${isRecording ? "shadowing-recording" : ""}`}
+              onClick={isRecording ? onStopRecording : onStartRecording}
+            >
+              {isRecording ? "⏹ Stop" : "🎤 Ghi am"}
+            </button>
+            {isTranscribing ? <span className="shadowing-status">Dang chuyen doi...</span> : null}
+          </div>
+
+          {/* Shadowing result */}
+          {transcript ? (
+            <div className="shadowing-result">
+              <div className="shadowing-result__label">Transcript</div>
+              <div className="shadowing-result__text">{transcript}</div>
+              <div className="shadowing-compare">
+                {comparison.map((token, index) => (
+                  <span
+                    key={`${token.text}-${index}`}
+                    className={`shadowing-token ${token.match ? "shadowing-token--match" : "shadowing-token--mismatch"}`}
+                  >
+                    {token.text}
+                  </span>
+                ))}
+              </div>
+            </div>
+          ) : null}
+
+          {/* Action buttons */}
+          <div className="translation-card__actions">
+            {onExplain ? (
+              <button
+                type="button"
+                className="translation-card__explain"
+                onClick={() => onExplain(draft)}
+                disabled={isExplainLoading}
+              >
+                {isExplainLoading ? "Dang giai thich..." : "🤖 AI giai thich"}
+              </button>
+            ) : null}
+
+            {/* Rating buttons */}
+            {canRate ? (
+              <div className="translation-card__ratings">
+                {resolvedRatings.map((rating) => (
+                  <button
+                    key={rating.value}
+                    type="button"
+                    className="translation-card__rating"
+                    onClick={() => onRate(rating.value, draft)}
+                  >
+                    {rating.label}
+                  </button>
+                ))}
+              </div>
+            ) : null}
+          </div>
+        </>
+      ) : null}
     </div>
   );
 };
 
 /**
- * Renders the Translation Drill view.
+ * Tokenizes a string for shadowing comparison.
+ */
+const tokenize = (value: string) =>
+  value
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+
+/**
+ * Normalizes a token for case-insensitive comparison.
+ */
+const normalizeToken = (value: string) => value.toLowerCase();
+
+/**
+ * Builds token comparison between reference and transcript.
+ */
+const buildComparison = (reference: string, transcript: string): ShadowingToken[] => {
+  const referenceTokens = tokenize(reference);
+  const transcriptTokens = tokenize(transcript);
+
+  return referenceTokens.map((token, index) => {
+    const candidate = transcriptTokens[index] ?? "";
+    return {
+      text: token,
+      match: normalizeToken(token) === normalizeToken(candidate)
+    };
+  });
+};
+
+/**
+ * Converts a Blob to a data URL.
+ */
+const blobToDataUrl = (blob: Blob): Promise<string> =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(new Error("Failed to read audio"));
+    reader.readAsDataURL(blob);
+  });
+
+/**
+ * Renders the unified Translation/Listening/Shadowing Drill view.
  *
  * @returns The Translation view React component.
  */
@@ -239,6 +375,15 @@ const TranslationView = () => {
     starred: []
   });
   const [dueQueueIds, setDueQueueIds] = useState<number[]>([]);
+
+  // Shadowing state
+  const [isRecording, setIsRecording] = useState(false);
+  const [isTranscribing, setIsTranscribing] = useState(false);
+  const [transcript, setTranscript] = useState<string | null>(null);
+  const [comparison, setComparison] = useState<ShadowingToken[]>([]);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const mediaStreamRef = useRef<MediaStream | null>(null);
+  const recordingTargetRef = useRef<{ content: string; translation: string | null } | null>(null);
 
   const fetchAll = useCallback(async () => {
     setIsLoading(true);
@@ -357,6 +502,12 @@ const TranslationView = () => {
     setExplanationMd(null);
   }, [tab, learnCandidate?.messageId]);
 
+  // Reset shadowing state when card changes
+  useEffect(() => {
+    setTranscript(null);
+    setComparison([]);
+  }, [tab, reviewIndex, learnCandidate?.messageId]);
+
   const starredItems = useMemo(
     () => allCards.filter((card) => card.review?.isStarred),
     [allCards]
@@ -439,6 +590,8 @@ const TranslationView = () => {
     if (tab === "starred") return starredQueue;
     return [] as TranslationCard[];
   }, [tab, dueQueue, difficultQueue, starredQueue]);
+
+  const activeCard = activeList[reviewIndex] ?? null;
 
   useEffect(() => {
     if (tab === "learn") {
@@ -676,6 +829,89 @@ const TranslationView = () => {
     });
   };
 
+  // Shadowing functions
+  const stopRecording = () => {
+    mediaRecorderRef.current?.stop();
+  };
+
+  const startRecording = async () => {
+    if (isRecording) {
+      return;
+    }
+
+    const targetContent = tab === "learn" ? learnCandidate?.content : activeCard?.content;
+    const targetTranslation = tab === "learn" ? learnCandidate?.translation ?? null : activeCard?.translation ?? null;
+
+    if (!targetContent) {
+      setError("No text available for shadowing");
+      return;
+    }
+
+    setError(null);
+    setTranscript(null);
+    setComparison([]);
+    setIsTranscribing(false);
+    recordingTargetRef.current = { content: targetContent, translation: targetTranslation };
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      mediaStreamRef.current = stream;
+      const recorder = new MediaRecorder(stream);
+      const chunks: Blob[] = [];
+
+      recorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          chunks.push(event.data);
+        }
+      };
+
+      recorder.onstop = async () => {
+        setIsRecording(false);
+        mediaStreamRef.current?.getTracks().forEach((track) => track.stop());
+        mediaStreamRef.current = null;
+
+        if (!chunks.length) {
+          return;
+        }
+
+        try {
+          setIsTranscribing(true);
+          const blob = new Blob(chunks, { type: recorder.mimeType || "audio/webm" });
+          const audio = await blobToDataUrl(blob);
+          const response = await authFetch(apiUrl("/api/translation/transcribe"), {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ audio })
+          });
+
+          if (!response.ok) {
+            const payload = (await response.json().catch(() => null)) as { message?: string } | null;
+            throw new Error(payload?.message ?? "Transcribe failed");
+          }
+
+          const payload = (await response.json()) as { transcript: string };
+          const transcriptText = payload.transcript?.trim() ?? "";
+          setTranscript(transcriptText || null);
+
+          const reference = recordingTargetRef.current?.content ?? "";
+          setComparison(buildComparison(reference, transcriptText));
+        } catch (caught) {
+          console.error("Failed to transcribe audio.", caught);
+          setError(caught instanceof Error ? caught.message : "Unknown error");
+        } finally {
+          setIsTranscribing(false);
+        }
+      };
+
+      recorder.start();
+      mediaRecorderRef.current = recorder;
+      setIsRecording(true);
+    } catch (caught) {
+      console.error("Failed to start recording.", caught);
+      setError(caught instanceof Error ? caught.message : "Unable to access microphone");
+    }
+  };
+
   const tabs: { id: TabId; label: string; count?: number }[] = [
     { id: "due", label: "Due", count: dueQueue.length },
     { id: "difficult", label: "Difficult", count: difficultQueue.length },
@@ -686,7 +922,7 @@ const TranslationView = () => {
   return (
     <main className="translation-shell">
       <header className="translation-header">
-        <h1>Translation Drill</h1>
+        <h1>Luyen tap</h1>
         {stats ? (
           <p className="translation-stats">
             {stats.totalCards} cards - {stats.dueToday} due - {stats.starredCount} starred
@@ -729,6 +965,12 @@ const TranslationView = () => {
               handleExplain({ messageId: learnCandidate.messageId, userTranslation: draft })
             }
             onRate={(rating, draft) => handleLearnReview(learnCandidate.messageId, rating, draft)}
+            onStartRecording={startRecording}
+            onStopRecording={stopRecording}
+            isRecording={isRecording}
+            isTranscribing={isTranscribing}
+            transcript={transcript}
+            comparison={comparison}
           />
         ) : (
           <p className="translation-empty">No new messages available for learning.</p>
@@ -738,21 +980,21 @@ const TranslationView = () => {
       ) : (
         <TranslationFlashcard
           title={tab === "due" ? "Due" : tab === "difficult" ? "Difficult" : "Starred"}
-          content={activeList[reviewIndex]?.content ?? ""}
-          translation={activeList[reviewIndex]?.translation ?? null}
-          characterName={activeList[reviewIndex]?.characterName ?? ""}
-          audioId={activeList[reviewIndex]?.audio ?? null}
-          isStarred={!!activeList[reviewIndex]?.review?.isStarred}
+          content={activeCard?.content ?? ""}
+          translation={activeCard?.translation ?? null}
+          characterName={activeCard?.characterName ?? ""}
+          audioId={activeCard?.audio ?? null}
+          isStarred={!!activeCard?.review?.isStarred}
           showStar
           onPlayAudio={playAudio}
           explanationMd={
-            isExplanationVisible && explanationCardId === activeList[reviewIndex]?.id
-              ? activeList[reviewIndex]?.explanationMd ?? null
+            isExplanationVisible && explanationCardId === activeCard?.id
+              ? activeCard?.explanationMd ?? null
               : null
           }
           isExplainLoading={isExplainLoading}
           onExplain={(draft) => {
-            const active = activeList[reviewIndex];
+            const active = activeCard;
             if (active) {
               setIsExplanationVisible(true);
               setExplanationCardId(active.id);
@@ -760,7 +1002,7 @@ const TranslationView = () => {
             }
           }}
           onToggleStar={() => {
-            const active = activeList[reviewIndex];
+            const active = activeCard;
             if (active) {
               void handleToggleStar(active.id);
             }
@@ -774,7 +1016,7 @@ const TranslationView = () => {
               : undefined
           }
           onRate={(rating, draft) => {
-            const active = activeList[reviewIndex];
+            const active = activeCard;
             if (!active) {
               return;
             }
@@ -798,6 +1040,12 @@ const TranslationView = () => {
               setReviewIndex(0);
             }
           }}
+          onStartRecording={startRecording}
+          onStopRecording={stopRecording}
+          isRecording={isRecording}
+          isTranscribing={isTranscribing}
+          transcript={transcript}
+          comparison={comparison}
         />
       )}
     </main>

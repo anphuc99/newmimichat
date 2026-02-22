@@ -89,10 +89,6 @@ describe("Tasks controller", () => {
     const controller = createController([
       createRepository(),
       createRepository(),
-      createRepository(),
-      createRepository(),
-      createRepository(),
-      createRepository(),
       createStreakRepository()
     ]);
     const response = createMockResponse();
@@ -117,26 +113,6 @@ describe("Tasks controller", () => {
       createRepository([
         { id: 1, nextReviewDate: tomorrow }
       ]),
-      createRepository([
-        { id: 1, createdAt: now },
-        { id: 2, createdAt: now },
-        { id: 3, createdAt: now },
-        { id: 4, createdAt: now },
-        { id: 5, createdAt: now }
-      ]),
-      createRepository([
-        { id: 1, nextReviewDate: now },
-        { id: 2, nextReviewDate: now }
-      ]),
-      createRepository([
-        { id: 1, createdAt: now },
-        { id: 2, createdAt: now },
-        { id: 3, createdAt: now },
-        { id: 4, createdAt: now },
-        { id: 5, createdAt: now },
-        { id: 6, createdAt: now }
-      ]),
-      createRepository([]),
       streakRepo
     ]);
 
@@ -146,26 +122,14 @@ describe("Tasks controller", () => {
 
     expect(response.json).toHaveBeenCalledTimes(1);
     const payload = response.json.mock.calls[0][0];
-    expect(payload.tasks).toHaveLength(6);
+    expect(payload.tasks).toHaveLength(2);
 
     const translationNew = findTask(payload.tasks, "translation_new");
     expect(translationNew?.progress).toBe(3);
+    expect(translationNew?.target).toBe(10);
 
     const translationDue = findTask(payload.tasks, "translation_due");
     expect(translationDue?.remaining).toBe(0);
-
-    const listeningNew = findTask(payload.tasks, "listening_new");
-    expect(listeningNew?.progress).toBe(5);
-    expect(listeningNew?.completed).toBe(true);
-
-    const listeningDue = findTask(payload.tasks, "listening_due");
-    expect(listeningDue?.remaining).toBe(2);
-
-    const shadowingNew = findTask(payload.tasks, "shadowing_new");
-    expect(shadowingNew?.progress).toBe(6);
-
-    const shadowingDue = findTask(payload.tasks, "shadowing_due");
-    expect(shadowingDue?.remaining).toBe(0);
     expect(streakRepo.save).not.toHaveBeenCalled();
   });
 
@@ -181,11 +145,7 @@ describe("Tasks controller", () => {
     });
 
     const controller = createController([
-      createRepository(Array.from({ length: 5 }, (_, index) => ({ id: index, createdAt: now }))),
-      createRepository([]),
-      createRepository(Array.from({ length: 5 }, (_, index) => ({ id: index, createdAt: now }))),
-      createRepository([]),
-      createRepository(Array.from({ length: 5 }, (_, index) => ({ id: index, createdAt: now }))),
+      createRepository(Array.from({ length: 10 }, (_, index) => ({ id: index, createdAt: now }))),
       createRepository([]),
       streakRepo
     ]);

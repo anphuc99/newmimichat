@@ -5,8 +5,6 @@ import JournalView from "./views/journal";
 import StoryView from "./views/story";
 import TasksView from "./views/tasks";
 import TranslationView from "./views/translation";
-import ListeningView from "./views/listening";
-import ShadowingView from "./views/shadowing";
 import VocabularyView from "./views/vocabulary";
 import LoginView from "./views/auth";
 import StreakWidget from "./views/shared/StreakWidget";
@@ -26,8 +24,6 @@ type AppView =
   | "tasks"
   | "story"
   | "translation"
-  | "listening"
-  | "shadowing"
   | "vocabulary";
 const MODEL_STORAGE_KEY = "mimi_chat_model";
 /**
@@ -276,10 +272,6 @@ const App = () => {
           <TasksView />
         ) : view === "translation" ? (
           <TranslationView />
-        ) : view === "listening" ? (
-          <ListeningView />
-        ) : view === "shadowing" ? (
-          <ShadowingView />
         ) : view === "vocabulary" ? (
           <VocabularyView userId={auth.user.id} />
         ) : (
@@ -321,21 +313,7 @@ const App = () => {
           className={`app-tab ${view === "translation" ? "active" : ""}`}
           onClick={() => setView("translation")}
         >
-          Translate
-        </button>
-        <button
-          type="button"
-          className={`app-tab ${view === "listening" ? "active" : ""}`}
-          onClick={() => setView("listening")}
-        >
-          Listening
-        </button>
-        <button
-          type="button"
-          className={`app-tab ${view === "shadowing" ? "active" : ""}`}
-          onClick={() => setView("shadowing")}
-        >
-          Shadowing
+          Luyen tap
         </button>
         <button
           type="button"

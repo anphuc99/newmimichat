@@ -1,9 +1,5 @@
 ﻿import type { Request, Response } from "express";
 import type { DataSource, Repository } from "typeorm";
-import ListeningCardEntity from "../../models/listening-card.entity.js";
-import ListeningReviewEntity from "../../models/listening-review.entity.js";
-import ShadowingCardEntity from "../../models/shadowing-card.entity.js";
-import ShadowingReviewEntity from "../../models/shadowing-review.entity.js";
 import StreakEntity from "../../models/streak.entity.js";
 import TranslationCardEntity from "../../models/translation-card.entity.js";
 import TranslationReviewEntity from "../../models/translation-review.entity.js";
@@ -38,10 +34,6 @@ interface TasksController {
 export const createTasksController = (dataSource: DataSource): TasksController => {
   const translationRepo: Repository<TranslationCardEntity> = dataSource.getRepository(TranslationCardEntity);
   const translationReviewRepo: Repository<TranslationReviewEntity> = dataSource.getRepository(TranslationReviewEntity);
-  const listeningRepo: Repository<ListeningCardEntity> = dataSource.getRepository(ListeningCardEntity);
-  const listeningReviewRepo: Repository<ListeningReviewEntity> = dataSource.getRepository(ListeningReviewEntity);
-  const shadowingRepo: Repository<ShadowingCardEntity> = dataSource.getRepository(ShadowingCardEntity);
-  const shadowingReviewRepo: Repository<ShadowingReviewEntity> = dataSource.getRepository(ShadowingReviewEntity);
   const streakRepo: Repository<StreakEntity> = dataSource.getRepository(StreakEntity);
 
   const toDateKey = (value: Date | string) =>
@@ -119,81 +111,33 @@ export const createTasksController = (dataSource: DataSource): TasksController =
     try {
       const [
         translationCards,
-        translationReviews,
-        listeningCards,
-        listeningReviews,
-        shadowingCards,
-        shadowingReviews
+        translationReviews
       ] = await Promise.all([
         translationRepo.find({ where: { userId } }),
-        translationReviewRepo.find({ where: { userId } }),
-        listeningRepo.find({ where: { userId } }),
-        listeningReviewRepo.find({ where: { userId } }),
-        shadowingRepo.find({ where: { userId } }),
-        shadowingReviewRepo.find({ where: { userId } })
+        translationReviewRepo.find({ where: { userId } })
       ]);
 
       const translationLearned = countCreatedOn(translationCards, todayKey);
       const translationDueRemaining = countDueOnOrBefore(translationReviews, todayKey);
-      const listeningLearned = countCreatedOn(listeningCards, todayKey);
-      const listeningDueRemaining = countDueOnOrBefore(listeningReviews, todayKey);
-      const shadowingLearned = countCreatedOn(shadowingCards, todayKey);
-      const shadowingDueRemaining = countDueOnOrBefore(shadowingReviews, todayKey);
 
       const tasks: TaskItem[] = [
         {
           id: "translation_new",
-          label: "Luyện dịch 5 câu mới",
+          label: "Luyện tập 10 câu mới",
           type: "count",
           progress: translationLearned,
-          target: 5,
-          remaining: Math.max(5 - translationLearned, 0),
-          completed: translationLearned >= 5
+          target: 10,
+          remaining: Math.max(10 - translationLearned, 0),
+          completed: translationLearned >= 10
         },
         {
           id: "translation_due",
-          label: "Ôn tập hết câu dịch đến hạn",
+          label: "Ôn tập hết câu đến hạn",
           type: "clear_due",
           progress: 0,
           target: 0,
           remaining: translationDueRemaining,
           completed: translationDueRemaining === 0
-        },
-        {
-          id: "listening_new",
-          label: "Luyện nghe 5 câu mới",
-          type: "count",
-          progress: listeningLearned,
-          target: 5,
-          remaining: Math.max(5 - listeningLearned, 0),
-          completed: listeningLearned >= 5
-        },
-        {
-          id: "listening_due",
-          label: "Ôn tập hết câu nghe đến hạn",
-          type: "clear_due",
-          progress: 0,
-          target: 0,
-          remaining: listeningDueRemaining,
-          completed: listeningDueRemaining === 0
-        },
-        {
-          id: "shadowing_new",
-          label: "Luyện shadowing 5 câu mới",
-          type: "count",
-          progress: shadowingLearned,
-          target: 5,
-          remaining: Math.max(5 - shadowingLearned, 0),
-          completed: shadowingLearned >= 5
-        },
-        {
-          id: "shadowing_due",
-          label: "Ôn tập hết shadowing đến hạn",
-          type: "clear_due",
-          progress: 0,
-          target: 0,
-          remaining: shadowingDueRemaining,
-          completed: shadowingDueRemaining === 0
         }
       ];
 
