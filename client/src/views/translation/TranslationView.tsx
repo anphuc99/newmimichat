@@ -171,8 +171,8 @@ const TranslationFlashcard = ({
           <p className="translation-card__title">{title}</p>
           <p className="translation-card__subtitle">{characterName}</p>
           {journalSummary ? (
-            <p className="translation-card__journal" title={journalSummary}>
-              📖 {journalSummary.length > 60 ? `${journalSummary.slice(0, 60)}...` : journalSummary}
+            <p className="translation-card__journal">
+              📖 {journalSummary}
             </p>
           ) : null}
         </div>
