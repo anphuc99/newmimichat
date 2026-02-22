@@ -2,6 +2,7 @@ import type { Request, Response } from "express";
 import type { DataSource, Repository } from "typeorm";
 import { toFile, type Uploadable } from "openai/uploads";
 import MessageEntity from "../../models/message.entity.js";
+import JournalEntity from "../../models/journal.entity.js";
 import TranslationCardEntity from "../../models/translation-card.entity.js";
 import TranslationReviewEntity from "../../models/translation-review.entity.js";
 import { createOpenAIClient } from "../../services/openai.service.js";
@@ -146,6 +147,7 @@ export const createTranslationController = (
   const cardRepo: Repository<TranslationCardEntity> = dataSource.getRepository(TranslationCardEntity);
   const reviewRepo: Repository<TranslationReviewEntity> = dataSource.getRepository(TranslationReviewEntity);
   const messageRepo: Repository<MessageEntity> = dataSource.getRepository(MessageEntity);
+  const journalRepo: Repository<JournalEntity> = dataSource.getRepository(JournalEntity);
   const toDateKey = (value: Date | string) =>
     new Date(value).toLocaleDateString("en-CA", { timeZone: "Asia/Ho_Chi_Minh" });
   const apiKey = process.env.OPENAI_API_KEY ?? "";
@@ -194,7 +196,7 @@ export const createTranslationController = (
     });
 
   /**
-   * Lists all translation cards for the current user.
+   * Lists all translation cards for the current user with journal info.
    */
   const listCards: TranslationController["listCards"] = async (request, response) => {
     const userId = request.user?.id;
@@ -214,10 +216,18 @@ export const createTranslationController = (
         reviews.map((review: TranslationReviewEntity) => [review.translationCardId, review])
       );
 
+      // Fetch journal summaries for the cards
+      const journalIds = [...new Set(cards.map((card: TranslationCardEntity) => card.journalId))];
+      const journals = journalIds.length
+        ? await journalRepo.find({ where: journalIds.map((id) => ({ id })) })
+        : [];
+      const journalMap = new Map<number, string>(journals.map((j: JournalEntity) => [j.id, j.summary]));
+
       const items = cards.map((card: TranslationCardEntity) => {
         const review = reviewMap.get(card.id);
         return {
           ...serialiseCard(card),
+          journalSummary: journalMap.get(card.journalId) ?? null,
           review: review ? serialiseReview(review) : null
         };
       });
@@ -230,7 +240,7 @@ export const createTranslationController = (
   };
 
   /**
-   * Returns translation cards that are due for review.
+   * Returns translation cards that are due for review, sorted by createdAt ASC (oldest first) with journal info.
    */
   const getDueCards: TranslationController["getDueCards"] = async (request, response) => {
     const userId = request.user?.id;
@@ -251,23 +261,30 @@ export const createTranslationController = (
             .createQueryBuilder("c")
             .where("c.id IN (:...ids)", { ids: cardIds })
             .andWhere("c.user_id = :userId", { userId })
+            .orderBy("c.created_at", "ASC")
             .getMany()
         : [];
 
-      const cardMap = new Map<number, TranslationCardEntity>(cards.map((card: TranslationCardEntity) => [card.id, card]));
-      const items = dueReviews
-        .map((review: TranslationReviewEntity) => {
-          const card = cardMap.get(review.translationCardId);
-          if (!card) {
-            return null;
-          }
+      // Fetch journal summaries for the cards
+      const journalIds = [...new Set(cards.map((card: TranslationCardEntity) => card.journalId))];
+      const journals = journalIds.length
+        ? await journalRepo.find({ where: journalIds.map((id) => ({ id })) })
+        : [];
+      const journalMap = new Map<number, string>(journals.map((j: JournalEntity) => [j.id, j.summary]));
 
-          return {
-            ...serialiseCard(card),
-            review: serialiseReview(review)
-          };
-        })
-        .filter(Boolean);
+      const cardMap = new Map<number, TranslationCardEntity>(cards.map((card: TranslationCardEntity) => [card.id, card]));
+      const reviewMap = new Map<number, TranslationReviewEntity>(dueReviews.map((review: TranslationReviewEntity) => [review.translationCardId, review]));
+
+      // Sort by card createdAt ASC (oldest first)
+      const sortedCards = cards.slice().sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+      const items = sortedCards.map((card: TranslationCardEntity) => {
+        const review = reviewMap.get(card.id);
+        return {
+          ...serialiseCard(card),
+          journalSummary: journalMap.get(card.journalId) ?? null,
+          review: review ? serialiseReview(review) : null
+        };
+      });
 
       response.json({ cards: items, total: items.length });
     } catch (error) {
@@ -334,7 +351,7 @@ export const createTranslationController = (
   };
 
   /**
-   * Returns a random message that has not been turned into a translation card.
+   * Returns ALL messages that have not been turned into translation cards, sorted by createdAt ASC (oldest first) with journal info.
    */
   const getLearnCandidate: TranslationController["getLearnCandidate"] = async (request, response) => {
     const userId = request.user?.id;
@@ -347,7 +364,6 @@ export const createTranslationController = (
     try {
       const existingCards = await cardRepo.find({ where: { userId } });
       const existingMessageIds = existingCards.map((card: TranslationCardEntity) => card.messageId);
-      const orderBy = dataSource.options.type === "mysql" ? "RAND()" : "RANDOM()";
 
       // Get the last 1000 message IDs for this user to limit the candidate pool
       const recentMessages = await messageRepo.find({
@@ -360,7 +376,7 @@ export const createTranslationController = (
       const recentIds = recentMessages.map(m => m.id);
 
       if (recentIds.length === 0) {
-        response.status(404).json({ message: "No new messages available" });
+        response.json({ candidates: [] });
         return;
       }
 
@@ -374,25 +390,36 @@ export const createTranslationController = (
         query.andWhere("m.id NOT IN (:...ids)", { ids: existingMessageIds });
       }
 
-      const message = await query.orderBy(orderBy).limit(1).getOne();
+      // Sort by createdAt ASC (oldest first) instead of random
+      const messages = await query.orderBy("m.created_at", "ASC").getMany();
 
-      if (!message) {
-        response.status(404).json({ message: "No new messages available" });
+      if (!messages.length) {
+        response.json({ candidates: [] });
         return;
       }
 
-      response.json({
+      // Fetch journal summaries
+      const journalIds = [...new Set(messages.map((m: MessageEntity) => m.journalId))];
+      const journals = journalIds.length
+        ? await journalRepo.find({ where: journalIds.map((id) => ({ id })) })
+        : [];
+      const journalMap = new Map<number, string>(journals.map((j: JournalEntity) => [j.id, j.summary]));
+
+      const candidates = messages.map((message: MessageEntity) => ({
         messageId: message.id,
         content: message.content,
         translation: message.translation,
         characterName: message.characterName,
         audio: message.audio ?? null,
         journalId: message.journalId,
+        journalSummary: journalMap.get(message.journalId) ?? null,
         createdAt: message.createdAt
-      });
+      }));
+
+      response.json({ candidates });
     } catch (error) {
-      console.error("Failed to fetch a translation candidate.", error);
-      response.status(500).json({ message: "Failed to fetch translation candidate" });
+      console.error("Failed to fetch translation candidates.", error);
+      response.status(500).json({ message: "Failed to fetch translation candidates" });
     }
   };
 

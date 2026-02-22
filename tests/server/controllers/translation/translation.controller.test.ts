@@ -41,7 +41,7 @@ const createRepository = () => ({
 });
 
 /**
- * Constructs the translation controller using three mock repositories.
+ * Constructs the translation controller using four mock repositories.
  *
  * @returns The controller and the mock repos.
  */
@@ -49,18 +49,19 @@ const createController = (deps: { explainWithOpenAI?: (payload: any) => Promise<
   const cardRepo = createRepository();
   const reviewRepo = createRepository();
   const messageRepo = createRepository();
+  const journalRepo = createRepository();
   let repoIndex = 0;
 
   const dataSource = {
     options: { type: "mysql" },
     getRepository: vi.fn(() => {
-      const repos = [cardRepo, reviewRepo, messageRepo];
+      const repos = [cardRepo, reviewRepo, messageRepo, journalRepo];
       return repos[repoIndex++];
     })
   } as any;
 
   const controller = createTranslationController(dataSource, deps);
-  return { controller, cardRepo, reviewRepo, messageRepo };
+  return { controller, cardRepo, reviewRepo, messageRepo, journalRepo };
 };
 
 /**
@@ -130,17 +131,16 @@ describe("Translation controller", () => {
     expect(payload.cards[0].review).toBeTruthy();
   });
 
-  it("returns 404 when no learn candidate exists", async () => {
+  it("returns empty candidates when no learn candidate exists", async () => {
     const { controller, messageRepo } = createController();
     const response = createMockResponse();
 
     const query = messageRepo.createQueryBuilder();
-    query.getOne.mockResolvedValue(null);
+    query.getMany.mockResolvedValue([]);
 
     await controller.getLearnCandidate(authRequest(), response);
 
-    expect(response.status).toHaveBeenCalledWith(404);
-    expect(response.json).toHaveBeenCalledWith({ message: "No new messages available" });
+    expect(response.json).toHaveBeenCalledWith({ candidates: [] });
   });
 
   it("creates a new card when reviewing a new message", async () => {

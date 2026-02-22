@@ -39,13 +39,14 @@ interface TranslationCard {
   audio?: string | null;
   explanationMd?: string | null;
   journalId: number;
+  journalSummary?: string | null;
   userId: number;
   createdAt: string;
   updatedAt: string;
   review: TranslationReview | null;
 }
 
-/** Random learn candidate returned by the API. */
+/** Learn candidate returned by the API. */
 interface LearnCandidate {
   messageId: string;
   content: string;
@@ -53,6 +54,7 @@ interface LearnCandidate {
   characterName: string;
   audio?: string | null;
   journalId: number;
+  journalSummary?: string | null;
   createdAt: string;
 }
 
@@ -87,6 +89,7 @@ interface TranslationFlashcardProps {
   translation: string | null;
   characterName: string;
   audioId?: string | null;
+  journalSummary?: string | null;
   isStarred?: boolean;
   showStar?: boolean;
   onPlayAudio?: (audioId: string, characterName?: string) => void;
@@ -121,6 +124,7 @@ const TranslationFlashcard = ({
   translation,
   characterName,
   audioId,
+  journalSummary,
   isStarred,
   showStar,
   onPlayAudio,
@@ -166,6 +170,11 @@ const TranslationFlashcard = ({
         <div>
           <p className="translation-card__title">{title}</p>
           <p className="translation-card__subtitle">{characterName}</p>
+          {journalSummary ? (
+            <p className="translation-card__journal" title={journalSummary}>
+              📖 {journalSummary.length > 60 ? `${journalSummary.slice(0, 60)}...` : journalSummary}
+            </p>
+          ) : null}
         </div>
         <div className="translation-card__header-actions">
           {audioId && onPlayAudio ? (
@@ -358,7 +367,8 @@ const TranslationView = () => {
   const [allCards, setAllCards] = useState<TranslationCard[]>([]);
   const [dueCards, setDueCards] = useState<TranslationCard[]>([]);
   const [stats, setStats] = useState<TranslationStats | null>(null);
-  const [learnCandidate, setLearnCandidate] = useState<LearnCandidate | null>(null);
+  const [learnCandidates, setLearnCandidates] = useState<LearnCandidate[]>([]);
+  const [learnIndex, setLearnIndex] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [isLearnLoading, setIsLearnLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -415,7 +425,7 @@ const TranslationView = () => {
     }
   }, []);
 
-  const fetchLearnCandidate = useCallback(async () => {
+  const fetchLearnCandidates = useCallback(async () => {
     setIsLearnLoading(true);
     setError(null);
 
@@ -423,17 +433,14 @@ const TranslationView = () => {
       const response = await authFetch(apiUrl("/api/translation/learn"));
 
       if (!response.ok) {
-        if (response.status === 404) {
-          setLearnCandidate(null);
-          return;
-        }
-        throw new Error("Failed to load learn candidate");
+        throw new Error("Failed to load learn candidates");
       }
 
-      const payload = (await response.json()) as LearnCandidate;
-      setLearnCandidate(payload);
+      const payload = (await response.json()) as { candidates: LearnCandidate[] };
+      setLearnCandidates(payload.candidates ?? []);
+      setLearnIndex(0);
     } catch (caught) {
-      console.error("Failed to load learn candidate.", caught);
+      console.error("Failed to load learn candidates.", caught);
       setError(caught instanceof Error ? caught.message : "Unknown error");
     } finally {
       setIsLearnLoading(false);
@@ -486,13 +493,16 @@ const TranslationView = () => {
 
   useEffect(() => {
     if (tab === "learn") {
-      void fetchLearnCandidate();
+      void fetchLearnCandidates();
     }
-  }, [tab, fetchLearnCandidate]);
+  }, [tab, fetchLearnCandidates]);
 
   useEffect(() => {
     setReviewIndex(0);
   }, [tab, dueCards, allCards]);
+
+  // Current learn candidate
+  const currentLearnCandidate = learnCandidates[learnIndex] ?? null;
 
   useEffect(() => {
     if (tab !== "learn") {
@@ -500,13 +510,13 @@ const TranslationView = () => {
     }
 
     setExplanationMd(null);
-  }, [tab, learnCandidate?.messageId]);
+  }, [tab, currentLearnCandidate?.messageId]);
 
   // Reset shadowing state when card changes
   useEffect(() => {
     setTranscript(null);
     setComparison([]);
-  }, [tab, reviewIndex, learnCandidate?.messageId]);
+  }, [tab, reviewIndex, currentLearnCandidate?.messageId]);
 
   const starredItems = useMemo(
     () => allCards.filter((card) => card.review?.isStarred),
@@ -747,7 +757,7 @@ const TranslationView = () => {
   };
 
   /**
-   * Sends a translation review rating for a new random message.
+   * Sends a translation review rating for a new message from learn candidates.
    *
    * @param messageId - Message ID used to create a new card.
    * @param rating - FSRS rating (1-4).
@@ -765,8 +775,14 @@ const TranslationView = () => {
         throw new Error("Review failed");
       }
 
+      // Remove current candidate from list and move to next
+      setLearnCandidates((prev) => prev.filter((c) => c.messageId !== messageId));
+      // Keep same index if there are more candidates, reset if at end
+      setLearnIndex((prev) => {
+        const newLength = learnCandidates.length - 1;
+        return prev >= newLength ? Math.max(0, newLength - 1) : prev;
+      });
       await fetchAll();
-      await fetchLearnCandidate();
     } catch (caught) {
       console.error("Failed to review translation learn card.", caught);
       setError(caught instanceof Error ? caught.message : "Unknown error");
@@ -839,8 +855,8 @@ const TranslationView = () => {
       return;
     }
 
-    const targetContent = tab === "learn" ? learnCandidate?.content : activeCard?.content;
-    const targetTranslation = tab === "learn" ? learnCandidate?.translation ?? null : activeCard?.translation ?? null;
+    const targetContent = tab === "learn" ? currentLearnCandidate?.content : activeCard?.content;
+    const targetTranslation = tab === "learn" ? currentLearnCandidate?.translation ?? null : activeCard?.translation ?? null;
 
     if (!targetContent) {
       setError("No text available for shadowing");
@@ -916,7 +932,7 @@ const TranslationView = () => {
     { id: "due", label: "Due", count: dueQueue.length },
     { id: "difficult", label: "Difficult", count: difficultQueue.length },
     { id: "starred", label: "Starred", count: starredQueue.length },
-    { id: "learn", label: "Learn", count: learnCandidate ? 1 : 0 }
+    { id: "learn", label: "Learn", count: learnCandidates.length }
   ];
 
   return (
@@ -951,20 +967,21 @@ const TranslationView = () => {
       ) : tab === "learn" ? (
         isLearnLoading ? (
           <p className="translation-loading">Loading...</p>
-        ) : learnCandidate ? (
+        ) : currentLearnCandidate ? (
           <TranslationFlashcard
-            title="Learn"
-            content={learnCandidate.content}
-            translation={learnCandidate.translation}
-            characterName={learnCandidate.characterName}
-            audioId={learnCandidate.audio ?? null}
+            title={`Learn (${learnIndex + 1}/${learnCandidates.length})`}
+            content={currentLearnCandidate.content}
+            translation={currentLearnCandidate.translation}
+            characterName={currentLearnCandidate.characterName}
+            audioId={currentLearnCandidate.audio ?? null}
+            journalSummary={currentLearnCandidate.journalSummary ?? null}
             onPlayAudio={playAudio}
             explanationMd={explanationMd}
             isExplainLoading={isExplainLoading}
             onExplain={(draft) =>
-              handleExplain({ messageId: learnCandidate.messageId, userTranslation: draft })
+              handleExplain({ messageId: currentLearnCandidate.messageId, userTranslation: draft })
             }
-            onRate={(rating, draft) => handleLearnReview(learnCandidate.messageId, rating, draft)}
+            onRate={(rating, draft) => handleLearnReview(currentLearnCandidate.messageId, rating, draft)}
             onStartRecording={startRecording}
             onStopRecording={stopRecording}
             isRecording={isRecording}
@@ -979,11 +996,18 @@ const TranslationView = () => {
         <p className="translation-empty">No cards in this tab.</p>
       ) : (
         <TranslationFlashcard
-          title={tab === "due" ? "Due" : tab === "difficult" ? "Difficult" : "Starred"}
+          title={
+            tab === "due"
+              ? `Due (${reviewIndex + 1}/${activeList.length})`
+              : tab === "difficult"
+              ? `Difficult (${reviewIndex + 1}/${activeList.length})`
+              : `Starred (${reviewIndex + 1}/${activeList.length})`
+          }
           content={activeCard?.content ?? ""}
           translation={activeCard?.translation ?? null}
           characterName={activeCard?.characterName ?? ""}
           audioId={activeCard?.audio ?? null}
+          journalSummary={activeCard?.journalSummary ?? null}
           isStarred={!!activeCard?.review?.isStarred}
           showStar
           onPlayAudio={playAudio}
