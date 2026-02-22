@@ -259,9 +259,10 @@ export const createTranslationController = (
       const cards = cardIds.length
         ? await cardRepo
             .createQueryBuilder("c")
+            .innerJoin(MessageEntity, "m", "c.messageId = m.id")
             .where("c.id IN (:...ids)", { ids: cardIds })
-            .andWhere("c.user_id = :userId", { userId })
-            .orderBy("c.created_at", "ASC")
+            .andWhere("c.userId = :userId", { userId })
+            .orderBy("m.createdAt", "ASC")
             .getMany()
         : [];
 
@@ -275,8 +276,8 @@ export const createTranslationController = (
       const cardMap = new Map<number, TranslationCardEntity>(cards.map((card: TranslationCardEntity) => [card.id, card]));
       const reviewMap = new Map<number, TranslationReviewEntity>(dueReviews.map((review: TranslationReviewEntity) => [review.translationCardId, review]));
 
-      // Sort by card createdAt ASC (oldest first)
-      const sortedCards = cards.slice().sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+      // Use database sorted results directly (sorted by message.createdAt)
+      const sortedCards = cards;
       const items = sortedCards.map((card: TranslationCardEntity) => {
         const review = reviewMap.get(card.id);
         return {
