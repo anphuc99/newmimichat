@@ -213,6 +213,10 @@ Unit tests live outside `client/` and `server/` under `tests/`.
 npm test
 ```
 
+## API Documentation
+
+See [server/API.md](server/API.md) for detailed request/response contracts for each server endpoint.
+
 ## Password reset (registration token)
 
 Reset a user password using the registration token (no old password required):
