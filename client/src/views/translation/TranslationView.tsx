@@ -83,6 +83,17 @@ interface ShadowingToken {
   match: boolean;
 }
 
+interface ContextMessage {
+  id: string;
+  content: string;
+  translation: string | null;
+}
+
+interface ContextData {
+  before: ContextMessage[];
+  after: ContextMessage[];
+}
+
 interface TranslationFlashcardProps {
   title: string;
   content: string;
@@ -90,6 +101,8 @@ interface TranslationFlashcardProps {
   characterName: string;
   audioId?: string | null;
   journalSummary?: string | null;
+  context?: ContextData | null;
+  isContextLoading?: boolean;
   isStarred?: boolean;
   showStar?: boolean;
   onPlayAudio?: (audioId: string, characterName?: string) => void;
@@ -139,7 +152,9 @@ const TranslationFlashcard = ({
   isRecording,
   isTranscribing,
   transcript,
-  comparison
+  comparison,
+  context,
+  isContextLoading
 }: TranslationFlashcardProps) => {
   const [draft, setDraft] = useState("");
   const [textRevealed, setTextRevealed] = useState(false);
@@ -195,10 +210,30 @@ const TranslationFlashcard = ({
         </div>
       </div>
 
+      {context?.before.length ? (
+        <div className="translation-card__context translation-card__context--before">
+          {context.before.map((msg) => (
+            <p key={msg.id} className="translation-card__context-line">
+              {msg.translation || msg.content}
+            </p>
+          ))}
+        </div>
+      ) : null}
+
       {/* Hidden/revealed text - first listen then reveal */}
       <div className="translation-card__prompt">
         {textRevealed ? content : "••••••••••••••••••••"}
       </div>
+
+      {context?.after.length ? (
+        <div className="translation-card__context translation-card__context--after">
+          {context.after.map((msg) => (
+            <p key={msg.id} className="translation-card__context-line">
+              {msg.translation || msg.content}
+            </p>
+          ))}
+        </div>
+      ) : null}
 
       {/* Reveal text button */}
       {!textRevealed ? (
@@ -385,6 +420,8 @@ const TranslationView = () => {
     starred: []
   });
   const [dueQueueIds, setDueQueueIds] = useState<number[]>([]);
+  const [contextData, setContextData] = useState<ContextData | null>(null);
+  const [isContextLoading, setIsContextLoading] = useState(false);
 
   // Shadowing state
   const [isRecording, setIsRecording] = useState(false);
@@ -503,6 +540,37 @@ const TranslationView = () => {
 
   // Current learn candidate
   const currentLearnCandidate = learnCandidates[learnIndex] ?? null;
+
+  // Active message ID for context
+  const activeMessageId = tab === "learn" ? currentLearnCandidate?.messageId : activeCard?.messageId;
+
+  // Fetch context when message changes
+  useEffect(() => {
+    if (!activeMessageId) {
+      setContextData(null);
+      return;
+    }
+
+    const fetchContext = async () => {
+      setIsContextLoading(true);
+      try {
+        const response = await authFetch(apiUrl(`/api/translation/context/${activeMessageId}`));
+        if (response.ok) {
+          const payload = (await response.json()) as ContextData;
+          setContextData(payload);
+        } else {
+          setContextData(null);
+        }
+      } catch (caught) {
+        console.warn("Failed to load message context.", caught);
+        setContextData(null);
+      } finally {
+        setIsContextLoading(false);
+      }
+    };
+
+    void fetchContext();
+  }, [activeMessageId]);
 
   useEffect(() => {
     if (tab !== "learn") {
@@ -988,6 +1056,8 @@ const TranslationView = () => {
             isTranscribing={isTranscribing}
             transcript={transcript}
             comparison={comparison}
+            context={contextData}
+            isContextLoading={isContextLoading}
           />
         ) : (
           <p className="translation-empty">No new messages available for learning.</p>
@@ -1070,6 +1140,8 @@ const TranslationView = () => {
           isTranscribing={isTranscribing}
           transcript={transcript}
           comparison={comparison}
+          context={contextData}
+          isContextLoading={isContextLoading}
         />
       )}
     </main>

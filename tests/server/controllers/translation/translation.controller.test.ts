@@ -30,14 +30,21 @@ const createRepository = () => ({
     ...payload
   })),
   count: vi.fn().mockResolvedValue(0),
-  createQueryBuilder: vi.fn(() => ({
-    where: vi.fn().mockReturnThis(),
-    andWhere: vi.fn().mockReturnThis(),
-    orderBy: vi.fn().mockReturnThis(),
-    limit: vi.fn().mockReturnThis(),
-    getMany: vi.fn().mockResolvedValue([]),
-    getOne: vi.fn().mockResolvedValue(null)
-  }))
+  createQueryBuilder: vi.fn(() => {
+    const qb: any = {
+      where: vi.fn().mockReturnThis(),
+      andWhere: vi.fn().mockReturnThis(),
+      innerJoin: vi.fn().mockReturnThis(),
+      orderBy: vi.fn().mockReturnThis(),
+      limit: vi.fn().mockReturnThis(),
+      take: vi.fn().mockReturnThis(),
+      skip: vi.fn().mockReturnThis(),
+      getMany: vi.fn().mockResolvedValue([]),
+      getOne: vi.fn().mockResolvedValue(null)
+    };
+    qb.clone = vi.fn().mockReturnValue(qb);
+    return qb;
+  })
 });
 
 /**

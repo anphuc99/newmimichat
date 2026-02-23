@@ -22,6 +22,7 @@ interface TranslationController {
   toggleStar: (request: Request, response: Response) => Promise<void>;
   explainTranslation: (request: Request, response: Response) => Promise<void>;
   transcribeAudio: (request: Request, response: Response) => Promise<void>;
+  getContext: (request: Request, response: Response) => Promise<void>;
 }
 
 interface TranslationControllerDeps {
@@ -194,6 +195,58 @@ export const createTranslationController = (
 
       return transcript;
     });
+
+  /**
+   * Returns surrounding messages (5 before, 5 after) for a given message ID.
+   * Context messages are returned in Vietnamese (translation field).
+   */
+  const getContext: TranslationController["getContext"] = async (request, response) => {
+    const userId = request.user?.id;
+    const { messageId } = request.params;
+
+    if (!userId) {
+      response.status(401).json({ message: "Unauthorized" });
+      return;
+    }
+
+    try {
+      const message = await messageRepo.findOne({ where: { id: messageId, userId } });
+
+      if (!message) {
+        response.status(404).json({ message: "Message not found" });
+        return;
+      }
+
+      // Base query for messages in the same journal
+      const qb = messageRepo.createQueryBuilder("m")
+        .where("m.journalId = :journalId", { journalId: message.journalId })
+        .andWhere("m.userId = :userId", { userId });
+
+      // 5 messages before (created earlier)
+      const beforeMessages = await qb
+        .clone()
+        .andWhere("m.createdAt < :createdAt", { createdAt: message.createdAt })
+        .orderBy("m.createdAt", "DESC")
+        .take(5)
+        .getMany();
+
+      // 5 messages after (created later)
+      const afterMessages = await qb
+        .clone()
+        .andWhere("m.createdAt > :createdAt", { createdAt: message.createdAt })
+        .orderBy("m.createdAt", "ASC")
+        .take(5)
+        .getMany();
+
+      response.json({
+        before: beforeMessages.reverse().map(m => ({ id: m.id, content: m.content, translation: m.translation })),
+        after: afterMessages.map(m => ({ id: m.id, content: m.content, translation: m.translation }))
+      });
+    } catch (error) {
+      console.error("Failed to get message context.", error);
+      response.status(500).json({ message: "Failed to get message context" });
+    }
+  };
 
   /**
    * Lists all translation cards for the current user with journal info.
