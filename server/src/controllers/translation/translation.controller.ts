@@ -774,6 +774,7 @@ export const createTranslationController = (
     reviewTranslation,
     toggleStar,
     explainTranslation,
-    transcribeAudio
+    transcribeAudio,
+    getContext
   };
 };
