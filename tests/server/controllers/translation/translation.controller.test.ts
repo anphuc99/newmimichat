@@ -176,6 +176,66 @@ describe("Translation controller", () => {
     expect(payload.after[4].text).toBe("VI 11");
   });
 
+  it("uses user content when context message belongs to user", async () => {
+    const { controller, messageRepo } = createController();
+    const response = createMockResponse();
+
+    messageRepo.findOne.mockResolvedValue({
+      id: "m3",
+      userId: 1,
+      journalId: 99,
+      createdAt: new Date("2025-01-01T00:03:00.000Z")
+    });
+
+    messageRepo.find.mockResolvedValue([
+      {
+        id: "m1",
+        userId: 1,
+        journalId: 99,
+        characterName: "Mimi",
+        content: "안녕",
+        translation: "Xin chao",
+        createdAt: new Date("2025-01-01T00:01:00.000Z")
+      },
+      {
+        id: "m2",
+        userId: 1,
+        journalId: 99,
+        characterName: "User",
+        content: "Hom nay toi met",
+        translation: "Toi da met",
+        createdAt: new Date("2025-01-01T00:02:00.000Z")
+      },
+      {
+        id: "m3",
+        userId: 1,
+        journalId: 99,
+        characterName: "Mimi",
+        content: "수고했어요",
+        translation: "Ban da lam tot",
+        createdAt: new Date("2025-01-01T00:03:00.000Z")
+      },
+      {
+        id: "m4",
+        userId: 1,
+        journalId: 99,
+        characterName: "User",
+        content: "Cam on ban",
+        translation: "Cam on",
+        createdAt: new Date("2025-01-01T00:04:00.000Z")
+      }
+    ]);
+
+    await controller.getMessageContext(authRequest({ params: { messageId: "m3" } }), response);
+
+    const payload = response.json.mock.calls[0][0];
+    expect(payload.before).toHaveLength(2);
+    expect(payload.after).toHaveLength(1);
+    expect(payload.before[0].text).toBe("Xin chao");
+    expect(payload.before[1].text).toBe("Hom nay toi met");
+    expect(payload.after[0].text).toBe("Cam on ban");
+  });
+
   it("creates a new card when reviewing a new message", async () => {
     const { controller, cardRepo, messageRepo, reviewRepo } = createController();
     const response = createMockResponse();

@@ -463,7 +463,15 @@ export const createTranslationController = (
         return;
       }
 
-      const toVietnameseText = (item: MessageEntity) => item.translation?.trim() || "(Chua co ban dich tieng Viet)";
+      const toVietnameseText = (item: MessageEntity) => {
+        const isUserMessage = item.characterName?.trim().toLowerCase() === "user";
+
+        if (isUserMessage) {
+          return item.content?.trim() || "(Tin nhan user rong)";
+        }
+
+        return item.translation?.trim() || "(Chua co ban dich tieng Viet)";
+      };
 
       const before = journalMessages
         .slice(Math.max(0, currentIndex - 5), currentIndex)
