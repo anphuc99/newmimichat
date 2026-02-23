@@ -159,6 +159,7 @@ describe("Translation controller", () => {
         id: `m${index + 1}`,
         userId: 1,
         journalId: 10,
+        characterName: index % 2 === 0 ? "Mimi" : "User",
         translation: `VI ${index + 1}`,
         createdAt: new Date(`2025-01-01T00:${String(index).padStart(2, "0")}:00.000Z`)
       }))
@@ -170,8 +171,10 @@ describe("Translation controller", () => {
     const payload = response.json.mock.calls[0][0];
     expect(payload.before).toHaveLength(5);
     expect(payload.after).toHaveLength(5);
+    expect(payload.before[0].characterName).toBe("Mimi");
     expect(payload.before[0].text).toBe("VI 1");
     expect(payload.before[4].text).toBe("VI 5");
+    expect(payload.after[0].characterName).toBe("Mimi");
     expect(payload.after[0].text).toBe("VI 7");
     expect(payload.after[4].text).toBe("VI 11");
   });
@@ -231,8 +234,11 @@ describe("Translation controller", () => {
     const payload = response.json.mock.calls[0][0];
     expect(payload.before).toHaveLength(2);
     expect(payload.after).toHaveLength(1);
+    expect(payload.before[0].characterName).toBe("Mimi");
     expect(payload.before[0].text).toBe("Xin chao");
+    expect(payload.before[1].characterName).toBe("User");
     expect(payload.before[1].text).toBe("Hom nay toi met");
+    expect(payload.after[0].characterName).toBe("User");
     expect(payload.after[0].text).toBe("Cam on ban");
   });
 

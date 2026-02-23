@@ -85,6 +85,7 @@ interface ShadowingToken {
 
 interface MessageContextItem {
   messageId: string;
+  characterName: string;
   text: string;
 }
 
@@ -216,7 +217,9 @@ const TranslationFlashcard = ({
               <p className="translation-card__context-title">5 cau truoc</p>
               <ul className="translation-card__context-list">
                 {contextBefore.map((item) => (
-                  <li key={item.messageId} className="translation-card__context-item">{item.text}</li>
+                  <li key={item.messageId} className="translation-card__context-item">
+                    <strong>{item.characterName}:</strong> {item.text}
+                  </li>
                 ))}
               </ul>
             </div>
@@ -227,7 +230,9 @@ const TranslationFlashcard = ({
               <p className="translation-card__context-title">5 cau sau</p>
               <ul className="translation-card__context-list">
                 {contextAfter.map((item) => (
-                  <li key={item.messageId} className="translation-card__context-item">{item.text}</li>
+                  <li key={item.messageId} className="translation-card__context-item">
+                    <strong>{item.characterName}:</strong> {item.text}
+                  </li>
                 ))}
               </ul>
             </div>

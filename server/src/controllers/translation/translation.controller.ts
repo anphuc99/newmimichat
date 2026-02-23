@@ -477,6 +477,7 @@ export const createTranslationController = (
         .slice(Math.max(0, currentIndex - 5), currentIndex)
         .map((item: MessageEntity) => ({
           messageId: item.id,
+          characterName: item.characterName,
           text: toVietnameseText(item)
         }));
 
@@ -484,6 +485,7 @@ export const createTranslationController = (
         .slice(currentIndex + 1, currentIndex + 6)
         .map((item: MessageEntity) => ({
           messageId: item.id,
+          characterName: item.characterName,
           text: toVietnameseText(item)
         }));
 
