@@ -538,6 +538,15 @@ const TranslationView = () => {
     setReviewIndex(0);
   }, [tab, dueCards, allCards]);
 
+  const activeList = useMemo(() => {
+    if (tab === "due") return dueQueue;
+    if (tab === "difficult") return difficultQueue;
+    if (tab === "starred") return starredQueue;
+    return [] as TranslationCard[];
+  }, [tab, dueQueue, difficultQueue, starredQueue]);
+
+  const activeCard = activeList[reviewIndex] ?? null;
+
   // Current learn candidate
   const currentLearnCandidate = learnCandidates[learnIndex] ?? null;
 
