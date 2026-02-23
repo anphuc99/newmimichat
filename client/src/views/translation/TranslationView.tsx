@@ -83,15 +83,9 @@ interface ShadowingToken {
   match: boolean;
 }
 
-interface ContextMessage {
-  id: string;
-  content: string;
-  translation: string | null;
-}
-
-interface ContextData {
-  before: ContextMessage[];
-  after: ContextMessage[];
+interface MessageContextItem {
+  messageId: string;
+  text: string;
 }
 
 interface TranslationFlashcardProps {
@@ -101,8 +95,6 @@ interface TranslationFlashcardProps {
   characterName: string;
   audioId?: string | null;
   journalSummary?: string | null;
-  context?: ContextData | null;
-  isContextLoading?: boolean;
   isStarred?: boolean;
   showStar?: boolean;
   onPlayAudio?: (audioId: string, characterName?: string) => void;
@@ -119,6 +111,8 @@ interface TranslationFlashcardProps {
   isTranscribing: boolean;
   transcript: string | null;
   comparison: ShadowingToken[];
+  contextBefore: MessageContextItem[];
+  contextAfter: MessageContextItem[];
 }
 
 /**
@@ -153,8 +147,8 @@ const TranslationFlashcard = ({
   isTranscribing,
   transcript,
   comparison,
-  context,
-  isContextLoading
+  contextBefore,
+  contextAfter
 }: TranslationFlashcardProps) => {
   const [draft, setDraft] = useState("");
   const [textRevealed, setTextRevealed] = useState(false);
@@ -210,29 +204,35 @@ const TranslationFlashcard = ({
         </div>
       </div>
 
-      {context?.before.length ? (
-        <div className="translation-card__context translation-card__context--before">
-          {context.before.map((msg) => (
-            <p key={msg.id} className="translation-card__context-line">
-              {msg.translation || msg.content}
-            </p>
-          ))}
-        </div>
-      ) : null}
-
       {/* Hidden/revealed text - first listen then reveal */}
       <div className="translation-card__prompt">
         {textRevealed ? content : "••••••••••••••••••••"}
       </div>
 
-      {context?.after.length ? (
-        <div className="translation-card__context translation-card__context--after">
-          {context.after.map((msg) => (
-            <p key={msg.id} className="translation-card__context-line">
-              {msg.translation || msg.content}
-            </p>
-          ))}
-        </div>
+      {(contextBefore.length > 0 || contextAfter.length > 0) ? (
+        <section className="translation-card__context" aria-label="Ngu canh quanh cau hien tai">
+          {contextBefore.length > 0 ? (
+            <div className="translation-card__context-block">
+              <p className="translation-card__context-title">5 cau truoc</p>
+              <ul className="translation-card__context-list">
+                {contextBefore.map((item) => (
+                  <li key={item.messageId} className="translation-card__context-item">{item.text}</li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+
+          {contextAfter.length > 0 ? (
+            <div className="translation-card__context-block">
+              <p className="translation-card__context-title">5 cau sau</p>
+              <ul className="translation-card__context-list">
+                {contextAfter.map((item) => (
+                  <li key={item.messageId} className="translation-card__context-item">{item.text}</li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+        </section>
       ) : null}
 
       {/* Reveal text button */}
@@ -420,14 +420,16 @@ const TranslationView = () => {
     starred: []
   });
   const [dueQueueIds, setDueQueueIds] = useState<number[]>([]);
-  const [contextData, setContextData] = useState<ContextData | null>(null);
-  const [isContextLoading, setIsContextLoading] = useState(false);
 
   // Shadowing state
   const [isRecording, setIsRecording] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [transcript, setTranscript] = useState<string | null>(null);
   const [comparison, setComparison] = useState<ShadowingToken[]>([]);
+  const [messageContext, setMessageContext] = useState<{ before: MessageContextItem[]; after: MessageContextItem[] }>({
+    before: [],
+    after: []
+  });
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const mediaStreamRef = useRef<MediaStream | null>(null);
   const recordingTargetRef = useRef<{ content: string; translation: string | null } | null>(null);
@@ -538,48 +540,8 @@ const TranslationView = () => {
     setReviewIndex(0);
   }, [tab, dueCards, allCards]);
 
-  const activeList = useMemo(() => {
-    if (tab === "due") return dueQueue;
-    if (tab === "difficult") return difficultQueue;
-    if (tab === "starred") return starredQueue;
-    return [] as TranslationCard[];
-  }, [tab, dueQueue, difficultQueue, starredQueue]);
-
-  const activeCard = activeList[reviewIndex] ?? null;
-
   // Current learn candidate
   const currentLearnCandidate = learnCandidates[learnIndex] ?? null;
-
-  // Active message ID for context
-  const activeMessageId = tab === "learn" ? currentLearnCandidate?.messageId : activeCard?.messageId;
-
-  // Fetch context when message changes
-  useEffect(() => {
-    if (!activeMessageId) {
-      setContextData(null);
-      return;
-    }
-
-    const fetchContext = async () => {
-      setIsContextLoading(true);
-      try {
-        const response = await authFetch(apiUrl(`/api/translation/context/${activeMessageId}`));
-        if (response.ok) {
-          const payload = (await response.json()) as ContextData;
-          setContextData(payload);
-        } else {
-          setContextData(null);
-        }
-      } catch (caught) {
-        console.warn("Failed to load message context.", caught);
-        setContextData(null);
-      } finally {
-        setIsContextLoading(false);
-      }
-    };
-
-    void fetchContext();
-  }, [activeMessageId]);
 
   useEffect(() => {
     if (tab !== "learn") {
@@ -679,6 +641,48 @@ const TranslationView = () => {
   }, [tab, dueQueue, difficultQueue, starredQueue]);
 
   const activeCard = activeList[reviewIndex] ?? null;
+  const activeMessageId = tab === "learn" ? currentLearnCandidate?.messageId ?? null : activeCard?.messageId ?? null;
+
+  useEffect(() => {
+    if (!activeMessageId) {
+      setMessageContext({ before: [], after: [] });
+      return;
+    }
+
+    let isDisposed = false;
+
+    const loadContext = async () => {
+      try {
+        const response = await authFetch(apiUrl(`/api/translation/context/${activeMessageId}`));
+        if (!response.ok) {
+          throw new Error("Failed to load message context");
+        }
+
+        const payload = (await response.json()) as {
+          before?: MessageContextItem[];
+          after?: MessageContextItem[];
+        };
+
+        if (!isDisposed) {
+          setMessageContext({
+            before: payload.before ?? [],
+            after: payload.after ?? []
+          });
+        }
+      } catch (caught) {
+        console.error("Failed to load translation context.", caught);
+        if (!isDisposed) {
+          setMessageContext({ before: [], after: [] });
+        }
+      }
+    };
+
+    void loadContext();
+
+    return () => {
+      isDisposed = true;
+    };
+  }, [activeMessageId]);
 
   useEffect(() => {
     if (tab === "learn") {
@@ -1065,8 +1069,8 @@ const TranslationView = () => {
             isTranscribing={isTranscribing}
             transcript={transcript}
             comparison={comparison}
-            context={contextData}
-            isContextLoading={isContextLoading}
+            contextBefore={messageContext.before}
+            contextAfter={messageContext.after}
           />
         ) : (
           <p className="translation-empty">No new messages available for learning.</p>
@@ -1149,8 +1153,8 @@ const TranslationView = () => {
           isTranscribing={isTranscribing}
           transcript={transcript}
           comparison={comparison}
-          context={contextData}
-          isContextLoading={isContextLoading}
+          contextBefore={messageContext.before}
+          contextAfter={messageContext.after}
         />
       )}
     </main>

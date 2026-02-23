@@ -18,8 +18,8 @@ export const createTranslationRoutes = (dataSource: DataSource) => {
   router.get("/stats", controller.getStats);
   router.get("/due", controller.getDueCards);
   router.get("/learn", controller.getLearnCandidate);
+  router.get("/context/:messageId", controller.getMessageContext);
   router.get("/", controller.listCards);
-  router.get("/context/:messageId", controller.getContext);
   router.post("/explain", controller.explainTranslation);
   router.post("/review", controller.reviewTranslation);
   router.post("/transcribe", controller.transcribeAudio);

@@ -191,34 +191,6 @@ body::after {
   line-height: 1.3;
 }
 
-.translation-card__context {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding: 8px 14px;
-  text-align: center;
-  font-size: 0.85rem;
-  color: var(--ink-soft);
-  opacity: 0.7;
-}
-
-.translation-card__context--before {
-  border-bottom: 1px dashed rgba(0, 0, 0, 0.08);
-  margin-bottom: 8px;
-  padding-bottom: 12px;
-}
-
-.translation-card__context--after {
-  border-top: 1px dashed rgba(0, 0, 0, 0.08);
-  margin-top: 8px;
-  padding-top: 12px;
-}
-
-.translation-card__context-line {
-  margin: 0;
-  line-height: 1.35;
-}
-
 .translation-card__star {
   border: none;
   border-radius: 999px;
@@ -236,6 +208,40 @@ body::after {
   background: var(--surface-alt);
   padding: 12px 14px;
   border-radius: 14px;
+}
+
+.translation-card__context {
+  display: grid;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(37, 99, 235, 0.08);
+}
+
+.translation-card__context-block {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.translation-card__context-title {
+  margin: 0;
+  font-size: 0.8rem;
+  font-weight: 800;
+  color: var(--ink-soft);
+}
+
+.translation-card__context-list {
+  margin: 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 4px;
+}
+
+.translation-card__context-item {
+  color: var(--ink);
+  font-size: 0.86rem;
+  line-height: 1.35;
 }
 
 .translation-card__label {

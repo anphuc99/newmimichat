@@ -30,21 +30,14 @@ const createRepository = () => ({
     ...payload
   })),
   count: vi.fn().mockResolvedValue(0),
-  createQueryBuilder: vi.fn(() => {
-    const qb: any = {
-      where: vi.fn().mockReturnThis(),
-      andWhere: vi.fn().mockReturnThis(),
-      innerJoin: vi.fn().mockReturnThis(),
-      orderBy: vi.fn().mockReturnThis(),
-      limit: vi.fn().mockReturnThis(),
-      take: vi.fn().mockReturnThis(),
-      skip: vi.fn().mockReturnThis(),
-      getMany: vi.fn().mockResolvedValue([]),
-      getOne: vi.fn().mockResolvedValue(null)
-    };
-    qb.clone = vi.fn().mockReturnValue(qb);
-    return qb;
-  })
+  createQueryBuilder: vi.fn(() => ({
+    where: vi.fn().mockReturnThis(),
+    andWhere: vi.fn().mockReturnThis(),
+    orderBy: vi.fn().mockReturnThis(),
+    limit: vi.fn().mockReturnThis(),
+    getMany: vi.fn().mockResolvedValue([]),
+    getOne: vi.fn().mockResolvedValue(null)
+  }))
 });
 
 /**
@@ -148,6 +141,39 @@ describe("Translation controller", () => {
     await controller.getLearnCandidate(authRequest(), response);
 
     expect(response.json).toHaveBeenCalledWith({ candidates: [] });
+  });
+
+  it("returns 5-before/5-after Vietnamese context around a message", async () => {
+    const { controller, messageRepo } = createController();
+    const response = createMockResponse();
+
+    messageRepo.findOne.mockResolvedValue({
+      id: "m6",
+      userId: 1,
+      journalId: 10,
+      createdAt: new Date("2025-01-01T00:06:00.000Z")
+    });
+
+    messageRepo.find.mockResolvedValue(
+      Array.from({ length: 12 }, (_, index) => ({
+        id: `m${index + 1}`,
+        userId: 1,
+        journalId: 10,
+        translation: `VI ${index + 1}`,
+        createdAt: new Date(`2025-01-01T00:${String(index).padStart(2, "0")}:00.000Z`)
+      }))
+    );
+
+    await controller.getMessageContext(authRequest({ params: { messageId: "m6" } }), response);
+
+    expect(response.json).toHaveBeenCalledTimes(1);
+    const payload = response.json.mock.calls[0][0];
+    expect(payload.before).toHaveLength(5);
+    expect(payload.after).toHaveLength(5);
+    expect(payload.before[0].text).toBe("VI 1");
+    expect(payload.before[4].text).toBe("VI 5");
+    expect(payload.after[0].text).toBe("VI 7");
+    expect(payload.after[4].text).toBe("VI 11");
   });
 
   it("creates a new card when reviewing a new message", async () => {
